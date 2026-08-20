@@ -11,6 +11,9 @@ Excel のサンプルケース: 2026年5月・使用量 310kWh
   再エネ賦課金 = 賦課金単価 × 使用量                        # 円未満切り捨て
   電気料金     = 上記合計を円未満切り捨て
 
+単価は data/rates-chugoku-2026.json から読む。マスタの構造を変えたときに
+ここが落ちれば追従漏れに気づける。
+
 使い方: python3 scripts/verify_rates.py
 """
 
@@ -20,11 +23,6 @@ import pathlib
 import sys
 
 RATES = pathlib.Path(__file__).resolve().parent.parent / "data" / "rates-chugoku-2026.json"
-
-# 中国電力エリアの燃料費調整額のうち「最低料金（15kWhまで）」に対応する分。
-# 中国電力の公表単価が per-kWh 単価とは別建てのため、kWh 単価 × 15 とは一致しない。
-FCA_MINIMUM_CHARGE_PORTION = {"2026-05": -147.69}
-
 
 def energy_charge(tiers, kwh):
     """段階別電力量料金の合計。"""
@@ -61,9 +59,14 @@ def main():
 
     month = "2026-05"
     kwh = 310
-    fca_rate = data["surcharges"]["fuelCostAdjustment"]["monthly"][month]
-    fca_min = FCA_MINIMUM_CHARGE_PORTION[month]
-    levy_rate = data["surcharges"]["renewableEnergyLevy"]["rate"]
+
+    # 燃調は事業者ごとに 4 系統ある。中国電力とJAでんきは規制／自由で同額なので
+    # ここでは規制料金の系列を使う。最低料金分は kWh 単価 × 15 とは一致しないため
+    # 単価マスタから別途読む。
+    fca = data["surcharges"]["fuelCostAdjustment"]["series"]["regulated"][month]
+    fca_rate = fca["perKwh"]
+    fca_min = fca["minimumCharge"]
+    levy_rate = data["surcharges"]["renewableEnergyLevy"]["monthly"][month]
 
     cases = [
         ("JAでんき 従量電灯A", providers["ja_denki"]["plans"]["juryo_dento_a"], 9625),
