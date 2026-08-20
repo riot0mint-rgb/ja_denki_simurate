@@ -122,8 +122,64 @@ describe('時間帯別型（電化Style / 夜トク）', () => {
     expect(style.baseCharge.minus(yotoku.baseCharge).toNumber()).toBeCloseTo(121, 6);
   });
 
-  it('ナイトホリデーは基本料金が元資料にないため unsupported', () => {
-    const r = run(F.chugokuNightHoliday, usage({ dayOther: 100, night: 200 }));
+  describe('ナイトホリデー（最低月額料金型）', () => {
+    // 中国電力の公式単価表で、ナイトホリデーコースだけ基本料金を持たず
+    // 最低月額料金 1,844.70円/契約 のみと確認済み。
+    // 出典: https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html
+
+    it('基本料金を取らない', () => {
+      const b = bill(F.chugokuNightHoliday, usage({ dayOther: 100, night: 200 }));
+      expect(b.baseCharge.toNumber()).toBe(0);
+    });
+
+    it('契約電力の入力がなくても計算できる', () => {
+      const r = run(F.chugokuNightHoliday, { tou: { dayOther: 100, night: 200 } });
+      expect(r.status).toBe('ok');
+    });
+
+    it('契約電力を変えても請求額が変わらない', () => {
+      const tou = { dayOther: 100, night: 200 };
+      const at6 = bill(F.chugokuNightHoliday, { contractKw: 6, tou });
+      const at12 = bill(F.chugokuNightHoliday, { contractKw: 12, tou });
+      expect(at12.total.toNumber()).toBe(at6.total.toNumber());
+    });
+
+    it('従量料金と燃調の合計が閾値未満なら最低月額料金 1,845円', () => {
+      const b = bill(F.chugokuNightHoliday, usage({ night: 10 }));
+      expect(b.total.toNumber()).toBe(1845);
+      expect(b.notes.some(n => n.includes('最低月額料金'))).toBe(true);
+    });
+
+    it('使用量0kWhでも最低月額料金を請求する', () => {
+      const b = bill(F.chugokuNightHoliday, usage({ night: 0 }));
+      expect(b.total.toNumber()).toBe(1845);
+    });
+
+    it('閾値を超えれば実額を請求する', () => {
+      const b = bill(F.chugokuNightHoliday, usage({ dayOther: 100, night: 200 }));
+      expect(b.total.toNumber()).toBeGreaterThan(1845);
+      expect(b.notes.some(n => n.includes('最低月額料金'))).toBe(false);
+    });
+
+    it('電化Styleより昼間が高く夜間も高い（乗り換え提案の前提）', () => {
+      expect(F.chugokuNightHoliday.unitPrices.dayOther.toNumber()).toBeGreaterThan(
+        F.chugokuDenkaStyle.unitPrices.dayOther.toNumber()
+      );
+      expect(F.chugokuNightHoliday.unitPrices.night.toNumber()).toBeGreaterThan(
+        F.chugokuDenkaStyle.unitPrices.night.toNumber()
+      );
+    });
+
+    it('JAでんき夜トクへの切替で削減になる', () => {
+      const u = usage({ dayOther: 150, daySummer: 0, night: 300, holiday: 80 });
+      const now = bill(F.chugokuNightHoliday, { ...u, contractKw: 6 });
+      const ja = bill(F.jaDenkiYotoku, { ...u, contractKw: 6 });
+      expect(ja.total.lessThan(now.total)).toBe(true);
+    });
+  });
+
+  it('基本料金も最低月額料金も無いプランは unsupported のまま', () => {
+    const r = run(F.touWithoutAnyBaseCharge, usage({ dayOther: 100, night: 200 }));
     expect(r.status).toBe('unsupported');
     if (r.status === 'unsupported') {
       expect(r.reason).toContain('基本料金');

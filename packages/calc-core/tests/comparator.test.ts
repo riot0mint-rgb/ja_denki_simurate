@@ -155,3 +155,58 @@ describe('月次レート表', () => {
     expect(availablePeriods('au').map(periodKey)).toContain('2026-07');
   });
 });
+
+describe('ナイトホリデー → JAでんき夜トクプラン', () => {
+  // ナイトホリデーは基本料金を持たず、夜トクプランは持つ。単価もすべて夜トクのほうが
+  // 安いため、使用量が増えるほど削減額が開く。電化Style→夜トク（単価が同じで基本料金
+  // の差だけ）とは性質が違う。
+  const tou = (dayOther: number, night: number, holiday: number) => ({
+    contractKw: 6,
+    tou: { dayOther, daySummer: 0, night, holiday }
+  });
+
+  const compareNightHoliday = (dayOther: number, night: number, holiday: number) =>
+    comparator.compare(
+      bill(F.chugokuNightHoliday, tou(dayOther, night, holiday), JULY),
+      [bill(F.jaDenkiYotoku, tou(dayOther, night, holiday), JULY)],
+      NONE
+    );
+
+  it('削減になる', () => {
+    const r = compareNightHoliday(150, 300, 80);
+    expect(r.recommended.monthlySavings.greaterThan(0)).toBe(true);
+  });
+
+  it('使用量が増えるほど削減額が大きくなる', () => {
+    const light = compareNightHoliday(50, 100, 20);
+    const heavy = compareNightHoliday(300, 600, 150);
+    expect(
+      heavy.recommended.monthlySavings.greaterThan(light.recommended.monthlySavings)
+    ).toBe(true);
+  });
+
+  it('最低月額料金が効く低使用量でも計算できる', () => {
+    const current = bill(F.chugokuNightHoliday, tou(0, 5, 0), JULY);
+    expect(current.total.toNumber()).toBe(1845);
+  });
+
+  /**
+   * ナイトホリデーは基本料金を取らず、夜トクプランは 1,897.72円/契約 を取る。
+   * 単価は夜トクのほうが安い（デイ ▲2.52〜2.98円、ナイト ▲4.30円）ので、
+   * 使用量が少ないうちは基本料金の差を取り返せず**切り替えると高くなる**。
+   *
+   * 電化Style → 夜トク が「単価は同じで基本料金だけ安い＝常に削減」なのとは
+   * 性質が真逆。営業現場で取り違えると、安くならないお客様に切替を勧めてしまう。
+   */
+  it('使用量が少ないと切り替えで高くなる', () => {
+    const r = compareNightHoliday(30, 60, 10);
+    expect(r.recommended.monthlySavings.lessThan(0)).toBe(true);
+  });
+
+  it('損益が反転する使用量が存在する（400〜600kWhの間）', () => {
+    const at400 = compareNightHoliday(110, 230, 60).recommended.monthlySavings;
+    const at600 = compareNightHoliday(170, 340, 90).recommended.monthlySavings;
+    expect(at400.lessThan(0)).toBe(true);
+    expect(at600.greaterThan(0)).toBe(true);
+  });
+});

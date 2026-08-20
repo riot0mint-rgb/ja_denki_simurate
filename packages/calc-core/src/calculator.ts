@@ -381,14 +381,23 @@ export class BillingCalculator {
    *       電気料金          = 切り捨て((3)+(8)+電化住宅割+(9)+(10))
    */
   private timeOfUse(input: CalculationInput, plan: TimeOfUsePlan): BillResult {
-    if (plan.baseChargeUpTo10Kw === null || plan.baseChargePerKwOver10 === null) {
+    const hasBaseCharge =
+      plan.baseChargeUpTo10Kw !== null && plan.baseChargePerKwOver10 !== null;
+
+    if (!hasBaseCharge && plan.minimumMonthly === null) {
       return unsupported(`${plan.planName}の基本料金が元資料に記載されていないため計算できません`, [
         '公式試算表の該当シートに基本料金の記載がありません',
         'お手数ですが営業担当にお問い合わせください'
       ]);
     }
-    const kw = this.requireContract(input.usage.contractKw, 'ご契約電力', 'kW');
-    if (!kw.ok) return kw.result;
+
+    // 最低月額料金型は契約電力に応じた課金がないため、契約電力の入力を求めない。
+    let contractKw: Decimal | null = null;
+    if (hasBaseCharge) {
+      const kw = this.requireContract(input.usage.contractKw, 'ご契約電力', 'kW');
+      if (!kw.ok) return kw.result;
+      contractKw = kw.value;
+    }
 
     const tou = input.usage.tou;
     if (!tou) {
@@ -413,8 +422,12 @@ export class BillingCalculator {
     const usage = bands.reduce((a, b) => a.plus(amounts[b]), new Decimal('0'));
     const noUsage = usage.isZero();
     const half = (d: Decimal) => (plan.halveBaseWhenNoUsage && noUsage ? d.dividedBy(2) : d);
-    const overKw = Decimal.max(kw.value.minus(TOU_BASE_INCLUDED_KW), 0);
-    const baseCharge = half(plan.baseChargeUpTo10Kw).plus(half(plan.baseChargePerKwOver10).times(overKw));
+    const overKw = contractKw
+      ? Decimal.max(contractKw.minus(TOU_BASE_INCLUDED_KW), 0)
+      : new Decimal('0');
+    const baseCharge = hasBaseCharge
+      ? half(plan.baseChargeUpTo10Kw!).plus(half(plan.baseChargePerKwOver10!).times(overKw))
+      : new Decimal('0');
 
     const lines: ChargeLine[] = bands.map(band => ({
       label: TOU_BAND_LABEL[band],
@@ -436,18 +449,31 @@ export class BillingCalculator {
       input.renewableLevy.unitPriceYenPerKwh.times(usage),
       plan.rounding.levySubtotal
     );
-    const total = applyRounding(
-      baseCharge.plus(energySubtotal).plus(discount).plus(fuelCharge).plus(levyCharge),
-      plan.rounding.finalTotal
-    );
+    // 最低月額料金型は、従量料金と燃料費調整額の合計が閾値に満たない月だけ
+    // 最低月額料金を請求する。判定は賦課金を足す前に行う（シンプルコースと同じ）。
+    const beforeLevy = baseCharge.plus(energySubtotal).plus(discount).plus(fuelCharge);
+    const minimumApplied =
+      plan.minimumMonthly !== null && beforeLevy.lessThan(plan.minimumMonthly.threshold);
+    const total = minimumApplied
+      ? plan.minimumMonthly!.bill
+      : applyRounding(beforeLevy.plus(levyCharge), plan.rounding.finalTotal);
 
-    if (noUsage && plan.halveBaseWhenNoUsage) notes.push('使用量が0kWhのため基本料金が半額です');
+    if (minimumApplied) {
+      notes.push(
+        `従量料金と燃料費調整額の合計が最低月額料金 ${plan.minimumMonthly!.threshold.toFixed(2)}円 に満たないため、${plan.minimumMonthly!.bill.toFixed(0)}円 を適用しました`
+      );
+    }
+    if (noUsage && plan.halveBaseWhenNoUsage && hasBaseCharge) {
+      notes.push('使用量が0kWhのため基本料金が半額です');
+    }
 
     return {
       status: 'ok',
       bill: this.assemble(plan, {
         baseCharge,
-        baseLabel: `基本料金（10kWまで${overKw.isZero() ? '' : ` + ${overKw.toFixed(0)}kW超過分`}）`,
+        baseLabel: hasBaseCharge
+          ? `基本料金（10kWまで${overKw.isZero() ? '' : ` + ${overKw.toFixed(0)}kW超過分`}）`
+          : '基本料金なし（最低月額料金制）',
         lines,
         energySubtotal,
         energyChargeTotal: baseCharge.plus(energySubtotal),
