@@ -14,6 +14,7 @@ from ja_denki.excel import (
     excel_float,
     rounddown,
 )
+from ja_denki.simulator import PlanResult, Simulation, Simulator
 
 __all__ = [
     "FuelCostAdjustment",
@@ -26,4 +27,7 @@ __all__ = [
     "energy_charge",
     "excel_float",
     "rounddown",
+    "PlanResult",
+    "Simulation",
+    "Simulator",
 ]

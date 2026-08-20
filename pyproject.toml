@@ -9,6 +9,9 @@ description = "JAでんき 料金シミュレータ（中国電力エリア・�
 requires-python = ">=3.10"
 dependencies = []
 
+[project.scripts]
+ja-denki = "ja_denki.cli:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 
