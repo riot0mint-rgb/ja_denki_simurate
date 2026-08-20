@@ -1,8 +1,39 @@
-import { defineConfig } from 'vite'
+import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { createHash } from 'node:crypto'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+/**
+ * public/sw.js のプレースホルダを実際のビルド成果物で埋める。
+ *
+ * アセット名はハッシュ付きなので、プリキャッシュ一覧はビルド後にしか分からない。
+ * キャッシュ名も成果物のハッシュから作り、内容が変わったときだけ更新が走るようにする。
+ */
+function serviceWorkerManifest(): Plugin {
+  const precache = new Set<string>(['/', '/index.html', '/manifest.json', '/icon-192x192.png', '/icon-512x512.png'])
+  return {
+    name: 'sw-manifest',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      for (const file of Object.keys(bundle)) {
+        if (file !== 'sw.js') precache.add('/' + file)
+      }
+    },
+    closeBundle() {
+      const swPath = resolve(__dirname, 'dist/sw.js')
+      const urls = Array.from(precache).sort()
+      const version = createHash('sha256').update(urls.join('|')).digest('hex').slice(0, 12)
+      const source = readFileSync(swPath, 'utf-8')
+        .replace('__CACHE_VERSION__', `ja-denki-${version}`)
+        .replace('__PRECACHE_MANIFEST__', JSON.stringify(urls, null, 2))
+      writeFileSync(swPath, source)
+    }
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), serviceWorkerManifest()],
   publicDir: 'public',
   server: {
     port: 5173,

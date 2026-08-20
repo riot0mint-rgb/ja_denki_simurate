@@ -53,3 +53,84 @@
     max-width: 100%;
   }
 }
+
+/* ─────────────────────────────────────────────
+   印刷（PDF保存）
+   営業がその場でお客様に渡す前提。操作用の要素を落とし、
+   数値・内訳・出典が1枚に収まるように詰める。
+   ───────────────────────────────────────────── */
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+
+  /* 画面用の余白と中央寄せは紙では邪魔になる */
+  .container {
+    max-width: 100%;
+    padding: 0;
+    display: block;
+  }
+
+  .content {
+    padding: 0;
+  }
+
+  /* 見出しの緑帯とグラデーションは既定でインク節約のため落とされる。
+     金額の背景が白飛びして読めなくなるため明示的に出す */
+  .header,
+  .content > div:first-child {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .header h1 {
+    font-size: 16pt;
+  }
+
+  body {
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+
+  /* カードの塗りは紙では枠線のほうが読みやすい。
+     ただし先頭の金額カードだけは色を残す（そこが一番読ませたい） */
+  .content > div[style]:not(:first-child),
+  .content > details[style] {
+    background: transparent !important;
+    border: 1px solid #ccc;
+    padding: 10px !important;
+    margin-bottom: 10px !important;
+    break-inside: avoid;
+  }
+
+  /* 内訳と出典は途中で切れると根拠として使えない */
+  details {
+    break-inside: avoid;
+  }
+
+  details > summary {
+    list-style: none;
+    font-size: 11pt;
+  }
+
+  table {
+    break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+
+  /* 画面では不要だが紙には必要な情報（試算日・免責） */
+  .print-only {
+    display: block !important;
+  }
+
+  span.print-only {
+    display: inline !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

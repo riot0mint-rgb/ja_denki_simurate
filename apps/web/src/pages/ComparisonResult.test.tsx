@@ -57,7 +57,61 @@ describe('結果画面', () => {
     await userEvent.click(screen.getByRole('button', { name: '入力し直す' }))
     expect(onBack).toHaveBeenCalledTimes(1)
   })
+})
 
+describe('PDF保存・印刷', () => {
+  it('印刷ボタンで window.print が呼ばれる', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      cb(0)
+      return 0
+    })
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    await userEvent.click(screen.getByRole('button', { name: 'PDFで保存・印刷' }))
+    expect(print).toHaveBeenCalledTimes(1)
+    vi.restoreAllMocks()
+  })
+
+  it('畳んだままでも内訳が印刷に載るよう、印刷前に開く', async () => {
+    vi.spyOn(window, 'print').mockImplementation(() => {})
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      cb(0)
+      return 0
+    })
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const details = screen.getByText('計算の内訳を表示').closest('details')!
+    expect(details.open).toBe(false)
+    await userEvent.click(screen.getByRole('button', { name: 'PDFで保存・印刷' }))
+    expect(details.open).toBe(true)
+    vi.restoreAllMocks()
+  })
+
+  it('操作用のボタンには print-hide が付き、紙には出ない', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const button = screen.getByRole('button', { name: 'PDFで保存・印刷' })
+    expect(button.parentElement).toHaveClass('print-hide')
+  })
+
+  it('印刷物に個人情報が載らない（CLAUDE.md ルール7・9）', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const printed = document.body.textContent ?? ''
+    // 氏名・住所・電話・メール・お客様番号を表す語がどこにも現れない
+    for (const pii of ['お名前', '氏名', '住所', '電話', 'メール', 'お客様番号', '供給地点']) {
+      expect(printed).not.toContain(pii)
+    }
+    // 入力フォーム自体にもそれらの欄が存在しない
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('試算日と適用単価を紙にだけ載せる', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const line = screen.getByText(/試算日:/)
+    expect(line).toHaveClass('print-only')
+    expect(line.textContent).toContain('2026年7月適用')
+  })
+})
+
+describe('結果画面（つづき）', () => {
   it('注意書きに対象月と未計上項目を書く', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
     expect(screen.getByText(/2026年7月適用の単価による試算です/)).toBeInTheDocument()

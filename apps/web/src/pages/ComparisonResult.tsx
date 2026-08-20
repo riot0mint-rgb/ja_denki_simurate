@@ -16,8 +16,25 @@ const cardStyle: React.CSSProperties = {
   marginBottom: '20px'
 }
 
+/**
+ * 印刷（PDF保存）。営業がその場でお客様に渡せるように、内訳と出典まで含めて出す。
+ *
+ * 個人情報は一切載せない。そもそもこの画面が持っているのは使用量・契約容量・
+ * プラン名だけで、氏名も住所も入力させていない（CLAUDE.md ルール7・9）。
+ */
+function usePrint(openDetails: (open: boolean) => void) {
+  return () => {
+    // 内訳は畳まれていると印刷にも出ないため、印刷の前だけ開く
+    openDetails(true)
+    // 開いた状態を描画してから印刷ダイアログを出す
+    requestAnimationFrame(() => window.print())
+  }
+}
+
 export default function ComparisonResult({ scenarioId, usage, period, onBack }: ComparisonResultProps) {
   const [gasSet, setGasSet] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const handlePrint = usePrint(setDetailsOpen)
   const outcome = useMemo(
     () => calculateComparison(scenarioId, usage, { period, gasSetDiscount: gasSet }),
     [scenarioId, usage, period, gasSet]
@@ -120,15 +137,23 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           </p>
         </div>
 
-        <div style={cardStyle}>
+        <div style={cardStyle} className={gasSet ? undefined : 'print-hide'}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
             <input type="checkbox" checked={gasSet} onChange={e => setGasSet(e.target.checked)} />
             <span>ガスとでんきのセット割を適用する（月110円）</span>
           </label>
         </div>
 
-        <details style={cardStyle}>
-          <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>計算の内訳を表示</summary>
+        <details
+          style={cardStyle}
+          open={detailsOpen}
+          onToggle={e => setDetailsOpen((e.currentTarget as HTMLDetailsElement).open)}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+            {/* 紙では「表示」が操作の指示に読めてしまうので見出しに変える */}
+            <span className="print-hide">計算の内訳を表示</span>
+            <span className="print-only">計算の内訳</span>
+          </summary>
           <div style={{ marginTop: '15px', fontSize: '12px', lineHeight: 1.8 }}>
             {[v.current, ...v.candidates].map(p => (
               <div key={p.planId}>
@@ -146,6 +171,12 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           </div>
         </details>
 
+        {/* 紙で受け取った人が「いつ時点の試算か」を判断できるようにする。
+            日付は個人情報ではなく、印刷物の有効期限の目安として必要 */}
+        <p className="print-only" style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+          試算日: {new Date().toLocaleDateString('ja-JP')} ／ 適用単価: {v.ratePeriodLabel}
+        </p>
+
         <div style={{ marginBottom: '20px', padding: '15px', background: '#fef3c7', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
           <p style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
             <strong>注意:</strong> {v.ratePeriodLabel}の単価による試算です。
@@ -155,7 +186,10 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           </p>
         </div>
 
-        <button className="primary button-full" onClick={onBack}>条件を変えて試算する</button>
+        <div className="button-group print-hide">
+          <button className="secondary" onClick={handlePrint}>PDFで保存・印刷</button>
+          <button className="primary" onClick={onBack}>条件を変えて試算する</button>
+        </div>
       </div>
     </div>
   )
