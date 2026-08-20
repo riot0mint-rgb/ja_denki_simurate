@@ -111,7 +111,10 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
                 <td style={{ textAlign: 'right', padding: '8px 4px', color: 'var(--text-secondary)' }}>—</td>
               </tr>
               {v.candidates.map(c => {
-                const rec = c.planId === v.recommended.planId
+                // 削減にならないプランを「推奨」と表示しない。候補が1件しかない
+                // シナリオ（ナイトホリデー→夜トクなど）では、最安＝唯一の候補が
+                // 現行より高いことがある。
+                const rec = c.planId === v.recommended.planId && isSaving
                 return (
                   <tr key={c.planId} style={{ borderBottom: '1px solid var(--border, #eee)' }}>
                     <td style={{ padding: '8px 4px', fontWeight: rec ? 'bold' : 'normal' }}>
@@ -133,7 +136,17 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
             </tbody>
           </table>
           <p style={{ fontSize: '13px', marginTop: '12px' }}>
-            推奨: <strong>{v.recommended.planName}</strong>（削減率 {formatPercentage(v.savingsPercent)}）
+            {isSaving ? (
+              <>
+                推奨: <strong>{v.recommended.planName}</strong>（削減率{' '}
+                {formatPercentage(v.savingsPercent)}）
+              </>
+            ) : (
+              <>
+                このご使用量では <strong>{v.recommended.planName}</strong> に切り替えても
+                安くなりません。現在のご契約のご継続をおすすめします。
+              </>
+            )}
           </p>
         </div>
 

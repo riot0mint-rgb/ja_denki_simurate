@@ -120,25 +120,33 @@ export interface DemandSeasonalPlan extends PlanBase {
 /** 時間帯の区分。公式試算表の 4 区分に対応する。 */
 export type TouBand = 'dayOther' | 'daySummer' | 'night' | 'holiday';
 
+/** 最低月額料金。従量料金と燃料費調整額の合計が threshold 未満なら bill を請求する。 */
+export interface MinimumMonthly {
+  threshold: Decimal;
+  bill: Decimal;
+}
+
 /**
  * 時間帯別プラン（電化Style／ナイトホリデー／夜トクプラン）。
- * 基本料金は 10kW までが定額、超過分が 1kW あたりの従量。
+ *
+ * 課金の土台は 2 通りある。どちらか一方だけを持つ。
+ *
+ * - **基本料金型**（電化Style・夜トクプラン）: 10kW までが定額、超過分が 1kW あたりの従量。
+ *   契約電力の入力が要る。
+ * - **最低月額料金型**（ナイトホリデー）: 基本料金を持たず、従量料金と燃料費調整額の
+ *   合計が最低月額料金に満たない月だけ最低月額料金を請求する。契約電力の入力は不要。
+ *
+ * 中国電力の単価表でナイトホリデーコースだけ体系が違う。公式試算表の明細シートで
+ * 中国電力側の基本料金欄が空欄なのは記載漏れではなく、そこに入る金額が存在しないため。
  */
 export interface TimeOfUsePlan extends PlanBase {
   structure: 'time_of_use';
-  /**
-   * 10kW までの基本料金。null は基本料金を持たないプランを表す。
-   * その場合は minimumMonthly が下限として働く（ナイトホリデーコース）。
-   */
+  /** 10kW までの基本料金。最低月額料金型では null。 */
   baseChargeUpTo10Kw: Decimal | null;
-  /** 10kW 超過分の 1kW あたり基本料金 */
+  /** 10kW 超過分の 1kW あたり基本料金。最低月額料金型では null。 */
   baseChargePerKwOver10: Decimal | null;
-  /**
-   * 最低月額料金。基本料金を持たない自由料金メニューが使う。
-   * (電力量料金 + 燃料費調整額) が threshold を下回ったとき bill を請求額とする。
-   * シンプルコースと同じ扱い（①明細 VSシンプル I20）。
-   */
-  minimumMonthly: { threshold: Decimal; bill: Decimal } | null;
+  /** 最低月額料金。基本料金型では null。 */
+  minimumMonthly: MinimumMonthly | null;
   unitPrices: Record<TouBand, Decimal>;
   halveBaseWhenNoUsage: boolean;
   /** 電化住宅割。基本料金+従量料金に対する割引率と上限額。 */

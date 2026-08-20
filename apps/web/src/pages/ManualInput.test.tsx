@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ManualInput from './ManualInput'
+import { DEFAULT_RATE_PERIOD } from '../services/calculateService'
 import type { UsageInput } from '@ja-denki-simulator/calc-core'
 
 type Complete = (id: string, usage: UsageInput, period: { year: number; month: number }) => void
@@ -38,7 +39,7 @@ describe('入力画面の基本動作', () => {
     expect(onComplete).toHaveBeenCalledWith(
       'chugoku_juryo_a',
       expect.objectContaining({ totalKwh: 348 }),
-      { year: 2026, month: 7 }
+      DEFAULT_RATE_PERIOD
     )
   })
 
@@ -58,6 +59,7 @@ describe('入力画面の基本動作', () => {
   it('割高になるプランでは「月々割高」と出す', async () => {
     const { user } = setup()
     await pickPlan('auでんき Mプラン')
+    await pickMonth('2026年7月')
     await user.type(screen.getByLabelText('ご使用量 (kWh)'), '348')
     expect(screen.getByText(/月々割高/)).toBeInTheDocument()
   })
@@ -137,6 +139,7 @@ describe('対象月から季節を決めて入力欄を減らす', () => {
   it('ファミリータイムは7月だけ夏季とその他季を併記する', async () => {
     setup()
     await pickPlan('中国電力 ファミリータイムⅡ')
+    await pickMonth('2026年7月')
     expect(screen.getByLabelText('デイタイム夏季 kWh')).toBeInTheDocument()
     expect(screen.getByLabelText('デイタイムその他季 kWh')).toBeInTheDocument()
 
@@ -148,12 +151,10 @@ describe('対象月から季節を決めて入力欄を減らす', () => {
 
 describe('検針期間から日数を自動で数える', () => {
   it('日付を入れると日数・土日・祝日が埋まる', async () => {
-    const { user } = setup()
+    setup()
     await pickPlan('中国電力 時間帯別電灯（エコノミーナイト）')
-    await user.clear(screen.getByLabelText('検針期間の開始日'))
-    await user.type(screen.getByLabelText('検針期間の開始日'), '2026-06-06')
-    await user.clear(screen.getByLabelText('検針期間の終了日'))
-    await user.type(screen.getByLabelText('検針期間の終了日'), '2026-07-05')
+    fireEvent.change(screen.getByLabelText('検針期間の開始日'), { target: { value: '2026-06-06' } })
+    fireEvent.change(screen.getByLabelText('検針期間の終了日'), { target: { value: '2026-07-05' } })
 
     expect(screen.getByLabelText('日数')).toHaveValue(30)
     expect(screen.getByText(/平日 \d+日/)).toBeInTheDocument()
@@ -203,6 +204,7 @@ describe('合計の確認と按分の入力', () => {
   it('休日の使い方を切り替えると按分が変わる', async () => {
     const { onComplete, user } = setup()
     await pickPlan('中国電力 ファミリータイムⅡ')
+    await pickMonth('2026年7月')
     await user.type(screen.getByLabelText('デイタイム夏季 kWh'), '100')
     await user.type(screen.getByLabelText('ファミリータイム kWh'), '80')
     await user.type(screen.getByLabelText('ナイトタイム kWh'), '220')
@@ -216,6 +218,7 @@ describe('合計の確認と按分の入力', () => {
   it('電化住宅割は外せる', async () => {
     const { onComplete, user } = setup()
     await pickPlan('中国電力 ファミリータイムⅠ')
+    await pickMonth('2026年7月')
     await user.type(screen.getByLabelText('デイタイム夏季 kWh'), '100')
     await user.type(screen.getByLabelText('ナイトタイム kWh'), '220')
     await user.click(screen.getByRole('checkbox', { name: /電化住宅割/ }))
@@ -235,7 +238,7 @@ describe('合計の確認と按分の入力', () => {
     expect(onComplete).toHaveBeenCalledWith(
       'chugoku_midnight_b',
       expect.objectContaining({ totalKwh: 200, contractKw: 4 }),
-      { year: 2026, month: 7 }
+      DEFAULT_RATE_PERIOD
     )
   })
 })

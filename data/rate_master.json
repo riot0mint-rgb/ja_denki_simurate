@@ -48,6 +48,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "auでんき 料金表（中国電力エリア でんきMプラン）",
+          "locator": "https://www.au.com/energy/denki/merit/plan/",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -77,6 +84,13 @@
         {
           "document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx",
           "locator": "基本項目!E46:E51",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・電力 サービス約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html",
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
@@ -124,6 +138,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・選択約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist2.html",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -157,6 +178,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・選択約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist2.html",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -187,6 +215,13 @@
         {
           "document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx",
           "locator": "'ファミリーⅡ結果'!H7, E8, E10:E13, H15",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・選択約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist2.html",
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
@@ -233,6 +268,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -276,6 +318,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -301,6 +350,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電力）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist3.html",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -322,6 +378,13 @@
         {
           "document": "⑥JAでんき試算表(VS深夜電力B)26年7月適用.xlsx",
           "locator": "'深夜電力B'!F7:F8",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電力・選択約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist4.html",
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
@@ -356,7 +419,14 @@
       "sources": [
         {
           "document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx",
-          "locator": "基本項目!S62:S65（単価）",
+          "locator": "基本項目!S62:S65（時間帯別単価）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・電力 サービス約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html",
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
@@ -395,6 +465,13 @@
         {
           "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
           "locator": "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・電力 サービス約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html",
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
@@ -441,6 +518,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金単価表（電灯・電力 サービス約款）",
+          "locator": "https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -482,6 +566,13 @@
           "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
           "locator": "基本項目!E26:E29（規制料金）",
           "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定",
+          "locator": "https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf",
+          "effectiveFrom": "2024-05",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
         }
@@ -527,6 +618,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定",
+          "locator": "https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf",
+          "effectiveFrom": "2024-05",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -570,6 +668,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定",
+          "locator": "https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf",
+          "effectiveFrom": "2024-05",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     },
@@ -593,6 +698,13 @@
           "document": "⑤JAでんき試算表(VS中電_低圧電力)26年7月適用.xlsx",
           "locator": "基本項目!E38:E40",
           "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定",
+          "locator": "https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf",
+          "effectiveFrom": "2024-05",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
         }
@@ -625,6 +737,13 @@
           "document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx",
           "locator": "基本項目!L46:L51",
           "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定",
+          "locator": "https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf",
+          "effectiveFrom": "2024-05",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
         }
@@ -794,6 +913,34 @@
     }
   ],
   "monthly_rates": [
+    {
+      "provider": "chugoku",
+      "period": "2026-09",
+      "fuel_minimum_charge_yen": "-194.01",
+      "fuel_unit_price_yen_per_kwh": "-12.93",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-09",
+        "effectiveFrom": "2026-09",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-08",
+      "fuel_minimum_charge_yen": "-188.7",
+      "fuel_unit_price_yen_per_kwh": "-12.56",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-08",
+        "effectiveFrom": "2026-08",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
     {
       "provider": "chugoku",
       "period": "2026-07",
@@ -1056,6 +1203,20 @@
         "document": "①〜⑥JAでんき試算表 26年7月適用",
         "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-01",
         "effectiveFrom": "2025-01",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "au",
+      "period": "2026-08",
+      "fuel_minimum_charge_yen": "-203.7",
+      "fuel_unit_price_yen_per_kwh": "-13.58",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx「基本項目」燃料費調整額 2026-08",
+        "effectiveFrom": "2026-08",
         "verificationStatus": "verified",
         "verifiedAt": "2026-08-20"
       }

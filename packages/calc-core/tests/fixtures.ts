@@ -131,10 +131,20 @@ export const chugokuDenkaStyle: TimeOfUsePlan = {
 export const chugokuNightHoliday: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'chugoku_night_holiday', planName: '中国電力 ナイトホリデー', side: 'other',
   baseChargeUpTo10Kw: null, baseChargePerKwOver10: null,
+  // 中国電力の公式単価表で、ナイトホリデーコースだけ最低月額料金型と確認済み。
+  // ただし請求額 1,845 円は推定（rates.ts のコメント参照）。
   minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1845') },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true, allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING, sources: [src(D3, '基本項目!S62:S65')]
+};
+
+/** 基本料金も最低月額料金も無い＝元資料から金額が確認できない状態。unsupported の検証用。 */
+export const touWithoutAnyBaseCharge: TimeOfUsePlan = {
+  ...chugokuNightHoliday,
+  planId: 'tou_without_base',
+  planName: 'テスト用 基本料金不明プラン',
+  minimumMonthly: null
 };
 export const jaDenkiYotoku: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'ja_denki_yotoku', planName: 'JAでんき 夜トクプラン', side: 'ja',

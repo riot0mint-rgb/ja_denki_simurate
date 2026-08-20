@@ -43,6 +43,78 @@ function src(document: string, locator: string): RateSource {
   }
 }
 
+/**
+ * 一次情報（各社が公表している単価表・料金メニュー定義書）。
+ *
+ * 実装当初の単価はすべて JAでんき公式試算表からの転記で、出典が試算表1本しかなかった。
+ * 2026-08-20 に各社の公表資料を直接取得し、全プランの単価が一致することを確認したため、
+ * 試算表の出典に加えてこちらを併記する。突合の結果は
+ * `tests/officialSources.test.ts` に固定してある。
+ */
+const OFFICIAL_TARIFF_CHUGOKU_REGULATED: RateSource = {
+  document: '中国電力 電気料金単価表（電灯）',
+  locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
+const OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION: RateSource = {
+  document: '中国電力 電気料金単価表（電灯・選択約款）',
+  locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist2.html',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
+/** 規制料金の「低圧電力」。自由料金の「動力コース」(1,152.44円/kW) とは別メニュー。 */
+const OFFICIAL_TARIFF_CHUGOKU_POWER: RateSource = {
+  document: '中国電力 電気料金単価表（電力）',
+  locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist3.html',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
+const OFFICIAL_TARIFF_CHUGOKU_POWER_OPTION: RateSource = {
+  document: '中国電力 電気料金単価表（電力・選択約款）',
+  locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist4.html',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
+const OFFICIAL_TARIFF_CHUGOKU_SERVICE: RateSource = {
+  document: '中国電力 電気料金単価表（電灯・電力 サービス約款）',
+  locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
+/**
+ * JAでんきの料金は一般公開されておらず（公式サイトは「販売代理店にてご確認ください」）、
+ * 料金メニュー定義書が唯一の一次情報。広島市農業協同組合が改定通知として公開している。
+ * 公開されている最新は 2024年4月改定版（令和6年5月1日検針分から適用）。
+ */
+/** auでんきが自社サイトで公表している料金表。中国電力エリアの でんきMプラン。 */
+const OFFICIAL_TARIFF_AU: RateSource = {
+  document: 'auでんき 料金表（中国電力エリア でんきMプラン）',
+  locator: 'https://www.au.com/energy/denki/merit/plan/',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
+const OFFICIAL_JA_DENKI_DEFINITION: RateSource = {
+  document: 'JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定',
+  locator:
+    'https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf',
+  effectiveFrom: '2024-05',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
 /** auでんきは従量料金合計と燃料費調整額を切り上げ、請求額を丸めない（明細 I13/I16/I20）。 */
 const AU_ROUNDING: RoundingProfile = {
   energyTotal: 'up',
@@ -74,7 +146,7 @@ export const chugokuJuryoA: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.75', '39.43', '41.55'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.juryoA, '基本項目!E8:E11（規制料金）')]
+  sources: [src(DOC.juryoA, '基本項目!E8:E11（規制料金）'), OFFICIAL_TARIFF_CHUGOKU_REGULATED]
 }
 
 export const chugokuSmart: TieredMinimumPlan = {
@@ -86,7 +158,7 @@ export const chugokuSmart: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.01', '39.43', '41.55'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.juryoA, '基本項目!E46:E49（自由料金）')]
+  sources: [src(DOC.juryoA, '基本項目!E46:E49（自由料金）'), OFFICIAL_TARIFF_CHUGOKU_SERVICE]
 }
 
 export const chugokuSimple: FlatRatePlan = {
@@ -100,7 +172,8 @@ export const chugokuSimple: FlatRatePlan = {
   rounding: CHUGOKU_ROUNDING,
   sources: [
     src(DOC.juryoA, '基本項目!E52:E55（自由料金）'),
-    src(DOC.juryoA, "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式）")
+    src(DOC.juryoA, "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式）"),
+    OFFICIAL_TARIFF_CHUGOKU_SERVICE
   ]
 }
 
@@ -113,7 +186,7 @@ export const auMPlan: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.74', '39.42', '41.54'),
   rounding: AU_ROUNDING,
-  sources: [src(DOC.auM, "'ａｕ＿Ｍプラン料金早見表'!E5:E8")]
+  sources: [src(DOC.auM, "'ａｕ＿Ｍプラン料金早見表'!E5:E8"), OFFICIAL_TARIFF_AU]
 }
 
 export const jaDenkiJuryoA: TieredMinimumPlan = {
@@ -125,7 +198,7 @@ export const jaDenkiJuryoA: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.22', '38.04', '38.84'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.juryoA, '基本項目!E26:E29（規制料金）')]
+  sources: [src(DOC.juryoA, '基本項目!E26:E29（規制料金）'), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 export const jaDenkiJuryoS: TieredMinimumPlan = {
@@ -137,7 +210,7 @@ export const jaDenkiJuryoS: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('31.79', '39.43', '41.44'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.juryoA, '基本項目!E58:E61（自由料金）')]
+  sources: [src(DOC.juryoA, '基本項目!E58:E61（自由料金）'), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -164,7 +237,7 @@ export const chugokuJuryoB: CapacityTieredPlan = {
   tiers: tiers0('30.06', '36.15', '38.02'),
   halveBaseWhenNoUsage: true,
   rounding: JURYO_B_ROUNDING,
-  sources: [src(DOC.juryoB, '基本項目!E14:E17')]
+  sources: [src(DOC.juryoB, '基本項目!E14:E17'), OFFICIAL_TARIFF_CHUGOKU_REGULATED]
 }
 
 export const jaDenkiJuryoB: CapacityTieredPlan = {
@@ -176,7 +249,7 @@ export const jaDenkiJuryoB: CapacityTieredPlan = {
   tiers: tiers0('30.06', '35.41', '36.71'),
   halveBaseWhenNoUsage: true,
   rounding: JURYO_B_ROUNDING,
-  sources: [src(DOC.juryoB, '基本項目!E32:E35')]
+  sources: [src(DOC.juryoB, '基本項目!E32:E35'), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -188,12 +261,15 @@ export const chugokuLowVoltage: DemandSeasonalPlan = {
   planId: 'chugoku_low_voltage',
   planName: '中国電力 低圧電力',
   side: 'other',
+  // 比較対象は**規制料金の「低圧電力」**（公式単価表〈電力〉1,163.92円/kW）。
+  // 自由料金の「動力コース」は 1,152.44円/kW の別メニューで、こちらではない。
+  // JAでんき低圧電力 1,132.83円/kW との差 31.09円/kW が営業資料の記載と一致する。
   baseChargePerKw: new Decimal('1163.92'),
   summerUnitPriceYenPerKwh: new Decimal('26.80'),
   otherUnitPriceYenPerKwh: new Decimal('25.51'),
   halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.lowVoltage, '基本項目!E20:E22')]
+  sources: [src(DOC.lowVoltage, '基本項目!E20:E22'), OFFICIAL_TARIFF_CHUGOKU_POWER]
 }
 
 export const jaDenkiLowVoltage: DemandSeasonalPlan = {
@@ -206,7 +282,7 @@ export const jaDenkiLowVoltage: DemandSeasonalPlan = {
   otherUnitPriceYenPerKwh: new Decimal('25.51'),
   halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.lowVoltage, '基本項目!E38:E40')]
+  sources: [src(DOC.lowVoltage, '基本項目!E38:E40'), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -234,14 +310,21 @@ export const chugokuDenkaStyle: TimeOfUsePlan = {
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.tou, '基本項目!E46:E51')]
+  sources: [src(DOC.tou, '基本項目!E46:E51'), OFFICIAL_TARIFF_CHUGOKU_SERVICE]
 }
 
 /**
- * ナイトホリデーコースには契約電力ベースの基本料金が存在しない。
- * ③明細の 'シミュレーション結果明細 VSナイトホリデー'!J8:J10 が空欄なのは
- * Excel の作り漏れではなく、そこに入るべき数字が無いため（中国電力サービス約款）。
- * 代わりに最低月額料金 1,844.70 円/契約 が下限として働く。シンプルコースと同型。
+ * ナイトホリデーコースは**基本料金を持たない**。中国電力の公式単価表で、
+ * このコースだけシンプルコースと同じ最低月額料金型として定義されている。
+ *
+ * 元資料の明細シートで中国電力側の基本料金欄が空欄なのは
+ * （'シミュレーション結果明細 VSナイトホリデー'!J8:J10 に数式なし）、
+ * 記載漏れではなく**そこに入る金額が存在しないため**だった。
+ * 公式単価表で確認できたので計算不可を解除する。
+ *
+ * 電化Styleコースとの対比:
+ *   電化Style     基本料金 2,018.72円/契約（10kWまで）+ 480.37円/kW（10kW超）
+ *   ナイトホリデー 最低月額料金 1,844.70円/契約のみ（契約電力に依らない）
  */
 export const chugokuNightHoliday: TimeOfUsePlan = {
   structure: 'time_of_use',
@@ -250,16 +333,23 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
   side: 'other',
   baseChargeUpTo10Kw: null,
   baseChargePerKwOver10: null,
-  // 請求額 1,845 円は元資料に直接の記載がなく、シンプルコースの判定式
-  // （①明細 VSシンプル I20: IF(I13+I16<1844.7, 1845, ...)）から同型と判断した推定。
-  // ASSUMPTIONS.md「ナイトホリデーの最低月額料金」に記録。
-  minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1845') },
+  // 閾値 1,844.70 円は公式単価表に記載がある。一方 **請求額 1,845 円は推定**で、
+  // 単価表にも約款にも「下回ったときいくら請求するか」の記載がない。
+  // シンプルコースの判定式（①明細 VSシンプル I20: IF(I13+I16<1844.7, 1845, ...)）が
+  // 同じ最低月額料金型なので、同型と判断した。差は 1 円。
+  // ASSUMPTIONS.md「ナイトホリデーの最低月額料金」に確認依頼として記録。
+  minimumMonthly: {
+    threshold: new Decimal('1844.7'),
+    bill: new Decimal('1845')
+  },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING,
   sources: [
-    src(DOC.tou, '基本項目!S62:S65（単価）'),
+    src(DOC.tou, '基本項目!S62:S65（時間帯別単価）'),
+    OFFICIAL_TARIFF_CHUGOKU_SERVICE,
+    // 請求額 1,845 円だけはここ由来（推定）。上のコメント参照
     src(DOC.juryoA, "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式を同型適用）")
   ]
 }
@@ -276,7 +366,7 @@ export const jaDenkiYotoku: TimeOfUsePlan = {
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.tou, '基本項目!L46:L51')]
+  sources: [src(DOC.tou, '基本項目!L46:L51'), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -292,7 +382,7 @@ export const chugokuMidnightB: DemandFlatPlan = {
   unitPriceYenPerKwh: new Decimal('30.34'),
   halveTotalWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.midnightB, "'深夜電力B'!F7:F8")]
+  sources: [src(DOC.midnightB, "'深夜電力B'!F7:F8"), OFFICIAL_TARIFF_CHUGOKU_POWER_OPTION]
 }
 
 // ─────────────────────────────────────────────
@@ -321,7 +411,7 @@ export const chugokuFamilyTime1: FamilyTimePlan = {
   unitPrices: familyPrices('47.38', '42.57', '42.33', '30.34'),
   allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.family, "'ファミリーⅠ結果'!H7, E8, E10:E13, H15")]
+  sources: [src(DOC.family, "'ファミリーⅠ結果'!H7, E8, E10:E13, H15"), OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION]
 }
 
 export const chugokuFamilyTime2: FamilyTimePlan = {
@@ -334,7 +424,7 @@ export const chugokuFamilyTime2: FamilyTimePlan = {
   unitPrices: familyPrices('50.71', '45.58', '45.34', '30.34'),
   allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.family, "'ファミリーⅡ結果'!H7, E8, E10:E13, H15")]
+  sources: [src(DOC.family, "'ファミリーⅡ結果'!H7, E8, E10:E13, H15"), OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION]
 }
 
 export const chugokuEconomyNight: EconomyNightPlan = {
@@ -351,7 +441,7 @@ export const chugokuEconomyNight: EconomyNightPlan = {
   ],
   nightUnitPriceYenPerKwh: new Decimal('30.34'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.family, "'時間帯別結果'!I7, F8, F11:F14")]
+  sources: [src(DOC.family, "'時間帯別結果'!I7, F8, F11:F14"), OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION]
 }
 
 // ─────────────────────────────────────────────
@@ -462,7 +552,9 @@ export const SCENARIOS: ComparisonScenario[] = [
   {
     scenarioId: 'chugoku_night_holiday',
     label: '中国電力 ナイトホリデー',
-    hint: 'オール電化の旧プラン',
+    // ナイトホリデー自体は契約電力で課金しないが、切替先の JAでんき夜トクプランが
+    // 契約電力に応じた基本料金を取るため、入力はもらう必要がある。
+    hint: 'オール電化の旧プラン。切替先の基本料金の計算にご契約電力が要ります',
     current: chugokuNightHoliday,
     candidates: [jaDenkiYotoku],
     usageForm: 'tou',

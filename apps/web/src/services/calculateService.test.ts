@@ -8,7 +8,7 @@ import {
   needsCalendar,
   findScenario,
   SCENARIOS,
-  PERIOD_OPTIONS,
+  periodOptionsFor,
   DEFAULT_RATE_PERIOD
 } from './calculateService'
 
@@ -54,9 +54,22 @@ describe('シナリオ定義', () => {
 })
 
 describe('対象月', () => {
-  it('既定は26年7月で、選択肢に含まれる', () => {
-    expect(DEFAULT_RATE_PERIOD).toEqual(JULY)
-    expect(PERIOD_OPTIONS).toContainEqual(JULY)
+  it('既定は全事業者の燃調がそろう26年8月', () => {
+    expect(DEFAULT_RATE_PERIOD).toEqual({ year: 2026, month: 8 })
+  })
+
+  // 燃調の公表時期が事業者ごとにずれるため、選べる月も事業者ごとに違う。
+  // 全社共通の選択肢にすると、auでんきで「収録されていません」が出る。
+  it('検針月の選択肢は事業者ごとに絞られる', () => {
+    const chugoku = periodOptionsFor(findScenario('chugoku_juryo_a')!)
+    const au = periodOptionsFor(findScenario('au_m_plan')!)
+    expect(chugoku).toContainEqual(JULY)
+    expect(au).toContainEqual(JULY)
+    expect(chugoku.length).toBeGreaterThan(au.length)
+    // auで選べる月はすべて中国電力でも選べる（部分集合）
+    const key = (p: { year: number; month: number }) => `${p.year}-${p.month}`
+    const chugokuKeys = new Set(chugoku.map(key))
+    expect(au.every(p => chugokuKeys.has(key(p)))).toBe(true)
   })
 
   it('収録のない月は推測せず unsupported を返す', () => {
@@ -96,9 +109,11 @@ describe('従量電灯A の比較', () => {
   it('内訳と出典を持ち回る', () => {
     const v = ok('chugoku_juryo_a', { totalKwh: 348 })
     expect(v.current.formula).toContain('円')
-    expect(v.sources.length).toBeGreaterThan(0)
-    expect(v.sources.every(s => s.includes('.xlsx'))).toBe(true)
     expect(v.ratePeriodLabel).toBe('2026年7月適用')
+    // 出典は試算表（.xlsx）と各社の公式単価表（URL）の2系統がある
+    expect(v.sources.some(s => s.includes('.xlsx'))).toBe(true)
+    expect(v.sources.some(s => s.includes('https://'))).toBe(true)
+    expect(v.sources.every(s => s.trim().length > 0)).toBe(true)
   })
 })
 
