@@ -1,0 +1,520 @@
+{
+  "$comment": "中国電力エリア 低圧家庭用 電気料金単価マスタ。全て税込。調査日 2026-08-20。根拠は docs/pricing-menus.md を参照。",
+  "meta": {
+    "area": "chugoku",
+    "surveyedOn": "2026-08-20",
+    "currency": "JPY",
+    "taxIncluded": true,
+    "unit": {
+      "minimumCharge": "円/契約",
+      "baseCharge": "円/kVA または 円/kW",
+      "energyRate": "円/kWh"
+    },
+    "$note": "現物 Excel の監査結果は docs/excel-audit.md、ゴールデンデータは tests/fixtures/ を参照。"
+  },
+  "surcharges": {
+    "renewableEnergyLevy": {
+      "fiscalYear": 2026,
+      "rate": 4.18,
+      "appliesTo": "2026-04 〜 2027-03 使用分（低圧）",
+      "source": "https://www.meti.go.jp/press/2025/03/20260319004/20260319004.html"
+    },
+    "fuelCostAdjustment": {
+      "$comment": "15kWhを超える1kWhにつき。規制/自由とも同単価。政府の電気・ガス料金支援の値引きを織り込み済み。",
+      "source": "https://www.energia.co.jp/elec/seido/nencho/",
+      "monthly": {
+        "2026-04": -11.39,
+        "2026-05": -9.83,
+        "2026-06": -9.76,
+        "2026-07": -9.57,
+        "2026-08": -12.56,
+        "2026-09": -12.93
+      }
+    }
+  },
+  "providers": {
+    "chugoku": {
+      "name": "中国電力",
+      "plans": {
+        "juryo_dento_a": {
+          "name": "従量電灯A",
+          "type": "regulated",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 759.68
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.75
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.43
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.55
+            }
+          ]
+        },
+        "smart_course": {
+          "name": "ぐっとずっと。プラン スマートコース",
+          "type": "liberalized",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 669.92
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.01
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.43
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.55
+            }
+          ],
+          "loyaltyPoints": {
+            "program": "ぐっとずっと。クラブ",
+            "ratePerYen": 0.005,
+            "note": "電気料金200円(税込)につき1エネルギアポイント"
+          }
+        },
+        "simple_course": {
+          "name": "ぐっとずっと。プラン シンプルコース",
+          "type": "liberalized",
+          "minimumMonthlyCharge": 1844.7,
+          "tiers": [
+            {
+              "fromKwh": 0,
+              "toKwh": null,
+              "rate": 38.21
+            }
+          ],
+          "loyaltyPoints": {
+            "program": "ぐっとずっと。クラブ",
+            "ratePerYen": 0.005
+          }
+        },
+        "night_holiday_course": {
+          "name": "ぐっとずっと。プラン ナイトホリデーコース",
+          "type": "liberalized",
+          "minimumMonthlyCharge": 1844.7,
+          "timeOfUseRates": {
+            "daytime_summer": 49.44,
+            "daytime_other": 46.98,
+            "night_holiday": 34.65
+          }
+        },
+        "denka_style_course": {
+          "name": "ぐっとずっと。プラン 電化Styleコース",
+          "type": "liberalized",
+          "baseCharge": {
+            "upToKw": 10,
+            "amount": 2018.72,
+            "perAdditionalKw": 480.37
+          },
+          "timeOfUseRates": {
+            "daytime_summer": 46.46,
+            "daytime_other": 44.4,
+            "night_holiday": 30.35
+          },
+          "loyaltyPoints": {
+            "program": "ぐっとずっと。クラブ",
+            "ratePerYen": 0.005
+          }
+        },
+        "ohisama_shift_course": {
+          "name": "ぐっとずっと。プラン おひさまシフトコース",
+          "type": "liberalized",
+          "baseCharge": {
+            "upToKw": 10,
+            "amount": 2018.72,
+            "perAdditionalKw": 480.37
+          },
+          "timeOfUseRates": {
+            "hiru_eco_summer": 35.88,
+            "hiru_eco_other": 28.5,
+            "yoru_time": 35.88
+          }
+        },
+        "juryo_dento_b": {
+          "name": "従量電灯B",
+          "type": "regulated",
+          "baseCharge": {
+            "perKva": 447.97
+          },
+          "tiers": [
+            {
+              "fromKwh": 0,
+              "toKwh": 120,
+              "rate": 30.06
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 36.15
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 38.02
+            }
+          ]
+        },
+        "doryoku_course": {
+          "name": "動力コース（低圧電力）",
+          "type": "liberalized",
+          "baseCharge": {
+            "perKw": 1152.44
+          },
+          "seasonalRates": {
+            "summer": 26.8,
+            "other": 25.51
+          },
+          "$warning": "JA推進資料は中国電力 低圧電力の基本料金を 1,163.92 円/kW としており不一致。ASSUMPTIONS.md D2 参照。"
+        }
+      }
+    },
+    "ja_denki": {
+      "name": "JAでんき（全農エネルギー）",
+      "effectiveFrom": "2024-05-01",
+      "$comment": "令和6年4月1日実施・令和6年5月1日検針分から適用。2025年以降の改定有無は未確認（ASSUMPTIONS.md D1）。",
+      "plans": {
+        "juryo_dento_a": {
+          "name": "従量電灯A（家庭）",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 759.68
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.22
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 38.04
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 38.84
+            }
+          ]
+        },
+        "juryo_dento_s": {
+          "name": "従量電灯S",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 669.92
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 31.79
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.43
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.44
+            }
+          ],
+          "previousRates": {
+            "effectiveFrom": "2023-06-01",
+            "minimumCharge": 622.91,
+            "tiers": [
+              31.87,
+              39.51,
+              41.52
+            ]
+          }
+        },
+        "juryo_dento_b": {
+          "name": "従量電灯B（家庭）",
+          "baseCharge": {
+            "perKva": 447.97,
+            "halvedOnZeroUsage": true
+          },
+          "tiers": [
+            {
+              "fromKwh": 0,
+              "toKwh": 120,
+              "rate": 30.06
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 35.41
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 36.71
+            }
+          ]
+        },
+        "teiatsu_denryoku": {
+          "name": "低圧電力（家庭）",
+          "baseCharge": {
+            "perKw": 1132.83,
+            "halvedOnZeroUsage": true
+          },
+          "seasonalRates": {
+            "summer": 26.8,
+            "other": 25.51
+          }
+        },
+        "yoru_toku_plan": {
+          "name": "夜トクプラン",
+          "baseCharge": {
+            "upToKw": 10,
+            "amount": 1897.72,
+            "perAdditionalKw": 458.37,
+            "halvedOnZeroUsage": true
+          },
+          "timeOfUseRates": {
+            "daytime_summer": 46.46,
+            "daytime_other": 44.4,
+            "holiday": 30.35,
+            "night": 30.35
+          }
+        }
+      },
+      "switchingGuidance": {
+        "breakEvenKwhPerMonth": 217,
+        "$comment": "217kWh/月以下は従量電灯Sが有利、218kWh/月以上は従量電灯Aが有利。",
+        "simpleCourseNoBenefitAboveKwh": 1050
+      },
+      "campaign": {
+        "name": "最大3,000円お得キャンペーン",
+        "discountPerMonth": 1000,
+        "months": 3,
+        "eligiblePlans": [
+          "従量電灯A",
+          "従量電灯B",
+          "従量電灯S",
+          "夜トクプラン",
+          "低圧電力"
+        ],
+        "notes": "新規申込者対象。1契約1回まで。当月料金が割引額未満でも翌月繰り越し不可。"
+      },
+      "optionalFees": {
+        "paperStatementMailing": {
+          "amountExcludingTax": 150,
+          "per": "month"
+        }
+      }
+    },
+    "au_denki": {
+      "name": "auでんき（KDDI / auエネルギー&ライフ）",
+      "plans": {
+        "denki_m_chugoku": {
+          "name": "でんきMプラン（中国）",
+          "equivalentTo": "中国電力 従量電灯A",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 759.67
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.74
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.42
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.54
+            }
+          ],
+          "$comment": "全単価が中国電力 従量電灯A から一律 1銭(0.01円) 安い。",
+          "loyaltyPoints": {
+            "program": "Pontaポイント",
+            "tiers": [
+              {
+                "monthlyBillBelow": 8000,
+                "rate": 0.005
+              },
+              {
+                "monthlyBillFrom": 8000,
+                "rate": 0.01
+              }
+            ],
+            "excludes": [
+              "燃料費調整額",
+              "再エネ賦課金"
+            ],
+            "basis": "税抜"
+          }
+        }
+      }
+    },
+    "docomo_denki": {
+      "name": "ドコモでんき（NTTドコモ）",
+      "plans": {
+        "basic_chugoku": {
+          "name": "ドコモでんき Basic（中国電力エリア）",
+          "equivalentTo": "中国電力 従量電灯A",
+          "effectiveFrom": "2024-04-01",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 759.68
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.75
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.43
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.55
+            }
+          ],
+          "previousRates": {
+            "$comment": "2024年4月託送料金改定前。現物Excelはこの旧単価のままになっている。",
+            "minimumCharge": 712.67,
+            "tiers": [
+              32.83,
+              39.51,
+              41.63
+            ]
+          },
+          "loyaltyPoints": {
+            "program": "dポイント",
+            "$comment": "契約種別(eximo/ahamo等)と支払方法(dカード有無)で還元率が変動。",
+            "excludes": [
+              "燃料費等調整額",
+              "再エネ賦課金"
+            ]
+          }
+        },
+        "green_chugoku": {
+          "name": "ドコモでんき Green（中国電力エリア）",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 1259.68,
+            "$comment": "Basic + 500円（改定後）"
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.75
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.43
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.55
+            }
+          ]
+        }
+      }
+    },
+    "softbank_denki": {
+      "name": "ソフトバンクでんき（SBパワー）",
+      "plans": {
+        "ouchi_denki_chugoku": {
+          "name": "おうちでんき（中国電力エリア）",
+          "equivalentTo": "中国電力 従量電灯A",
+          "acceptingNewContracts": false,
+          "newContractsClosedOn": "2024-10-23",
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 759.68
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.75
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 39.43
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 41.55
+            }
+          ],
+          "$comment": "かつての『従量電灯Aから約1%割引』は撤廃済みで現在は同額。",
+          "discounts": {
+            "ouchiwari_denki_set": {
+              "perLinePerMonth": 110,
+              "durationYears": 3,
+              "afterDurationPerLinePerMonth": 55
+            }
+          },
+          "cancellationFee": 550
+        },
+        "kurashi_denki_chugoku": {
+          "name": "くらしでんき（中国電力エリア 従量電灯A）",
+          "acceptingNewContracts": false,
+          "minimumCharge": {
+            "upToKwh": 15,
+            "amount": 759.68
+          },
+          "tiers": [
+            {
+              "fromKwh": 15,
+              "toKwh": 120,
+              "rate": 32.42
+            },
+            {
+              "fromKwh": 120,
+              "toKwh": 300,
+              "rate": 38.24
+            },
+            {
+              "fromKwh": 300,
+              "toKwh": null,
+              "rate": 39.47
+            }
+          ],
+          "effectiveFrom": "2025-10-01",
+          "$comment": "SBパワー 料金表（令和7年10月1日実施）。従量電灯A より第2・第3段階が大幅に安い。現物 Excel の『ソフバ　くらし』シートはこの単価を使わず従量電灯A として計算しており、docs/excel-audit.md の F3。",
+          "$source": "https://www.softbank.jp/energy/set/common/pdf/special/kurashi-denki/legal/kurashi-denki_price.pdf"
+        }
+      }
+    }
+  }
+}
