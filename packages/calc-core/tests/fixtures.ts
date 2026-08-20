@@ -2,6 +2,8 @@ import { Decimal } from '../src/decimal-config';
 import {
   CHUGOKU_ROUNDING,
   CapacityTieredPlan,
+  EconomyNightPlan,
+  FamilyTimePlan,
   DemandFlatPlan,
   DemandSeasonalPlan,
   FlatRatePlan,
@@ -143,4 +145,47 @@ export const chugokuMidnightB: DemandFlatPlan = {
   structure: 'demand_flat', planId: 'chugoku_midnight_b', planName: '中国電力 深夜電力B', side: 'other',
   baseChargePerKw: new Decimal('375.92'), unitPriceYenPerKwh: new Decimal('30.34'),
   halveTotalWhenNoUsage: true, rounding: CHUGOKU_ROUNDING, sources: [src(D6, "'深夜電力B'!F7:F8")]
+};
+
+
+const D4 = '④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx';
+
+/** 電化住宅割は基本料金+電力量料金の 8%、上限 3,300円（④結果シート H15） */
+const ALL_ELECTRIC_DISCOUNT = { rate: new Decimal('0.08'), capYen: new Decimal('3300') };
+
+function familyPrices(daySummer: string, dayOther: string, family: string, night: string) {
+  return {
+    daySummer: new Decimal(daySummer),
+    dayOther: new Decimal(dayOther),
+    family: new Decimal(family),
+    night: new Decimal(night)
+  };
+}
+
+export const chugokuFamilyTime1: FamilyTimePlan = {
+  structure: 'family_time', planId: 'chugoku_family_1', planName: '中国電力 ファミリータイムⅠ', side: 'other',
+  baseChargeUpTo10Kva: new Decimal('2577.10'), baseChargePerKvaOver10: new Decimal('481.77'),
+  unitPrices: familyPrices('47.38', '42.57', '42.33', '30.34'),
+  allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  rounding: CHUGOKU_ROUNDING, sources: [src(D4, "'ファミリーⅠ結果'!H7,E8,E10:E13")]
+};
+
+export const chugokuFamilyTime2: FamilyTimePlan = {
+  structure: 'family_time', planId: 'chugoku_family_2', planName: '中国電力 ファミリータイムⅡ', side: 'other',
+  baseChargeUpTo10Kva: new Decimal('1587.10'), baseChargePerKvaOver10: new Decimal('481.77'),
+  unitPrices: familyPrices('50.71', '45.58', '45.34', '30.34'),
+  allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  rounding: CHUGOKU_ROUNDING, sources: [src(D4, "'ファミリーⅡ結果'!H7,E8,E10:E13")]
+};
+
+export const chugokuEconomyNight: EconomyNightPlan = {
+  structure: 'economy_night', planId: 'chugoku_economy_night', planName: '中国電力 時間帯別電灯（エコノミーナイト）', side: 'other',
+  baseChargeUpTo10Kva: new Decimal('1578.72'), baseChargePerKvaOver10: new Decimal('480.37'),
+  dayTiers: [
+    { tierNumber: 1, startKwh: 0, endKwh: 90, unitPriceYenPerKwh: new Decimal('38.22') },
+    { tierNumber: 2, startKwh: 90, endKwh: 220, unitPriceYenPerKwh: new Decimal('43.82') },
+    { tierNumber: 3, startKwh: 220, endKwh: null, unitPriceYenPerKwh: new Decimal('44.86') }
+  ],
+  nightUnitPriceYenPerKwh: new Decimal('30.34'),
+  rounding: CHUGOKU_ROUNDING, sources: [src(D4, "'時間帯別結果'!I7,F8,F11:F14")]
 };

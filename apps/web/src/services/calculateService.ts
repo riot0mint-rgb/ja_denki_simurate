@@ -12,9 +12,11 @@ import {
   formatCurrency as formatDecimalCurrency,
   formatPercentage as formatDecimalPercentage,
   lookupFuelAdjustment,
-  lookupRenewableLevy
+  lookupRenewableLevy,
+  allocateFromEconomyNight,
+  allocateFromFamilyTime
 } from '@ja-denki-simulator/calc-core'
-import { ComparisonScenario, SCENARIOS, findScenario } from '../data/rates'
+import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar } from '../data/rates'
 
 const calculator = new BillingCalculator()
 const comparator = new BillingComparator()
@@ -51,7 +53,7 @@ export type CalculationOutcome =
   | { status: 'ok'; view: ComparisonView }
   | { status: 'unsupported'; reason: string; nextSteps: string[] }
 
-export { SCENARIOS, findScenario }
+export { SCENARIOS, findScenario, needsCalendar }
 export type { ComparisonScenario }
 
 export const PERIOD_OPTIONS = availablePeriods('chugoku')
@@ -123,11 +125,11 @@ export function calculateComparison(
     return { status: 'unsupported', reason: currentBill.reason, nextSteps: currentBill.nextSteps }
   }
 
-  // ⑥は深夜電力Bの使用量をすべて夜トクのナイトタイムとして扱う
-  const candidateUsage: UsageInput =
-    scenario.candidateUsage === 'all_night'
-      ? { ...usage, tou: { night: usage.totalKwh ?? 0 } }
-      : usage
+  const derived = deriveCandidateUsage(scenario, usage, period.month)
+  if (!derived.ok) {
+    return { status: 'unsupported', reason: derived.reason, nextSteps: derived.nextSteps }
+  }
+  const candidateUsage = derived.usage
 
   const candidateBills: MonthlyBill[] = []
   for (const plan of scenario.candidates) {
@@ -182,6 +184,95 @@ export function calculateComparison(
       gasSetDiscountApplied,
       firstYearSpecialDiscountYen: FIRST_YEAR_SPECIAL_DISCOUNT.toNumber(),
       sources: Array.from(new Set(sources))
+    }
+  }
+}
+
+/**
+ * 乗り換え先に渡す使用量を作る。旧プランと夜トクプランでは時間帯の区分が
+ * 違うため、④の各結果シートと同じ式で振り替える。
+ */
+function deriveCandidateUsage(
+  scenario: ComparisonScenario,
+  usage: UsageInput,
+  month: number
+): { ok: true; usage: UsageInput } | { ok: false; reason: string; nextSteps: string[] } {
+  if (scenario.candidateUsage === 'same') return { ok: true, usage }
+
+  // ⑥は深夜電力Bの使用量をすべて夜トクのナイトタイムとして扱う
+  if (scenario.candidateUsage === 'all_night') {
+    return { ok: true, usage: { ...usage, tou: { night: usage.totalKwh ?? 0 } } }
+  }
+
+  const calendar = usage.calendar
+  if (!calendar) {
+    return {
+      ok: false,
+      reason: '検針期間の日数が入力されていません',
+      nextSteps: [
+        '検針票の検針期間（開始日と終了日）を入力してください',
+        '夜トクプランには「ホリデータイム」の区分があるため、平日と休日の日数が必要です'
+      ]
+    }
+  }
+
+  const contractKw = usage.contractKva ?? usage.contractKw
+
+  if (scenario.candidateUsage === 'from_family') {
+    const f = usage.familyTime
+    if (!f) {
+      return {
+        ok: false,
+        reason: '時間帯別のご使用量が入力されていません',
+        nextSteps: ['検針票の各時間帯のご使用量を入力してください']
+      }
+    }
+    const bands = allocateFromFamilyTime(
+      {
+        daySummerKwh: new Decimal(f.daySummer ?? 0),
+        dayOtherKwh: new Decimal(f.dayOther ?? 0),
+        familyKwh: new Decimal(f.family ?? 0),
+        nightKwh: new Decimal(f.night ?? 0)
+      },
+      calendar
+    ).bands
+    return {
+      ok: true,
+      usage: {
+        contractKw,
+        tou: {
+          daySummer: bands.daySummer.toNumber(),
+          dayOther: bands.dayOther.toNumber(),
+          night: bands.night.toNumber(),
+          holiday: bands.holiday.toNumber()
+        }
+      }
+    }
+  }
+
+  const e = usage.economyNight
+  if (!e) {
+    return {
+      ok: false,
+      reason: '昼間・夜間のご使用量が入力されていません',
+      nextSteps: ['検針票の昼間時間・夜間時間のご使用量を入力してください']
+    }
+  }
+  const bands = allocateFromEconomyNight(
+    { dayKwh: new Decimal(e.dayKwh), nightKwh: new Decimal(e.nightKwh) },
+    calendar,
+    month
+  ).bands
+  return {
+    ok: true,
+    usage: {
+      contractKw,
+      tou: {
+        daySummer: bands.daySummer.toNumber(),
+        dayOther: bands.dayOther.toNumber(),
+        night: bands.night.toNumber(),
+        holiday: bands.holiday.toNumber()
+      }
     }
   }
 }

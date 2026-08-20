@@ -14,6 +14,9 @@ export {
   TouBand,
   TimeOfUsePlan,
   DemandFlatPlan,
+  FamilyBand,
+  FamilyTimePlan,
+  EconomyNightPlan,
   RatePlan,
   UsageInput,
   CalculationInput,
@@ -23,6 +26,23 @@ export {
   BillResult
 } from './models.js';
 export { BillingCalculator, calculator } from './calculator.js';
+export {
+  HolidayUsageRatio,
+  CalendarInput,
+  TouAllocation,
+  AllocationResult,
+  FamilyTimeUsage,
+  EconomyNightUsage,
+  holidayUsageRatioValue,
+  allocateFromFamilyTime,
+  allocateFromEconomyNight
+} from './touAllocation.js';
+export {
+  holidaysOf,
+  MeterPeriodDays,
+  countMeterPeriodDays,
+  countMonthDays
+} from './japaneseHolidays.js';
 export {
   BillingComparator,
   comparator,

@@ -1,5 +1,10 @@
-import { useMemo, useState } from 'react'
-import { UsageInput } from '@ja-denki-simulator/calc-core'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  HolidayUsageRatio,
+  UsageInput,
+  countMeterPeriodDays,
+  countMonthDays
+} from '@ja-denki-simulator/calc-core'
 import {
   DEFAULT_RATE_PERIOD,
   PERIOD_OPTIONS,
@@ -7,7 +12,8 @@ import {
   findScenario,
   formatCurrency,
   calculateComparison,
-  isSummerMonth
+  isSummerMonth,
+  needsCalendar
 } from '../services/calculateService'
 
 interface ManualInputProps {
@@ -18,6 +24,21 @@ interface ManualInputProps {
 /** よくある契約容量。タップで選べるようにして数値入力の手間を省く。 */
 const COMMON_KW = [4, 5, 6, 8, 10]
 const COMMON_KVA = [6, 8, 10, 12, 15]
+
+/** 休日電力使用割合。④入力シート C9 の 3 択。 */
+const HOLIDAY_RATIOS: Array<{ value: HolidayUsageRatio; label: string; hint: string }> = [
+  { value: 'same', label: '同じくらい', hint: '平日と変わらない' },
+  { value: 'more', label: '多い', hint: '休日は家にいる時間が長い' },
+  { value: 'much_more', label: 'とても多い', hint: '休日はほぼ在宅' }
+]
+
+/** 検針期間の既定値。対象月の前月6日〜当月5日を初期値にする。 */
+function defaultMeterPeriod(year: number, month: number): { start: string; end: string } {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const prevMonth = month === 1 ? 12 : month - 1
+  const prevYear = month === 1 ? year - 1 : year
+  return { start: `${prevYear}-${pad(prevMonth)}-06`, end: `${year}-${pad(month)}-05` }
+}
 
 const numberFieldStyle: React.CSSProperties = {
   marginTop: '6px',
@@ -78,6 +99,24 @@ function NumberField({
   )
 }
 
+function TotalBadge({ total }: { total: number }) {
+  return (
+    <div
+      style={{
+        padding: '10px 12px',
+        borderRadius: '6px',
+        background: 'rgba(45,157,120,0.10)',
+        fontSize: '14px'
+      }}
+    >
+      合計 <strong>{total.toLocaleString()}</strong> kWh
+      <span style={{ color: 'var(--text-secondary)', marginLeft: '8px', fontSize: '12px' }}>
+        検針票の合計と一致するか確認してください
+      </span>
+    </div>
+  )
+}
+
 export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [scenarioId, setScenarioId] = useState(SCENARIOS[0].scenarioId)
   const [period, setPeriod] = useState(DEFAULT_RATE_PERIOD)
@@ -88,10 +127,67 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [dayKwh, setDayKwh] = useState('')
   const [nightKwh, setNightKwh] = useState('')
   const [holidayKwh, setHolidayKwh] = useState('')
+  // ファミリータイム／時間帯別電灯
+  const [famDaySummer, setFamDaySummer] = useState('')
+  const [famDayOther, setFamDayOther] = useState('')
+  const [famFamily, setFamFamily] = useState('')
+  const [famNight, setFamNight] = useState('')
+  const [ecoDay, setEcoDay] = useState('')
+  const [ecoNight, setEcoNight] = useState('')
+  const [allElectric, setAllElectric] = useState(true)
+  const [holidayRatio, setHolidayRatio] = useState<HolidayUsageRatio>('same')
+  const [meterStart, setMeterStart] = useState('')
+  const [meterEnd, setMeterEnd] = useState('')
+  // 日付から自動算出した日数内訳。検針票と合わない場合は手で直せるようにする。
+  const [dayCounts, setDayCounts] = useState<{ days: string; weekendDays: string; holidayDays: string } | null>(null)
 
   const scenario = findScenario(scenarioId)!
   const summer = isSummerMonth(period.month)
   const num = (s: string) => (s.trim() === '' ? 0 : Number(s))
+
+  // 検針期間は日付から日数・土日・祝日を自動算出する。未入力なら対象月の既定値。
+  const defaults = defaultMeterPeriod(period.year, period.month)
+  const startDate = meterStart || defaults.start
+  const endDate = meterEnd || defaults.end
+  const autoCounts = countMeterPeriodDays(startDate, endDate)
+
+  // 検針期間を変えたら日数内訳を引き直す
+  useEffect(() => {
+    setDayCounts(
+      autoCounts
+        ? {
+            days: String(autoCounts.days),
+            weekendDays: String(autoCounts.weekendDays),
+            holidayDays: String(autoCounts.holidayDays)
+          }
+        : null
+    )
+    // 日付が変わったときだけ引き直す。手入力を上書きしないよう counts は依存に入れない。
+  }, [startDate, endDate])
+
+  const periodDays = dayCounts
+    ? {
+        days: num(dayCounts.days),
+        weekendDays: num(dayCounts.weekendDays),
+        holidayDays: num(dayCounts.holidayDays)
+      }
+    : null
+  const calendarValid =
+    periodDays !== null &&
+    periodDays.days > 0 &&
+    periodDays.days - periodDays.weekendDays - periodDays.holidayDays >= 0
+  const calendar = calendarValid
+    ? {
+        ...periodDays!,
+        holidayUsageRatio: holidayRatio,
+        julyDays: countMonthDays(startDate, endDate, 7) ?? 0,
+        octoberDays: countMonthDays(startDate, endDate, 10) ?? 0
+      }
+    : undefined
+
+  // ファミリータイムの検針票は検針期間が季節をまたぐ月だけ夏季／その他季が併記される
+  const mixedSeason = period.month === 7 || period.month === 10
+  const summerOnly = period.month === 8 || period.month === 9
 
   const usage: UsageInput = useMemo(() => {
     const base: UsageInput = {}
@@ -106,7 +202,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         ? { summerKwh: num(summerKwh), otherKwh: 0 }
         : { summerKwh: 0, otherKwh: num(otherKwh) }
       base.totalKwh = summer ? num(summerKwh) : num(otherKwh)
-    } else {
+    } else if (scenario.usageForm === 'tou') {
       // 同上。デイタイムは夏季／その他季のどちらか一方しか発生しない
       base.tou = {
         daySummer: summer ? num(dayKwh) : 0,
@@ -114,9 +210,25 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         night: num(nightKwh),
         holiday: num(holidayKwh)
       }
+    } else if (scenario.usageForm === 'family') {
+      base.familyTime = {
+        daySummer: mixedSeason ? num(famDaySummer) : summerOnly ? num(famDayOther) : 0,
+        dayOther: mixedSeason ? num(famDayOther) : summerOnly ? 0 : num(famDayOther),
+        family: num(famFamily),
+        night: num(famNight)
+      }
+      base.allElectricDiscount = allElectric
+      base.calendar = calendar
+    } else {
+      base.economyNight = { dayKwh: num(ecoDay), nightKwh: num(ecoNight) }
+      base.calendar = calendar
     }
     return base
-  }, [scenario, contract, totalKwh, summerKwh, otherKwh, dayKwh, nightKwh, holidayKwh, summer])
+  }, [
+    scenario, contract, totalKwh, summerKwh, otherKwh, dayKwh, nightKwh, holidayKwh, summer,
+    famDaySummer, famDayOther, famFamily, famNight, ecoDay, ecoNight, allElectric,
+    calendar, mixedSeason, summerOnly
+  ])
 
   // 入力しながら結果が見えるほうが検針票との突き合わせが速い
   const preview = useMemo(
@@ -125,12 +237,18 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   )
 
   const touTotal = num(dayKwh) + num(nightKwh) + num(holidayKwh)
+  const familyTotal = num(famDaySummer) + num(famDayOther) + num(famFamily) + num(famNight)
+  const ecoTotal = num(ecoDay) + num(ecoNight)
   const hasInput =
     scenario.usageForm === 'total'
       ? totalKwh.trim() !== ''
       : scenario.usageForm === 'seasonal'
         ? (summer ? summerKwh : otherKwh).trim() !== ''
-        : touTotal > 0
+        : scenario.usageForm === 'tou'
+          ? touTotal > 0
+          : scenario.usageForm === 'family'
+            ? familyTotal > 0 && calendar !== undefined
+            : ecoTotal > 0 && calendar !== undefined
 
   return (
     <div className="container">
@@ -175,6 +293,85 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
             {scenario.usageForm !== 'total' && (summer ? '（夏季料金の期間です）' : '（その他季の期間です）')}
           </p>
         </div>
+
+        {needsCalendar(scenario) && (
+          <div style={cardStyle}>
+            <strong>検針期間</strong>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 10px' }}>
+              日数・土日・祝日は自動で数えます。夜トクプランの「ホリデータイム」を求めるために必要です
+            </p>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="date"
+                aria-label="検針期間の開始日"
+                value={startDate}
+                onChange={e => setMeterStart(e.target.value)}
+                style={{ ...numberFieldStyle, fontSize: '15px' }}
+              />
+              <span>〜</span>
+              <input
+                type="date"
+                aria-label="検針期間の終了日"
+                value={endDate}
+                onChange={e => setMeterEnd(e.target.value)}
+                style={{ ...numberFieldStyle, fontSize: '15px' }}
+              />
+            </div>
+            {dayCounts ? (
+              <>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  {([
+                    ['days', '日数'],
+                    ['weekendDays', '土日'],
+                    ['holidayDays', '祝日']
+                  ] as const).map(([key, label]) => (
+                    <label key={key} style={{ flex: 1, fontSize: '12px' }}>
+                      {label}
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        aria-label={label}
+                        value={dayCounts[key]}
+                        onChange={e => setDayCounts({ ...dayCounts, [key]: e.target.value })}
+                        style={{ ...numberFieldStyle, fontSize: '16px', padding: '8px' }}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p style={{ fontSize: '12px', color: calendarValid ? 'var(--text-secondary)' : '#dc2626', marginTop: '8px' }}>
+                  {calendarValid
+                    ? `平日 ${periodDays!.days - periodDays!.weekendDays - periodDays!.holidayDays}日。検針票と違う場合は直接直してください`
+                    : '日数の内訳が合いません。土日と祝日の合計が日数を超えています'}
+                </p>
+              </>
+            ) : (
+              <p style={{ fontSize: '13px', marginTop: '10px', color: '#dc2626' }}>
+                検針期間を正しく入力してください
+              </p>
+            )}
+
+            <div style={{ marginTop: '16px' }}>
+              <strong>休日の電気の使い方</strong>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 8px' }}>
+                平日と比べて休日にどれくらい電気を使うか
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {HOLIDAY_RATIOS.map(r => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    title={r.hint}
+                    style={chipStyle(holidayRatio === r.value)}
+                    onClick={() => setHolidayRatio(r.value)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {scenario.contract !== 'none' && (
           <div style={cardStyle}>
@@ -251,19 +448,57 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
                 value={holidayKwh}
                 onChange={setHolidayKwh}
               />
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  background: 'rgba(45,157,120,0.10)',
-                  fontSize: '14px'
-                }}
-              >
-                合計 <strong>{touTotal.toLocaleString()}</strong> kWh
-                <span style={{ color: 'var(--text-secondary)', marginLeft: '8px', fontSize: '12px' }}>
-                  検針票の合計と一致するか確認してください
-                </span>
-              </div>
+              <TotalBadge total={touTotal} />
+            </>
+          )}
+
+          {scenario.usageForm === 'family' && (
+            <>
+              <p style={{ fontSize: '13px', marginBottom: '12px' }}>
+                検針票の時間帯ごとのご使用量を入力してください
+              </p>
+              {mixedSeason ? (
+                <>
+                  <NumberField
+                    id="famDaySummer"
+                    label="デイタイム夏季 kWh"
+                    hint="検針期間が7〜9月にかかる分"
+                    value={famDaySummer}
+                    onChange={setFamDaySummer}
+                  />
+                  <NumberField
+                    id="famDayOther"
+                    label="デイタイムその他季 kWh"
+                    value={famDayOther}
+                    onChange={setFamDayOther}
+                  />
+                </>
+              ) : (
+                <NumberField
+                  id="famDayOther"
+                  label={summerOnly ? 'デイタイム（夏季） kWh' : 'デイタイム kWh'}
+                  value={famDayOther}
+                  onChange={setFamDayOther}
+                />
+              )}
+              <NumberField id="famFamily" label="ファミリータイム kWh" value={famFamily} onChange={setFamFamily} />
+              <NumberField id="famNight" label="ナイトタイム kWh" value={famNight} onChange={setFamNight} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 12px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={allElectric} onChange={e => setAllElectric(e.target.checked)} />
+                <span>電化住宅割を適用する（基本料金＋電力量料金の8%・上限3,300円）</span>
+              </label>
+              <TotalBadge total={familyTotal} />
+            </>
+          )}
+
+          {scenario.usageForm === 'economy_night' && (
+            <>
+              <p style={{ fontSize: '13px', marginBottom: '12px' }}>
+                検針票の昼間時間・夜間時間のご使用量を入力してください
+              </p>
+              <NumberField id="ecoDay" label="昼間時間 kWh" value={ecoDay} onChange={setEcoDay} />
+              <NumberField id="ecoNight" label="夜間時間 kWh" value={ecoNight} onChange={setEcoNight} />
+              <TotalBadge total={ecoTotal} />
             </>
           )}
         </div>

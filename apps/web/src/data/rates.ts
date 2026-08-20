@@ -2,6 +2,8 @@ import {
   CHUGOKU_ROUNDING,
   CapacityTieredPlan,
   Decimal,
+  EconomyNightPlan,
+  FamilyTimePlan,
   DemandFlatPlan,
   DemandSeasonalPlan,
   FlatRatePlan,
@@ -286,11 +288,70 @@ export const chugokuMidnightB: DemandFlatPlan = {
 }
 
 // ─────────────────────────────────────────────
+// ファミリータイムⅠ/Ⅱ・時間帯別電灯（いずれも新規受付停止の旧プラン）
+// ─────────────────────────────────────────────
+
+/** 電化住宅割: 基本料金+電力量料金の8%、上限3,300円（④結果シート H15） */
+const ALL_ELECTRIC_DISCOUNT = { rate: new Decimal('0.08'), capYen: new Decimal('3300') }
+
+function familyPrices(daySummer: string, dayOther: string, family: string, night: string) {
+  return {
+    daySummer: new Decimal(daySummer),
+    dayOther: new Decimal(dayOther),
+    family: new Decimal(family),
+    night: new Decimal(night)
+  }
+}
+
+export const chugokuFamilyTime1: FamilyTimePlan = {
+  structure: 'family_time',
+  planId: 'chugoku_family_1',
+  planName: '中国電力 ファミリータイムⅠ',
+  side: 'other',
+  baseChargeUpTo10Kva: new Decimal('2577.10'),
+  baseChargePerKvaOver10: new Decimal('481.77'),
+  unitPrices: familyPrices('47.38', '42.57', '42.33', '30.34'),
+  allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  rounding: CHUGOKU_ROUNDING,
+  sources: [src(DOC.family, "'ファミリーⅠ結果'!H7, E8, E10:E13, H15")]
+}
+
+export const chugokuFamilyTime2: FamilyTimePlan = {
+  structure: 'family_time',
+  planId: 'chugoku_family_2',
+  planName: '中国電力 ファミリータイムⅡ',
+  side: 'other',
+  baseChargeUpTo10Kva: new Decimal('1587.10'),
+  baseChargePerKvaOver10: new Decimal('481.77'),
+  unitPrices: familyPrices('50.71', '45.58', '45.34', '30.34'),
+  allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  rounding: CHUGOKU_ROUNDING,
+  sources: [src(DOC.family, "'ファミリーⅡ結果'!H7, E8, E10:E13, H15")]
+}
+
+export const chugokuEconomyNight: EconomyNightPlan = {
+  structure: 'economy_night',
+  planId: 'chugoku_economy_night',
+  planName: '中国電力 時間帯別電灯（エコノミーナイト）',
+  side: 'other',
+  baseChargeUpTo10Kva: new Decimal('1578.72'),
+  baseChargePerKvaOver10: new Decimal('480.37'),
+  dayTiers: [
+    { tierNumber: 1, startKwh: 0, endKwh: 90, unitPriceYenPerKwh: new Decimal('38.22') },
+    { tierNumber: 2, startKwh: 90, endKwh: 220, unitPriceYenPerKwh: new Decimal('43.82') },
+    { tierNumber: 3, startKwh: 220, endKwh: null, unitPriceYenPerKwh: new Decimal('44.86') }
+  ],
+  nightUnitPriceYenPerKwh: new Decimal('30.34'),
+  rounding: CHUGOKU_ROUNDING,
+  sources: [src(DOC.family, "'時間帯別結果'!I7, F8, F11:F14")]
+}
+
+// ─────────────────────────────────────────────
 // 比較シナリオ
 // ─────────────────────────────────────────────
 
 /** 使用量の入力形式。画面のフォームを切り替えるために使う。 */
-export type UsageForm = 'total' | 'seasonal' | 'tou'
+export type UsageForm = 'total' | 'seasonal' | 'tou' | 'family' | 'economy_night'
 
 export interface ComparisonScenario {
   scenarioId: string
@@ -310,8 +371,10 @@ export interface ComparisonScenario {
    * 'same'       … 現行と同じ使用量をそのまま渡す
    * 'all_night'  … 総使用量をすべてナイトタイムとして渡す
    *                （⑥は深夜電力Bの使用量を夜トクのナイトタイムに写像している。'深夜電力B'!H22 = H8）
+   * 'from_family'        … ファミリータイムの4区分を検針期間の平日／休日比で夜トク4区分へ按分
+   * 'from_economy_night' … 昼間・夜間の2区分を同様に按分（ファミリーとは別式）
    */
-  candidateUsage: 'same' | 'all_night'
+  candidateUsage: 'same' | 'all_night' | 'from_family' | 'from_economy_night'
   sourceDocument: string
 }
 
@@ -413,6 +476,42 @@ export const SCENARIOS: ComparisonScenario[] = [
     sourceDocument: DOC.midnightB
   },
   {
+    scenarioId: 'chugoku_family_1',
+    label: '中国電力 ファミリータイムⅠ',
+    hint: 'オール電化の旧プラン。新規受付は停止しています',
+    current: chugokuFamilyTime1,
+    candidates: [jaDenkiYotoku],
+    usageForm: 'family',
+    contract: 'kva',
+    fuelProvider: 'chugoku',
+    candidateUsage: 'from_family',
+    sourceDocument: DOC.family
+  },
+  {
+    scenarioId: 'chugoku_family_2',
+    label: '中国電力 ファミリータイムⅡ',
+    hint: 'オール電化の旧プラン。新規受付は停止しています',
+    current: chugokuFamilyTime2,
+    candidates: [jaDenkiYotoku],
+    usageForm: 'family',
+    contract: 'kva',
+    fuelProvider: 'chugoku',
+    candidateUsage: 'from_family',
+    sourceDocument: DOC.family
+  },
+  {
+    scenarioId: 'chugoku_economy_night',
+    label: '中国電力 時間帯別電灯（エコノミーナイト）',
+    hint: 'オール電化の旧プラン。新規受付は停止しています',
+    current: chugokuEconomyNight,
+    candidates: [jaDenkiYotoku],
+    usageForm: 'economy_night',
+    contract: 'kva',
+    fuelProvider: 'chugoku',
+    candidateUsage: 'from_economy_night',
+    sourceDocument: DOC.family
+  },
+  {
     scenarioId: 'au_m_plan',
     label: 'auでんき Mプラン',
     hint: 'auでんきの従量電灯A相当プラン',
@@ -425,6 +524,11 @@ export const SCENARIOS: ComparisonScenario[] = [
     sourceDocument: DOC.auM
   }
 ]
+
+/** 検針期間の日数入力が必要なシナリオか */
+export function needsCalendar(scenario: ComparisonScenario): boolean {
+  return scenario.candidateUsage === 'from_family' || scenario.candidateUsage === 'from_economy_night'
+}
 
 export function findScenario(scenarioId: string): ComparisonScenario | undefined {
   return SCENARIOS.find(s => s.scenarioId === scenarioId)

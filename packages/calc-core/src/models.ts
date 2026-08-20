@@ -1,4 +1,5 @@
 import { Decimal } from './decimal-config.js';
+import { CalendarInput } from './touAllocation.js';
 
 /**
  * 料金プランの構造。JAでんき公式試算表（①〜⑥・au 各シート）の
@@ -10,7 +11,9 @@ export type PlanStructure =
   | 'capacity_tiered'  // 契約kVA × 基本料金 + 0kWhからの3段階（従量電灯B）
   | 'demand_seasonal'  // 契約kW × 基本料金 + 季節別単価（低圧電力）
   | 'time_of_use'      // 基本料金 + 時間帯別単価（電化Style／ナイトホリデー／夜トクプラン）
-  | 'demand_flat';     // 契約kW × 基本料金 + 一律単価（深夜電力B）
+  | 'demand_flat'      // 契約kW × 基本料金 + 一律単価（深夜電力B）
+  | 'family_time'      // 契約kVA × 基本料金 + 4区分 + 電化住宅割（ファミリータイムⅠ/Ⅱ）
+  | 'economy_night';   // 契約kVA × 基本料金 + 昼間3段階 + 夜間（時間帯別電灯）
 
 /** 出典情報。CLAUDE.md ルール4「出典のない単価を登録しない」を型で強制する。 */
 export interface RateSource {
@@ -141,13 +144,45 @@ export interface DemandFlatPlan extends PlanBase {
   halveTotalWhenNoUsage: boolean;
 }
 
+/** ファミリータイムの時間帯区分 */
+export type FamilyBand = 'daySummer' | 'dayOther' | 'family' | 'night';
+
+/**
+ * ファミリータイムⅠ/Ⅱ（中国電力の旧オール電化プラン。新規受付停止）。
+ * 出典: ④「ファミリーⅠ結果」「ファミリーⅡ結果」
+ */
+export interface FamilyTimePlan extends PlanBase {
+  structure: 'family_time';
+  baseChargeUpTo10Kva: Decimal;
+  baseChargePerKvaOver10: Decimal;
+  unitPrices: Record<FamilyBand, Decimal>;
+  /** 電化住宅割。基本料金+電力量料金に対する定率割引と上限額。 */
+  allElectricDiscount: { rate: Decimal; capYen: Decimal } | null;
+}
+
+/**
+ * 時間帯別電灯（エコノミーナイト。新規受付停止）。
+ * 昼間時間だけが 3 段階の従量制で、夜間は一律単価。
+ * 出典: ④「時間帯別結果」
+ */
+export interface EconomyNightPlan extends PlanBase {
+  structure: 'economy_night';
+  baseChargeUpTo10Kva: Decimal;
+  baseChargePerKvaOver10: Decimal;
+  /** 昼間時間の段階（0kWh起点） */
+  dayTiers: Tier[];
+  nightUnitPriceYenPerKwh: Decimal;
+}
+
 export type RatePlan =
   | TieredMinimumPlan
   | FlatRatePlan
   | CapacityTieredPlan
   | DemandSeasonalPlan
   | TimeOfUsePlan
-  | DemandFlatPlan;
+  | DemandFlatPlan
+  | FamilyTimePlan
+  | EconomyNightPlan;
 
 /**
  * 使用量の入力。プラン構造によって必要な項目が異なるため、
@@ -160,6 +195,12 @@ export interface UsageInput {
   seasonal?: { summerKwh: number; otherKwh: number };
   /** 時間帯別使用量 */
   tou?: Partial<Record<TouBand, number>>;
+  /** ファミリータイムの時間帯別使用量 */
+  familyTime?: Partial<Record<FamilyBand, number>>;
+  /** 時間帯別電灯の昼間・夜間使用量 */
+  economyNight?: { dayKwh: number; nightKwh: number };
+  /** 検針期間の日数内訳。夜トクへの時間帯振替に使う。 */
+  calendar?: CalendarInput;
   /** 契約電力 kW（低圧電力・時間帯別・深夜電力B） */
   contractKw?: number;
   /** 契約容量 kVA（従量電灯B） */

@@ -6,6 +6,9 @@ import {
   ChargeLine,
   DemandFlatPlan,
   DemandSeasonalPlan,
+  EconomyNightPlan,
+  FamilyBand,
+  FamilyTimePlan,
   FlatRatePlan,
   FuelAdjustment,
   MonthlyBill,
@@ -26,6 +29,14 @@ const TOU_BAND_LABEL: Record<TouBand, string> = {
   holiday: 'ホリデータイム'
 };
 
+const FAMILY_BAND_LABEL: Record<FamilyBand, string> = {
+  daySummer: 'デイタイム夏季',
+  dayOther: 'デイタイムその他季',
+  family: 'ファミリータイム',
+  night: 'ナイトタイム'
+};
+
+/** 基本料金に含まれる契約容量。時間帯別・ファミリータイムとも 10（kW / kVA）。 */
 const TOU_BASE_INCLUDED_KW = 10;
 
 function unsupported(reason: string, nextSteps: string[]): BillResult {
@@ -59,6 +70,10 @@ export class BillingCalculator {
         return this.timeOfUse(input, plan);
       case 'demand_flat':
         return this.demandFlat(input, plan);
+      case 'family_time':
+        return this.familyTime(input, plan);
+      case 'economy_night':
+        return this.economyNight(input, plan);
     }
   }
 
@@ -410,16 +425,11 @@ export class BillingCalculator {
     }));
     const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
 
-    // 電化住宅割は基本料金+従量料金に対する定率割引で、上限額でクリップする（④結果 H15）
-    let discount = new Decimal('0');
-    const notes: string[] = [];
-    if (plan.allElectricDiscount && input.usage.allElectricDiscount) {
-      const raw = baseCharge.plus(energySubtotal).times(plan.allElectricDiscount.rate).negated();
-      discount = Decimal.max(raw, plan.allElectricDiscount.capYen.negated());
-      notes.push(
-        `電化住宅割 ${plan.allElectricDiscount.rate.times(100).toFixed(0)}%（上限 ${plan.allElectricDiscount.capYen.toFixed(0)}円）を適用`
-      );
-    }
+    const { discount, notes } = this.allElectricDiscount(
+      plan.allElectricDiscount,
+      input.usage.allElectricDiscount,
+      baseCharge.plus(energySubtotal)
+    );
 
     const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
     const levyCharge = applyRounding(
@@ -495,6 +505,183 @@ export class BillingCalculator {
         notes: noUsage && plan.halveTotalWhenNoUsage ? ['使用量が0kWhのため請求額が半額です'] : []
       });
     });
+  }
+
+  /**
+   * ファミリータイムⅠ/Ⅱ。
+   * 出典: ④「ファミリーⅠ結果」「ファミリーⅡ結果」
+   *   (1)(2) 基本料金 = 10kVAまで定額 + 超過分 × MAX(契約kVA-10, 0)
+   *   (4)〜(7) 電力量料金 = 各区分の単価 × 使用量
+   *   (9) 電化住宅割 = MAX((基本+電力量) × -8%, -3300)
+   *  (10) 燃調   = 単価 × 総使用量
+   *  (11) 賦課金 = 切り捨て(単価 × 総使用量)
+   *       電気料金 = 切り捨て((3)+(8)+(9)+(10)+(11))
+   */
+  private familyTime(input: CalculationInput, plan: FamilyTimePlan): BillResult {
+    const kva = this.requireContract(input.usage.contractKva, 'ご契約電力', 'kVA');
+    if (!kva.ok) return kva.result;
+
+    const raw = input.usage.familyTime;
+    if (!raw) {
+      return unsupported('時間帯別のご使用量が入力されていません', [
+        '検針票のデイタイム・ファミリータイム・ナイトタイムのご使用量を入力してください'
+      ]);
+    }
+
+    const bands: FamilyBand[] = ['daySummer', 'dayOther', 'family', 'night'];
+    const amounts: Record<string, Decimal> = {};
+    for (const band of bands) {
+      const v = raw[band] ?? 0;
+      const check = validateUsageKwh(v);
+      if (!check.valid) {
+        return unsupported(`${FAMILY_BAND_LABEL[band]}: ${check.reason}`, [
+          '0 以上の数値を入力してください'
+        ]);
+      }
+      amounts[band] = new Decimal(v);
+    }
+
+    const usage = bands.reduce((a, b) => a.plus(amounts[b]), new Decimal('0'));
+    const overKva = Decimal.max(kva.value.minus(TOU_BASE_INCLUDED_KW), 0);
+    const baseCharge = plan.baseChargeUpTo10Kva.plus(plan.baseChargePerKvaOver10.times(overKva));
+
+    const lines: ChargeLine[] = bands.map(band => ({
+      label: FAMILY_BAND_LABEL[band],
+      quantity: amounts[band],
+      unit: 'kWh',
+      unitPrice: plan.unitPrices[band],
+      amount: plan.unitPrices[band].times(amounts[band])
+    }));
+    const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
+
+    const { discount, notes } = this.allElectricDiscount(
+      plan.allElectricDiscount,
+      input.usage.allElectricDiscount,
+      baseCharge.plus(energySubtotal)
+    );
+
+    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const levyCharge = applyRounding(
+      input.renewableLevy.unitPriceYenPerKwh.times(usage),
+      plan.rounding.levySubtotal
+    );
+    const total = applyRounding(
+      baseCharge.plus(energySubtotal).plus(discount).plus(fuelCharge).plus(levyCharge),
+      plan.rounding.finalTotal
+    );
+
+    return {
+      status: 'ok',
+      bill: this.assemble(plan, {
+        baseCharge,
+        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toFixed(0)}kVA超過分`}）`,
+        lines,
+        energySubtotal,
+        energyChargeTotal: baseCharge.plus(energySubtotal),
+        discount,
+        fuelCharge,
+        levyCharge,
+        totalKwh: usage,
+        total,
+        notes
+      })
+    };
+  }
+
+  /**
+   * 時間帯別電灯（エコノミーナイト）。
+   * 出典: ④「時間帯別結果」
+   *   昼間時間だけが 0kWh 起点の 3 段階、夜間は一律単価。
+   */
+  private economyNight(input: CalculationInput, plan: EconomyNightPlan): BillResult {
+    const kva = this.requireContract(input.usage.contractKva, 'ご契約電力', 'kVA');
+    if (!kva.ok) return kva.result;
+
+    const raw = input.usage.economyNight;
+    if (!raw) {
+      return unsupported('昼間・夜間のご使用量が入力されていません', [
+        '検針票の昼間時間・夜間時間のご使用量を入力してください'
+      ]);
+    }
+    for (const [label, v] of [
+      ['昼間時間のご使用量', raw.dayKwh],
+      ['夜間時間のご使用量', raw.nightKwh]
+    ] as const) {
+      const check = validateUsageKwh(v);
+      if (!check.valid) return unsupported(`${label}: ${check.reason}`, ['0 以上の数値を入力してください']);
+    }
+
+    const day = new Decimal(raw.dayKwh);
+    const night = new Decimal(raw.nightKwh);
+    const usage = day.plus(night);
+    const overKva = Decimal.max(kva.value.minus(TOU_BASE_INCLUDED_KW), 0);
+    const baseCharge = plan.baseChargeUpTo10Kva.plus(plan.baseChargePerKvaOver10.times(overKva));
+
+    const lines: ChargeLine[] = [];
+    for (const tier of plan.dayTiers) {
+      const kwh =
+        tier.endKwh === null
+          ? Decimal.max(day.minus(tier.startKwh), 0)
+          : Decimal.max(Decimal.min(day, tier.endKwh).minus(tier.startKwh), 0);
+      lines.push({
+        label: `昼間時間 第${tier.tierNumber}段階`,
+        quantity: kwh,
+        unit: 'kWh',
+        unitPrice: tier.unitPriceYenPerKwh,
+        amount: tier.unitPriceYenPerKwh.times(kwh)
+      });
+    }
+    lines.push({
+      label: '夜間時間',
+      quantity: night,
+      unit: 'kWh',
+      unitPrice: plan.nightUnitPriceYenPerKwh,
+      amount: plan.nightUnitPriceYenPerKwh.times(night)
+    });
+    const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
+
+    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const levyCharge = applyRounding(
+      input.renewableLevy.unitPriceYenPerKwh.times(usage),
+      plan.rounding.levySubtotal
+    );
+    const total = applyRounding(
+      baseCharge.plus(energySubtotal).plus(fuelCharge).plus(levyCharge),
+      plan.rounding.finalTotal
+    );
+
+    return {
+      status: 'ok',
+      bill: this.assemble(plan, {
+        baseCharge,
+        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toFixed(0)}kVA超過分`}）`,
+        lines,
+        energySubtotal,
+        energyChargeTotal: baseCharge.plus(energySubtotal),
+        discount: new Decimal('0'),
+        fuelCharge,
+        levyCharge,
+        totalKwh: usage,
+        total,
+        notes: []
+      })
+    };
+  }
+
+  /** 電化住宅割。定率割引を上限額でクリップする（④結果シート H15）。 */
+  private allElectricDiscount(
+    terms: { rate: Decimal; capYen: Decimal } | null,
+    applied: boolean | undefined,
+    baseAndEnergy: Decimal
+  ): { discount: Decimal; notes: string[] } {
+    if (!terms || !applied) return { discount: new Decimal('0'), notes: [] };
+    const raw = baseAndEnergy.times(terms.rate).negated();
+    return {
+      discount: Decimal.max(raw, terms.capYen.negated()),
+      notes: [
+        `電化住宅割 ${terms.rate.times(100).toFixed(0)}%（上限 ${terms.capYen.toFixed(0)}円）を適用`
+      ]
+    };
   }
 
   private assemble(
