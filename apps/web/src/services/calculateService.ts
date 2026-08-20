@@ -297,18 +297,9 @@ function deriveCandidateUsage(
       new Decimal(f.daySummer ?? 0).plus(f.dayOther ?? 0).plus(f.family ?? 0).plus(f.night ?? 0)
     )
     if (!check.ok) return check
-    return {
-      ok: true,
-      usage: {
-        contractKw,
-        tou: {
-          daySummer: bands.daySummer.toNumber(),
-          dayOther: bands.dayOther.toNumber(),
-          night: bands.night.toNumber(),
-          holiday: bands.holiday.toNumber()
-        }
-      }
-    }
+    // Decimal のまま渡す。number に落とすと丸め誤差が入り、
+    // 賦課金の切り捨てが1円ずれる（CLAUDE.md ルール2）
+    return { ok: true, usage: { contractKw, tou: bands } }
   }
 
   const e = usage.economyNight
@@ -326,18 +317,7 @@ function deriveCandidateUsage(
   ).bands
   const check = checkAllocation(bands, new Decimal(e.dayKwh).plus(e.nightKwh))
   if (!check.ok) return check
-  return {
-    ok: true,
-    usage: {
-      contractKw,
-      tou: {
-        daySummer: bands.daySummer.toNumber(),
-        dayOther: bands.dayOther.toNumber(),
-        night: bands.night.toNumber(),
-        holiday: bands.holiday.toNumber()
-      }
-    }
-  }
+  return { ok: true, usage: { contractKw, tou: bands } }
 }
 
 export function formatCurrency(amountYen: number): string {

@@ -5,7 +5,16 @@ export interface ValidationResult {
   reason: string;
 }
 
-export function validateUsageKwh(usage: number): ValidationResult {
+export function validateUsageKwh(usage: number | Decimal): ValidationResult {
+  if (usage instanceof Decimal) {
+    if (!usage.isFinite()) {
+      return { valid: false, reason: 'ご使用量が有効な数値ではありません' };
+    }
+    if (usage.isNegative()) {
+      return { valid: false, reason: 'ご使用量に負の値は指定できません' };
+    }
+    return { valid: true, reason: '' };
+  }
   if (typeof usage !== 'number' || Number.isNaN(usage)) {
     return { valid: false, reason: 'ご使用量が数値として認識できません' };
   }

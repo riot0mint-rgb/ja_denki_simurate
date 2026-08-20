@@ -228,6 +228,7 @@ export class BillingCalculator {
       levyCharge,
       totalKwh: usage,
       total,
+      minimumApplied: applied,
       notes: applied
         ? [
             `従量料金と燃料費調整額の合計が最低月額料金 ${plan.minimumMonthlyThreshold.toFixed(2)}円 に満たないため、${plan.minimumMonthlyBill.toFixed(0)}円 を適用しました`
@@ -513,6 +514,7 @@ export class BillingCalculator {
         levyCharge,
         totalKwh: usage,
         total,
+        minimumApplied,
         notes
       })
     };
@@ -779,6 +781,8 @@ export class BillingCalculator {
       totalKwh: Decimal;
       total: Decimal;
       notes: string[];
+      /** 最低月額料金で請求額を置き換えたか。内訳の書き方が変わる */
+      minimumApplied?: boolean;
     }
   ): MonthlyBill {
     const usedLines = parts.lines.filter(l => l.quantity === null || l.quantity.greaterThan(0));
@@ -791,13 +795,21 @@ export class BillingCalculator {
       )
       .join(' + ');
 
+    // 最低月額料金を適用した月は、内訳を足しても請求額にならない。
+    // 紙に出す以上、足し算が合わない表を出さずに置き換えを明示する
+    const tail = parts.minimumApplied
+      ? [`最低月額料金を適用: ${parts.total.toFixed(0)}円`]
+      : [
+          `再エネ賦課金: ${parts.levyCharge.toDecimalPlaces(2).toString()}円`,
+          `合計: ${parts.total.toFixed(2)}円`
+        ];
+
     const formula = [
       `${parts.baseLabel}: ${parts.baseCharge.toFixed(2)}円`,
       desc || '電力量料金: 0円',
       ...(parts.discount.isZero() ? [] : [`割引: ${parts.discount.toFixed(2)}円`]),
       `燃料費調整額: ${parts.fuelCharge.toFixed(2)}円`,
-      `再エネ賦課金: ${parts.levyCharge.toDecimalPlaces(2).toString()}円`,
-      `合計: ${parts.total.toFixed(2)}円`
+      ...tail
     ].join(' → ');
 
     return {

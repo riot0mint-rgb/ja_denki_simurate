@@ -43,8 +43,15 @@ export default function App() {
     <div className="app">
       {applyUpdate && <UpdateBanner onApply={applyUpdate} />}
       {currentPage === 'home' && <Home onStartInput={() => setCurrentPage('input')} />}
-      {currentPage === 'input' && (
-        <ManualInput onComplete={handleInputComplete} onBack={() => setCurrentPage('home')} />
+      {/*
+        入力画面はいったん開いたら畳まずに隠しておく。条件を変えて試算し直すたびに
+        プラン・検針月・検針期間・契約容量・各時間帯の入力が消えると、
+        お客様の前で全部打ち直すことになる。
+      */}
+      {currentPage !== 'home' && (
+        <div style={currentPage === 'input' ? undefined : { display: 'none' }}>
+          <ManualInput onComplete={handleInputComplete} onBack={() => setCurrentPage('home')} />
+        </div>
       )}
       {currentPage === 'result' && (
         <ComparisonResult

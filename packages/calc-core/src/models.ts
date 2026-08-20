@@ -202,6 +202,12 @@ export type RatePlan =
   | EconomyNightPlan;
 
 /**
+ * 使用量。利用者の入力は number、振替で算出した値は Decimal で渡る。
+ * Decimal を number に落とすと丸め誤差が入るため、そのまま受け取れるようにしてある。
+ */
+export type UsageAmount = number | Decimal;
+
+/**
  * 使用量の入力。プラン構造によって必要な項目が異なるため、
  * 足りない項目があれば計算せず unsupported を返す。
  */
@@ -210,12 +216,15 @@ export interface UsageInput {
   totalKwh?: number;
   /** 低圧電力の季節別使用量 */
   seasonal?: { summerKwh: number; otherKwh: number };
-  /** 時間帯別使用量 */
-  tou?: Partial<Record<TouBand, number>>;
+  /**
+   * 時間帯別使用量。振替で算出した値は Decimal のまま渡せる。
+   * number に落とすと丸め誤差が入り、賦課金の切り捨てが1円ずれる（ルール2）。
+   */
+  tou?: Partial<Record<TouBand, UsageAmount>>;
   /** ファミリータイムの時間帯別使用量 */
-  familyTime?: Partial<Record<FamilyBand, number>>;
+  familyTime?: Partial<Record<FamilyBand, UsageAmount>>;
   /** 時間帯別電灯の昼間・夜間使用量 */
-  economyNight?: { dayKwh: number; nightKwh: number };
+  economyNight?: { dayKwh: UsageAmount; nightKwh: UsageAmount };
   /** 検針期間の日数内訳。夜トクへの時間帯振替に使う。 */
   calendar?: CalendarInput;
   /** 契約電力 kW（低圧電力・時間帯別・深夜電力B） */

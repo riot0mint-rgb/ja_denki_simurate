@@ -18,6 +18,7 @@ export {
   FamilyTimePlan,
   EconomyNightPlan,
   RatePlan,
+  UsageAmount,
   UsageInput,
   CalculationInput,
   ChargeLine,

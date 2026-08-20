@@ -118,3 +118,25 @@ describe('decimal-config', () => {
     expect(new Decimal('0.1').plus('0.2').equals('0.3')).toBe(true);
   });
 });
+
+describe('使用量の検証（Decimal で渡された場合）', () => {
+  // 振替で算出した使用量は number に落とさず Decimal のまま渡る（ルール2）
+  it('正の値と0を受け入れる', () => {
+    expect(validateUsageKwh(new Decimal('348.75')).valid).toBe(true);
+    expect(validateUsageKwh(new Decimal('0')).valid).toBe(true);
+  });
+
+  it('負の値を弾く', () => {
+    const r = validateUsageKwh(new Decimal('-0.01'));
+    expect(r.valid).toBe(false);
+    expect(r.reason).toContain('負の値');
+  });
+
+  it('NaN・無限大を弾く', () => {
+    for (const v of [new Decimal(NaN), new Decimal(Infinity), new Decimal(-Infinity)]) {
+      const r = validateUsageKwh(v);
+      expect(r.valid).toBe(false);
+      expect(r.reason).toContain('有効な数値ではありません');
+    }
+  });
+});
