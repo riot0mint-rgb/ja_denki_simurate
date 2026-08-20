@@ -119,6 +119,20 @@ describe('decimal-config', () => {
   });
 });
 
+describe('金額の表示と負のゼロ', () => {
+  // ROUND_DOWN は -0.5 を -0 にする。isNegative() だと「-￥0」と出る
+  it('0円未満の端数を -￥0 と出さない', () => {
+    expect(formatCurrency(new Decimal('-0.5'))).toBe('￥0');
+    expect(formatCurrency(new Decimal('-0.99'))).toBe('￥0');
+    expect(formatCurrency(new Decimal('0'))).toBe('￥0');
+  });
+
+  it('本当に負の金額には符号を付ける', () => {
+    expect(formatCurrency(new Decimal('-1'))).toBe('-￥1');
+    expect(formatCurrency(new Decimal('-1234.5'))).toBe('-￥1,234');
+  });
+});
+
 describe('使用量の検証（Decimal で渡された場合）', () => {
   // 振替で算出した使用量は number に落とさず Decimal のまま渡る（ルール2）
   it('正の値と0を受け入れる', () => {

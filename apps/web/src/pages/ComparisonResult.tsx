@@ -105,14 +105,14 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           </p>
           <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border, #ddd)' }}>
+              <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ textAlign: 'left', padding: '8px 4px' }}>プラン</th>
                 <th style={{ textAlign: 'right', padding: '8px 4px' }}>月額</th>
                 <th style={{ textAlign: 'right', padding: '8px 4px' }}>差額</th>
               </tr>
             </thead>
             <tbody>
-              <tr style={{ borderBottom: '1px solid var(--border, #eee)' }}>
+              <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ padding: '8px 4px' }}>{v.current.planName}（現在）</td>
                 <td style={{ textAlign: 'right', padding: '8px 4px', fontWeight: 'bold' }}>
                   {formatCurrency(v.current.monthlyChargeYen)}
@@ -125,7 +125,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
                 // 現行より高いことがある。
                 const rec = c.planId === v.recommended.planId && isSaving
                 return (
-                  <tr key={c.planId} style={{ borderBottom: '1px solid var(--border, #eee)' }}>
+                  <tr key={c.planId} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td style={{ padding: '8px 4px', fontWeight: rec ? 'bold' : 'normal' }}>
                       {c.planName}{rec ? '  ★推奨' : ''}
                     </td>
@@ -135,9 +135,17 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
                     <td style={{
                       textAlign: 'right',
                       padding: '8px 4px',
-                      color: c.monthlySavingsYen > 0 ? '#16a34a' : '#dc2626'
+                      color:
+                        c.monthlySavingsYen > 0
+                          ? '#16a34a'
+                          : c.monthlySavingsYen < 0
+                            ? '#dc2626'
+                            : 'var(--text-secondary)'
                     }}>
-                      {c.monthlySavingsYen > 0 ? '−' : '+'}{formatCurrency(Math.abs(c.monthlySavingsYen))}
+                      {/* 同額のときに「+￥0」を赤で出すと、高くなったように読める */}
+                      {c.monthlySavingsYen === 0
+                        ? '同額'
+                        : `${c.monthlySavingsYen > 0 ? '−' : '+'}${formatCurrency(Math.abs(c.monthlySavingsYen))}`}
                     </td>
                   </tr>
                 )

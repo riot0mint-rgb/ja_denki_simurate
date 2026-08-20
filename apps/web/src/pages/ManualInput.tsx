@@ -51,7 +51,7 @@ const numberFieldStyle: React.CSSProperties = {
 const chipStyle = (active: boolean): React.CSSProperties => ({
   padding: '10px 16px',
   borderRadius: '999px',
-  border: active ? '2px solid #2d9d78' : '1px solid var(--border, #ccc)',
+  border: active ? '2px solid #2d9d78' : '1px solid var(--border-color)',
   background: active ? 'rgba(45,157,120,0.12)' : 'transparent',
   color: 'inherit',
   fontWeight: active ? 700 : 400,

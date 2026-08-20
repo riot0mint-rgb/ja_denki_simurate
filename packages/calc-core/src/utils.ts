@@ -36,7 +36,8 @@ export function validateUsageKwh(usage: number | Decimal): ValidationResult {
  */
 export function formatCurrency(amount: Decimal): string {
   const rounded = amount.toDecimalPlaces(0, Decimal.ROUND_DOWN);
-  const negative = rounded.isNegative();
+  // isNegative() は負のゼロでも true。-0.5 が「-￥0」と出てしまう
+  const negative = rounded.lessThan(0);
   const digits = rounded.abs().toFixed(0);
   const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return `${negative ? '-' : ''}￥${grouped}`;

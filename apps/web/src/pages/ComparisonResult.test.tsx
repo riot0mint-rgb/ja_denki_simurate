@@ -31,6 +31,15 @@ describe('結果画面', () => {
     expect(within(table).getByText(/★推奨/)).toBeInTheDocument()
   })
 
+  // 同額なのに「+￥0」を赤で出すと、高くなったように読める
+  it('同額の候補は「同額」と出す', () => {
+    // 0〜15kWh は中国電力もJAでんきも最低料金だけで同額になる
+    show('chugoku_juryo_a', { totalKwh: 10 })
+    const table = screen.getByRole('table')
+    expect(within(table).getAllByText('同額').length).toBeGreaterThan(0)
+    expect(within(table).queryByText('+￥0')).not.toBeInTheDocument()
+  })
+
   it('内訳を開くと計算式と出典が見える（CLAUDE.md ルール4）', async () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
     await userEvent.click(screen.getByText('計算の内訳を表示'))

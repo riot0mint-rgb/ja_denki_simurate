@@ -313,6 +313,26 @@ function checkAllocation(
 }
 
 /**
+ * 振替後の使用量を組み立てる。
+ *
+ * 時間帯の区分は入れ替わるが、**使用量以外の条件は乗り換え先にも引き継ぐ**。
+ * 一から組み立て直すと、候補プランが新しい割引を持った瞬間に黙って落ちる。
+ * 一方で familyTime / economyNight をそのまま持ち越すと、候補が
+ * ファミリー系だった場合に振替前の区分で計算してしまうので渡さない。
+ */
+function candidateUsageOf(
+  usage: UsageInput,
+  contractKw: number | undefined,
+  bands: Record<string, Decimal>
+): UsageInput {
+  return {
+    contractKw,
+    tou: bands,
+    allElectricDiscount: usage.allElectricDiscount
+  }
+}
+
+/**
  * 乗り換え先に渡す使用量を作る。旧プランと夜トクプランでは時間帯の区分が
  * 違うため、④の各結果シートと同じ式で振り替える。
  */
@@ -380,7 +400,7 @@ function deriveCandidateUsage(
     if (!check.ok) return check
     // Decimal のまま渡す。number に落とすと丸め誤差が入り、
     // 賦課金の切り捨てが1円ずれる（CLAUDE.md ルール2）
-    return { ok: true, usage: { contractKw, tou: bands } }
+    return { ok: true, usage: candidateUsageOf(usage, contractKw, bands) }
   }
 
   const e = usage.economyNight
@@ -398,7 +418,9 @@ function deriveCandidateUsage(
   ).bands
   const check = checkAllocation(bands, new Decimal(e.dayKwh).plus(e.nightKwh))
   if (!check.ok) return check
-  return { ok: true, usage: { contractKw, tou: bands } }
+  // 使用量以外の条件（電化住宅割など）は乗り換え先にも引き継ぐ。
+    // 組み立て直すと、候補が新しい割引を持った瞬間に黙って落ちる
+    return { ok: true, usage: { ...usage, contractKw, tou: bands } }
 }
 
 export function formatCurrency(amountYen: number): string {
