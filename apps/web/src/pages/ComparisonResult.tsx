@@ -21,6 +21,13 @@ const cardStyle: React.CSSProperties = {
   marginBottom: '20px'
 }
 
+const gasSetOnLabel = `あり（月${GAS_SET_DISCOUNT_YEN}円割引）`
+
+const GAS_SET_OPTIONS: ReadonlyArray<{ value: boolean; label: string }> = [
+  { value: false, label: 'なし' },
+  { value: true, label: gasSetOnLabel }
+]
+
 /**
  * 印刷（PDF保存）。営業がその場でお客様に渡せるように、内訳と出典まで含めて出す。
  *
@@ -96,9 +103,20 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           <p style={{ fontSize: '14px', opacity: 0.9 }}>
             年間{isSavingAnnually ? '削減額' : '増加額'}: {formatCurrency(Math.abs(v.annualSavingsYen))}
           </p>
+          {/* 負けている試算を「初年度合計: -￥5,000」と出すと、合計が得だと読み違える。
+              負担増は負担増と書く */}
           <p style={{ fontSize: '12px', opacity: 0.85, marginTop: '10px' }}>
-            初年度合計（新規契約割引 {formatCurrency(v.firstYearSpecialDiscountYen)} 含む）:{' '}
-            {formatCurrency(v.firstYearSavingsYen)}
+            {v.firstYearSavingsYen >= 0 ? (
+              <>
+                初年度合計（新規契約割引 {formatCurrency(v.firstYearSpecialDiscountYen)} 含む）:{' '}
+                {formatCurrency(v.firstYearSavingsYen)}
+              </>
+            ) : (
+              <>
+                新規契約割引 {formatCurrency(v.firstYearSpecialDiscountYen)} を含めても、
+                初年度は {formatCurrency(Math.abs(v.firstYearSavingsYen))} の負担増
+              </>
+            )}
           </p>
         </div>
 
@@ -177,12 +195,43 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           </p>
         </div>
 
-        <div style={cardStyle} className={gasSet ? undefined : 'print-hide'}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-            <input type="checkbox" checked={gasSet} onChange={e => setGasSet(e.target.checked)} />
-            <span>ガスとでんきのセット割を適用する（月{GAS_SET_DISCOUNT_YEN}円）</span>
-          </label>
+        {/* チェックボックスだと「入れ忘れ」と「なしと判断した」が画面上で同じに見える。
+            あり／なしを明示的に選ばせる。既定は「なし」——既定を「あり」にすると、
+            セット割に入っていないお客様に割引後の額を見せてしまう */}
+        <div style={cardStyle} className="print-hide">
+          <p style={{ fontWeight: 'bold', marginBottom: '4px' }}>ガスとでんきのセット割</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+            JAのガスとあわせてご契約の場合、電気料金が月{GAS_SET_DISCOUNT_YEN}円割引になります。
+          </p>
+          <div
+            role="radiogroup"
+            aria-label="ガスとでんきのセット割"
+            style={{ display: 'flex', gap: '20px' }}
+          >
+            {GAS_SET_OPTIONS.map(o => (
+              <label
+                key={o.label}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              >
+                <input
+                  type="radio"
+                  name="gas-set-discount"
+                  checked={gasSet === o.value}
+                  onChange={() => setGasSet(o.value)}
+                />
+                <span>{o.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
+
+        {/* 年額・初年度額はこの選択を含んでいる。紙にも選んだ側を必ず残す */}
+        <p
+          className="print-only"
+          style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}
+        >
+          ガスとでんきのセット割: {gasSet ? gasSetOnLabel : 'なし'}
+        </p>
 
         <details
           style={cardStyle}

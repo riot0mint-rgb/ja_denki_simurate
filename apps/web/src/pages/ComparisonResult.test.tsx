@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ComparisonResult from './ComparisonResult'
+import { GAS_SET_DISCOUNT_YEN } from '../services/calculateService'
 
 const JULY = { year: 2026, month: 7 }
 
@@ -59,7 +60,7 @@ describe('結果画面', () => {
   it('ガスセット割を入れると年額が増える', async () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
     const annualBefore = screen.getByText(/年間削減額/).textContent
-    await userEvent.click(screen.getByRole('checkbox', { name: /ガスとでんきのセット割/ }))
+    await userEvent.click(screen.getByRole('radio', { name: /^あり/ }))
     expect(screen.getByText(/年間削減額/).textContent).not.toBe(annualBefore)
   })
 
@@ -86,7 +87,7 @@ describe('年額のラベルは年額の符号で決める', () => {
     show('chugoku_night_holiday', { contractKw: 6, tou: { night: 430 } })
     expect(screen.getByText(/年間増加額/)).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('checkbox', { name: /ガスとでんきのセット割/ }))
+    await userEvent.click(screen.getByRole('radio', { name: /^あり/ }))
     expect(screen.getByText(/年間削減額/)).toBeInTheDocument()
     // 月額の見出しは月額のまま（現在の方が安い）
     expect(screen.getByText('毎月の差額（現在の方が安い）')).toBeInTheDocument()
@@ -165,5 +166,74 @@ describe('結果画面（つづき）', () => {
       />
     )
     expect(screen.getByText(/単価の適用開始より前のため、実際の請求額とは異なります/)).toBeInTheDocument()
+  })
+})
+
+// 「入れ忘れ」と「なしと判断した」がチェックボックスでは区別できない。
+// あり／なしを明示的に選ばせる（営業判断・2026-08-20）
+describe('ガスセット割はあり／なしを選ぶ', () => {
+  it('既定は「なし」が選ばれている', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    expect(screen.getByRole('radio', { name: 'なし' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: /^あり/ })).not.toBeChecked()
+  })
+
+  it('「あり」に切り替えると月額の割引額がラベルに出る', async () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const on = screen.getByRole('radio', { name: /^あり/ })
+    expect(on).toHaveAccessibleName(`あり（月${GAS_SET_DISCOUNT_YEN}円割引）`)
+    await userEvent.click(on)
+    expect(on).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'なし' })).not.toBeChecked()
+  })
+
+  // 年額はこの選択を含む。紙に残らないと、あとから額の根拠が追えない
+  it('選んだ側を紙に残す', async () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const line = screen.getByText(/ガスとでんきのセット割:/)
+    expect(line).toHaveClass('print-only')
+    expect(line.textContent).toContain('なし')
+
+    await userEvent.click(screen.getByRole('radio', { name: /^あり/ }))
+    expect(screen.getByText(/ガスとでんきのセット割:/).textContent).toContain(
+      `あり（月${GAS_SET_DISCOUNT_YEN}円割引）`
+    )
+  })
+})
+
+// 安くならない試算も隠さず、そのまま出す（営業判断・2026-08-20）
+describe('安くならないときも正直に出す', () => {
+  it('JAでんきが高いシナリオでも比較表と金額をそのまま出す', () => {
+    show('au_m_plan', { totalKwh: 348 })
+    const table = screen.getByRole('table')
+    expect(within(table).getByText(/auでんき/)).toBeInTheDocument()
+    expect(within(table).getAllByText(/JAでんき/).length).toBeGreaterThan(0)
+    // 高い側は「+」付きで出す。伏せない
+    expect(within(table).getAllByText(/^\+￥/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/現在のご契約のご継続をおすすめします/)).toBeInTheDocument()
+  })
+
+  it('高いプランを「★推奨」と出さない', () => {
+    show('au_m_plan', { totalKwh: 348 })
+    expect(screen.queryByText(/★推奨/)).not.toBeInTheDocument()
+  })
+
+  // 「初年度合計: -￥5,000」は、合計が得だと読み違える
+  it('初年度も負担増なら、負担増と書く', () => {
+    show('au_m_plan', { totalKwh: 348 })
+    expect(screen.getByText(/初年度は .* の負担増/)).toBeInTheDocument()
+    expect(screen.queryByText(/初年度合計/)).not.toBeInTheDocument()
+  })
+})
+
+// 最低月額料金や基本料金半額のような「そのままでは読み取れない適用」は
+// 内訳に ※ で必ず出す。伏せると請求額と食い違って見える
+describe('適用した特例は内訳に出す', () => {
+  it('最低月額料金を当てたら、その旨を注記する', async () => {
+    show('chugoku_simple', { totalKwh: 0 })
+    await userEvent.click(screen.getByText('計算の内訳を表示'))
+    const note = screen.getByText(/に満たないため/)
+    expect(note.textContent).toContain('※')
+    expect(note.textContent).toContain('最低月額料金 1844.70円')
   })
 })
