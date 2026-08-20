@@ -66,6 +66,46 @@ export interface FamilyTimeUsage {
  *   補正               = (上記3つの合計 - 全体) / 2 を デイタイム・ナイトから差し引く
  *   デイタイムは元の夏季／その他季の比率で振り分ける
  */
+/**
+ * 4 区分の合計を総使用量に厳密に一致させる。
+ *
+ * 按分の途中に除算が入るため、そのまま足すと有効桁の丸めで 1e-25 ほどずれる。
+ * 再エネ賦課金は円未満切り捨てなので、その端数だけで **1円安くなる**。
+ * しかも必ず乗り換え先が安くなる方向に出るので、削減額が過大に見える。
+ *
+ * そこで各区分を kWh の小数10桁に丸めたうえで、最後の 1 区分を
+ * 「総使用量から残りを引いた値」として求める。10桁は検針票の分解能
+ * （1kWh 単位）よりはるかに細かく、金額への影響は 0.0001 円未満。
+ * 丸めた値どうしの引き算になるので合計は厳密に一致する。
+ *
+ * **ただし丸め誤差の範囲を超えるずれは吸収しない。** ④の按分式には
+ * デイタイムが両季とも0のとき使用量がまるごと落ちる欠陥があり（S8 = IF(Q8=0,0,...)）、
+ * それを黙って夜間に付け替えると、元資料に無い配分をしたうえに
+ * 呼び出し側の「合計が総使用量に戻るか」の検査もすり抜けてしまう。
+ * 誤差を超えるずれは式の値をそのまま返し、上位で計算不可として止めさせる。
+ */
+const BAND_SCALE = 10;
+
+/** ここまでは有効桁の丸め由来とみなす（kWh） */
+const ROUNDING_NOISE = new Decimal('1e-6');
+
+function settleBands(
+  total: Decimal,
+  parts: { daySummer: Decimal; dayOther: Decimal; holiday: Decimal; night: Decimal }
+): TouAllocation {
+  const daySummer = parts.daySummer.toDecimalPlaces(BAND_SCALE);
+  const dayOther = parts.dayOther.toDecimalPlaces(BAND_SCALE);
+  const holiday = parts.holiday.toDecimalPlaces(BAND_SCALE);
+  const nightAsRemainder = total.minus(daySummer).minus(dayOther).minus(holiday);
+  const drift = nightAsRemainder.minus(parts.night).abs();
+  return {
+    daySummer,
+    dayOther,
+    holiday,
+    night: drift.lessThanOrEqualTo(ROUNDING_NOISE) ? nightAsRemainder : parts.night
+  };
+}
+
 export function allocateFromFamilyTime(
   usage: FamilyTimeUsage,
   calendar: CalendarInput
@@ -95,20 +135,27 @@ export function allocateFromFamilyTime(
   const day = dayWeekday.minus(correction);
   const night = nightWeekday.minus(correction);
 
+  // 4 区分の合計は総使用量に一致していなければならない。式の上では一致するが、
+  // Decimal の演算結果は有効桁で丸められるため、そのまま足すと 1e-25 ほど足りない
+  // ことがある。再エネ賦課金は円未満切り捨てなので、その端数だけで
+  // **1円安くなる**（しかも必ず乗り換え先が安くなる方向）。
+  // 最後の 1 区分を「総使用量から残りを引いた値」として求め、合計を厳密に合わせる。
+  // 値そのものは式で求めた night と同じ（algebraically identical）。
   return {
-    bands: {
+    bands: settleBands(total, {
       daySummer: day.times(summerShare),
       dayOther: day.times(otherShare),
-      night,
-      holiday
-    },
+      holiday,
+      night
+    }),
     steps: [
       { label: '平日数', value: weekdayCount },
       { label: '平日割合', value: weekdayRatio },
       { label: 'デイタイム平日換算', value: dayWeekday },
       { label: 'ナイトタイム平日換算', value: nightWeekday },
       { label: 'ホリデータイム', value: holiday },
-      { label: '補正', value: correction }
+      { label: '補正', value: correction },
+      { label: 'ナイトタイム（式による値）', value: night }
     ]
   };
 }
@@ -149,20 +196,25 @@ export function allocateFromEconomyNight(
 
   const dayTotal = dayConverted;
   const summer = summerPortion(dayTotal, calendar, month, days);
+  const dayOther = dayTotal.minus(summer);
+  const holiday = holidayConverted.plus(remainderWeekend);
 
+  // ファミリー側と同じ理由で、最後の 1 区分を残りから求めて合計を厳密に合わせる。
+  // 値は nightConverted + remainderWeekday と同じ
   return {
-    bands: {
+    bands: settleBands(total, {
       daySummer: summer,
-      dayOther: dayTotal.minus(summer),
-      night: nightConverted.plus(remainderWeekday),
-      holiday: holidayConverted.plus(remainderWeekend)
-    },
+      dayOther,
+      holiday,
+      night: nightConverted.plus(remainderWeekday)
+    }),
     steps: [
       { label: '平日数', value: weekdayCount },
       { label: '休日換算', value: holidayConverted },
       { label: 'デイタイム平日換算', value: dayConverted },
       { label: 'ナイトタイム平日換算', value: nightConverted },
-      { label: '按分の余り', value: remainder }
+      { label: '按分の余り', value: remainder },
+      { label: 'ナイトタイム（式による値）', value: nightConverted.plus(remainderWeekday) }
     ]
   };
 }

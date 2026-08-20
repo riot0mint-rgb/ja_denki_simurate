@@ -181,6 +181,11 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
     periodDays !== null &&
     periodDays.days > 0 &&
     periodDays.days - periodDays.weekendDays - periodDays.holidayDays >= 0
+  // 夏季／その他季の按分だけは日付から数える（月をまたぐ日数が要るため）。
+  // 日数は手で直せるので、直した値と日付の期間がずれることがある。
+  // どちらが正しいかは決められないので、ずれていることを利用者に見せる
+  const spanDays = autoCounts?.days ?? null
+  const daysEdited = periodDays !== null && spanDays !== null && periodDays.days !== spanDays
   const calendar = calendarValid
     ? {
         ...periodDays!,
@@ -367,6 +372,12 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
                     ? `平日 ${periodDays!.days - periodDays!.weekendDays - periodDays!.holidayDays}日。検針票と違う場合は直接直してください`
                     : '日数の内訳が合いません。土日と祝日の合計が日数を超えています'}
                 </p>
+                {daysEdited && mixedSeason && (
+                  <p style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>
+                    日数（{periodDays!.days}日）と検針期間の日付（{spanDays}日）が違います。
+                    夏季とその他季の分け方は日付のほうから求めます。
+                  </p>
+                )}
               </>
             ) : (
               <p style={{ fontSize: '13px', marginTop: '10px', color: '#dc2626' }}>

@@ -49,6 +49,27 @@ describe('④時間帯別電灯 → 夜トクの按分（元資料の式を固�
     };
   };
 
+  // 有効桁の丸めで合計が 1e-25 ずれると、賦課金の切り捨てで1円安くなる。
+  // しかも必ず乗り換え先が安くなる方向に出る
+  it('合計は総使用量に厳密に一致する（丸め誤差も残さない）', () => {
+    for (const days of [28, 29, 30, 31]) {
+      for (const weekendDays of [8, 9, 10, 11]) {
+        for (const holidayUsageRatio of ['same', 'more', 'much_more'] as const) {
+          for (const [d, n] of [
+            [26, 174],
+            [123, 456],
+            [37, 163]
+          ]) {
+            const cal = calendar({ days, weekendDays, holidayDays: 2, holidayUsageRatio });
+            const { bands } = alloc(d, n, cal);
+            const sum = Object.values(bands).reduce((a, v) => a.plus(v), new Decimal('0'));
+            expect(sum.equals(d + n)).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
   it('4区分の合計は総使用量に戻る', () => {
     for (const [d, n] of [
       [200, 300],
