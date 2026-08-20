@@ -12,20 +12,22 @@ const STEPS = [
 export default function Home({ onStartInput }: HomeProps) {
   return (
     <main className="wrap">
-      <p className="eyebrow">中国電力・auでんき ↔ JAでんき</p>
-      <h1 className="page-title" style={{ fontSize: '26px', marginTop: '6px' }}>
-        いまの検針票から、<br />
-        年間いくら変わるかを出します。
-      </h1>
-      <p className="page-lead" style={{ marginTop: '10px' }}>
-        12種類のご契約プランに対応しています。入力した内容はこの端末から外に出ません。
-      </p>
+      <section className="card hero">
+        <p className="eyebrow">中国電力・auでんき ↔ JAでんき</p>
+        <h1 style={{ fontSize: '28px', margin: '12px 0 0', letterSpacing: '0.01em' }}>
+          いまの検針票から、
+          <br />
+          年間いくら変わるかを出します。
+        </h1>
+        <p className="note" style={{ marginTop: '12px', fontSize: '14px' }}>
+          12種類のご契約プランに対応しています。入力した内容はこの端末から外に出ません。
+        </p>
+        <button className="btn btn-gold btn-full" style={{ marginTop: '22px' }} onClick={onStartInput}>
+          検針票から試算する
+        </button>
+      </section>
 
-      <button className="btn btn-primary btn-full" onClick={onStartInput}>
-        検針票から試算する
-      </button>
-
-      <ol className="card section-gap" style={{ listStyle: 'none', display: 'grid', gap: '18px' }}>
+      <ol className="card" style={{ listStyle: 'none', display: 'grid', gap: '18px' }}>
         {STEPS.map(s => (
           <li key={s.n} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
             <span
@@ -53,7 +55,7 @@ export default function Home({ onStartInput }: HomeProps) {
         ))}
       </ol>
 
-      <div className="card" style={{ background: 'transparent', borderStyle: 'dashed' }}>
+      <div className="card" style={{ background: 'transparent' }}>
         <p className="card-title">この試算について</p>
         <ul className="note" style={{ paddingLeft: '18px', marginTop: '8px' }}>
           <li>単価はJAでんきの公式試算表から取り込み、すべて出典を表示します</li>

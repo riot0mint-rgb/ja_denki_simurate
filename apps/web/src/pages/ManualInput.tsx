@@ -105,14 +105,16 @@ function TotalBadge({ total }: { total: number }) {
 /** 入力中に出す差額。おトク・割高を色だけでなく語でも書く */
 function PreviewFigure({ label, yen, size }: { label: string; yen: number; size: number }) {
   const saving = yen >= 0
+  const text = formatCurrency(Math.abs(yen))
   return (
     <span style={{ whiteSpace: 'nowrap' }}>
       <span className="note" style={{ marginRight: '6px' }}>{label}</span>
       <strong
-        className="num"
-        style={{ fontSize: `${size}px`, color: saving ? 'var(--gain)' : 'var(--loss)' }}
+        className={`num ${saving ? 'figure-gain' : 'figure-loss'}`}
+        style={{ fontSize: `${size}px` }}
       >
-        {formatCurrency(Math.abs(yen))}
+        <span className="yen">{text.slice(0, 1)}</span>
+        {text.slice(1)}
       </strong>
       <span className="note" style={{ marginLeft: '4px' }}>{saving ? 'おトク' : '割高'}</span>
     </span>
@@ -610,7 +612,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         </div>
 
         {hasInput && preview.status === 'ok' && (
-          <div className="card" style={{ borderColor: 'var(--green)' }}>
+          <div className="card hero">
             <p className="eyebrow">この内容での試算</p>
             <p style={{ fontWeight: 700, marginTop: '4px' }}>{preview.view.recommended.planName}</p>
             <div

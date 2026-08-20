@@ -38,6 +38,17 @@ function usePrint(openDetails: (open: boolean) => void) {
   }
 }
 
+/** 通貨記号を一段小さく組む。数字を主役に見せるため */
+function BigMoney({ yen }: { yen: number }) {
+  const text = formatCurrency(Math.abs(yen))
+  return (
+    <>
+      <span className="yen">{text.slice(0, 1)}</span>
+      {text.slice(1)}
+    </>
+  )
+}
+
 /** 金額の向きを色だけで伝えない。必ず語を添える */
 function toneOf(yen: number): { className: string; word: string } {
   if (yen > 0) return { className: 'figure-gain', word: 'おトク' }
@@ -58,9 +69,22 @@ function CompareBars({
   candidateYen: number
 }) {
   const widest = Math.max(currentYen, candidateYen, 1)
+  const diff = currentYen - candidateYen
   const rows = [
-    { name: currentName, suffix: '（現在）', yen: currentYen, color: 'var(--line-strong)' },
-    { name: candidateName, suffix: '', yen: candidateYen, color: 'var(--green)' }
+    {
+      name: currentName,
+      suffix: '（現在）',
+      yen: currentYen,
+      color: 'rgba(244,241,230,0.45)',
+      chip: null as string | null
+    },
+    {
+      name: candidateName,
+      suffix: '',
+      yen: candidateYen,
+      color: 'var(--gold)',
+      chip: diff === 0 ? '同額' : `${diff > 0 ? '−' : '+'}${formatCurrency(Math.abs(diff))}`
+    }
   ]
   return (
     <div className="compare-bars">
@@ -70,7 +94,10 @@ function CompareBars({
             <span>{r.name}</span>
             {r.suffix}
           </span>
-          <span className="compare-amount num">{formatCurrency(r.yen)}</span>
+          <span className="compare-amount num">
+            {formatCurrency(r.yen)}
+            {r.chip && <span className="delta-chip" style={{ marginLeft: '8px' }}>{r.chip}</span>}
+          </span>
           <span className="compare-track">
             <span
               className="compare-fill"
@@ -217,7 +244,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
               {isSame ? '年間の料金は同額です' : `年間の想定${annualTone.word}額`}
             </p>
             <p className={`hero-figure ${annualTone.className}`}>
-              {formatCurrency(Math.abs(annualYen))}
+              <BigMoney yen={annualYen} />
             </p>
             <p className="note">
               <strong>{v.recommended.planName}</strong>
@@ -229,6 +256,18 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
                   : ''}
             </p>
 
+          </div>
+
+          <div>
+            <p className="eyebrow">年間の料金</p>
+            {annual && (
+              <CompareBars
+                currentName={v.current.planName}
+                currentYen={annual.currentYen}
+                candidateName={annual.planName}
+                candidateYen={annual.candidateYen - annual.gasSetDiscountYen}
+              />
+            )}
             <dl className="hero-figures">
               <div>
                 <dt className="note">月あたり</dt>
@@ -250,58 +289,44 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
               </div>
             </dl>
           </div>
-
-          <div>
-            <p className="eyebrow">年間の料金</p>
-            {annual && (
-              <CompareBars
-                currentName={v.current.planName}
-                currentYen={annual.currentYen}
-                candidateName={annual.planName}
-                candidateYen={annual.candidateYen - annual.gasSetDiscountYen}
-              />
-            )}
-          </div>
         </div>
       </section>
 
-      <div className="result-grid">
-        <div className="stack">
-          {annual && rollup && (
-            <section className="card">
-              <p className="card-title">月ごとの料金</p>
-              <p className="card-sub">
-                ご使用量が毎月 {v.totalKwh.toLocaleString()} kWh だとした場合。
-                燃料費調整額が毎月改定されるため、同じ使用量でも請求額は月ごとに動きます。
-              </p>
-              <MonthlyBars
-                months={annual.months}
-                currentName={v.current.planName}
-                candidateName={annual.planName}
-              />
-              {spread && (
-                <p className="note" style={{ marginTop: '10px' }}>
-                  {spread.min === spread.max ? (
-                    <>
-                      月ごとの差額はどの月も{' '}
-                      <strong className="num">{formatCurrency(Math.abs(spread.min))}</strong>
-                      {toneOf(spread.min).word}です。
-                    </>
-                  ) : (
-                    <>
-                      月ごとの差額は{' '}
-                      <strong className="num">{formatCurrency(Math.abs(spread.min))}</strong>
-                      {toneOf(spread.min).word} 〜{' '}
-                      <strong className="num">{formatCurrency(Math.abs(spread.max))}</strong>
-                      {toneOf(spread.max).word} の幅で動きます。
-                    </>
-                  )}
-                </p>
+      {annual && rollup && (
+        <section className="card">
+          <p className="card-title">月ごとの料金</p>
+          <p className="card-sub">
+            ご使用量が毎月 {v.totalKwh.toLocaleString()} kWh だとした場合。
+            燃料費調整額が毎月改定されるため、同じ使用量でも請求額は月ごとに動きます。
+          </p>
+          <MonthlyBars
+            months={annual.months}
+            currentName={v.current.planName}
+            candidateName={annual.planName}
+          />
+          {spread && (
+            <p className="note" style={{ marginTop: '10px' }}>
+              {spread.min === spread.max ? (
+                <>
+                  月ごとの差額はどの月も{' '}
+                  <strong className="num">{formatCurrency(Math.abs(spread.min))}</strong>
+                  {toneOf(spread.min).word}です。
+                </>
+              ) : (
+                <>
+                  月ごとの差額は{' '}
+                  <strong className="num">{formatCurrency(Math.abs(spread.min))}</strong>
+                  {toneOf(spread.min).word} 〜{' '}
+                  <strong className="num">{formatCurrency(Math.abs(spread.max))}</strong>
+                  {toneOf(spread.max).word} の幅で動きます。
+                </>
               )}
-            </section>
+            </p>
           )}
-        </div>
+        </section>
+      )}
 
+      <div className="result-grid">
         <div className="stack">
           <section className="card">
             <p className="card-title">料金比較表（月額）</p>
@@ -365,34 +390,6 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
             </p>
           </section>
 
-          {/* チェックボックスだと「入れ忘れ」と「なしと判断した」が画面上で同じに見える。
-              あり／なしを明示的に選ばせる。既定は「なし」——既定を「あり」にすると、
-              セット割に入っていないお客様に割引後の額を見せてしまう */}
-          <section className="card print-hide">
-            <p className="card-title">ガスとでんきのセット割</p>
-            <p className="card-sub">
-              JAのガスとあわせてご契約の場合、電気料金が月{GAS_SET_DISCOUNT_YEN}円割引になります。
-            </p>
-            <div className="choice-row" role="radiogroup" aria-label="ガスとでんきのセット割">
-              {GAS_SET_OPTIONS.map(o => (
-                <label className="choice" key={o.label}>
-                  <input
-                    type="radio"
-                    name="gas-set-discount"
-                    checked={gasSet === o.value}
-                    onChange={() => setGasSet(o.value)}
-                  />
-                  <span>{o.label}</span>
-                </label>
-              ))}
-            </div>
-          </section>
-
-          {/* 年額・初年度額はこの選択を含んでいる。紙にも選んだ側を必ず残す */}
-          <p className="print-only note">
-            ガスとでんきのセット割: {gasSet ? gasSetOnLabel : 'なし'}
-          </p>
-
           <details
             className="card"
             open={detailsOpen}
@@ -419,6 +416,37 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
               </ul>
             </div>
           </details>
+        </div>
+
+        <div className="stack">
+          {/* チェックボックスだと「入れ忘れ」と「なしと判断した」が画面上で同じに見える。
+              あり／なしを明示的に選ばせる。既定は「なし」——既定を「あり」にすると、
+              セット割に入っていないお客様に割引後の額を見せてしまう */}
+          <section className="card print-hide gasset-card">
+            <p className="card-title">ガスとでんきのセット割</p>
+            <p className="card-sub">
+              JAのガスとあわせてご契約の場合、電気料金が月{GAS_SET_DISCOUNT_YEN}円割引になります。
+            </p>
+            <div className="choice-row" role="radiogroup" aria-label="ガスとでんきのセット割">
+              {GAS_SET_OPTIONS.map(o => (
+                <label className="choice" key={o.label}>
+                  <input
+                    type="radio"
+                    name="gas-set-discount"
+                    checked={gasSet === o.value}
+                    onChange={() => setGasSet(o.value)}
+                  />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* 年額・初年度額はこの選択を含んでいる。紙にも選んだ側を必ず残す */}
+          <p className="print-only note">
+            ガスとでんきのセット割: {gasSet ? gasSetOnLabel : 'なし'}
+          </p>
+
 
           {/* 紙で受け取った人が「いつ時点の試算か」を判断できるようにする。
               日付は個人情報ではなく、印刷物の有効期限の目安として必要 */}

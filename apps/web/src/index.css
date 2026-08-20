@@ -1,45 +1,54 @@
 /* ─────────────────────────────────────────────────────────────
    JAでんき料金比較 — デザイントークン
 
-   狙いは「公共料金の明細書」の質感。営業がお客様の検針票の横に
-   並べて見せる道具なので、販促バナーではなく帳票に寄せる。
+   要は「数字を一箇所だけ強く見せ、まわりは静かにする」。
+   金額を置く面だけ深い緑のベタで抜き、他はすべて白地とヘアライン。
    グラデーション・強い影・浮き上がるホバーは使わない。
 
+   色は農協の緑に、収穫の金（きん）を一色だけ添える。
+   金は「JAでんき側」と見出しの罫にだけ使い、それ以外には出さない。
+
    和文は端末のフォントを使う（外部フォントを読み込まない）。
-   Phase A はブラウザ内で完結する設計で、オフラインでも使える
-   ことが要件のため、外部への font 取得を持ち込まない。
+   Phase A はブラウザ内で完結する設計で、オフラインでも使えることが
+   要件のため、外部への font 取得を持ち込まない。
    欧文を先に置くのは、数字とラテン文字を欧文フォントから取り、
    和文だけを日本語フォントに落とすため。
    ───────────────────────────────────────────────────────────── */
 
 :root {
   /* 紙とインク。ニュートラルはわずかに緑寄りにして主色となじませる */
-  --ink: #101c18;
-  --ink-2: #57675f;
-  --ink-3: #8b978f;
+  --ink: #0d1a15;
+  --ink-2: #55655d;
+  --ink-3: #8a968e;
   --paper: #ffffff;
-  --paper-2: #f4f7f5;
-  --paper-3: #e9efeb;
-  --line: #dce4df;
-  --line-strong: #c2cec7;
+  --paper-2: #f1f4f2;
+  --paper-3: #e6ece8;
+  --line: #dde4e0;
+  --line-strong: #c3cec8;
 
-  /* 主色。JAでんきの緑を落として帳票に耐える濃さにする */
-  --green: #1f6f52;
-  --green-dark: #16513c;
-  --green-soft: #e7f1ec;
+  /* 主色。操作と「JAでんき側」を指す */
+  --green: #1a6b4f;
+  --green-dark: #12503b;
+  --green-soft: #e6f0ea;
+
+  /* 金額を置く面。ベタ塗り1色だけで、グラデーションは使わない */
+  --forest: #12382a;
+  --forest-2: #0d2b20;
+  --cream: #f4f1e6;
+  --gold: #d9b26a;
 
   /* 増減。赤緑だけに頼らず、符号と語で必ず併記する */
-  --gain: #106b41;
+  --gain: #146349;
   --loss: #9c3226;
 
-  --warn-bg: #fdf6e6;
-  --warn-line: #d9b45c;
-  --warn-ink: #6f5310;
+  --warn-bg: #fdf7e8;
+  --warn-line: #dcbc78;
+  --warn-ink: #6b5011;
 
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-sm: 9px;
 
-  --maxw: 660px;
+  --maxw: 680px;
 
   /* 和文と欧文。欧文を先に置き、数字はここから取る */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI',
@@ -335,18 +344,56 @@ summary:focus-visible {
 
 /* ── 金額 ─────────────────────────────────────────────────── */
 
+/* 金額の面。ページで唯一のベタ塗りで、ここだけが強い */
 .hero {
-  border-color: var(--line-strong);
+  background: var(--forest);
+  border-color: var(--forest);
+  color: var(--cream);
+  padding: 28px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 面の上辺に金の細い罫。ベタ塗りだけだと素っ気ない */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--gold);
+}
+
+.hero .eyebrow {
+  color: var(--gold);
+}
+
+.hero .note {
+  color: rgba(244, 241, 230, 0.72);
+}
+
+.hero .note strong {
+  color: var(--cream);
 }
 
 .hero-figure {
-  font-size: 44px;
+  font-size: 60px;
   font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
-  margin: 6px 0 2px;
+  margin: 10px 0 8px;
   white-space: nowrap;
+  color: var(--cream);
+}
+
+/* 通貨記号は数字より一段小さく、軽く。数字を主役に見せる */
+.yen {
+  font-size: 0.46em;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-right: 0.08em;
+  vertical-align: 0.16em;
+  opacity: 0.75;
 }
 
 .figure-gain { color: var(--gain); }
@@ -369,23 +416,24 @@ summary:focus-visible {
 
 .compare-name {
   font-size: 13px;
-  color: var(--ink-2);
+  color: rgba(244, 241, 230, 0.72);
   min-width: 0;
 }
 
 .compare-amount {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: var(--cream);
 }
 
 .compare-track {
   display: block;
   grid-column: 1 / -1;
-  height: 10px;
+  height: 8px;
   border-radius: 999px;
-  background: var(--paper-3);
+  background: rgba(244, 241, 230, 0.14);
   overflow: hidden;
 }
 
@@ -589,18 +637,31 @@ details.card[open] > summary::before {
 
 .hero-figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 16px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(244, 241, 230, 0.18);
+}
+
+.hero-figures dt {
+  color: rgba(244, 241, 230, 0.65);
 }
 
 .hero-figures dd {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 700;
+  margin-top: 2px;
   /* 「￥436お／トク」と語中で折れるのを止める */
   white-space: nowrap;
+}
+
+/* 面の上では増減を色で分けない。地の色に沈むうえ、
+   「おトク」「ご負担増」の語で向きは伝わる */
+.hero .figure-gain,
+.hero .figure-loss,
+.hero .figure-flat {
+  color: var(--cream);
 }
 
 /* プラン名は一塊で扱い、「（現在）」だけを次の行へ送る */
@@ -611,8 +672,10 @@ details.card[open] > summary::before {
 @media (min-width: 900px) {
   .hero-grid {
     grid-template-columns: 1fr 1.05fr;
-    gap: 32px;
-    align-items: start;
+    gap: 40px;
+    /* 右列（年間の料金＋内訳）のほうが丈が高い。左の金額を中央に置くと
+       面の中でつり合う */
+    align-items: center;
   }
 
   .hero-figure {
@@ -638,4 +701,112 @@ details.card[open] > summary::before {
 .choice-block input {
   margin-top: 3px;
   flex: none;
+}
+
+/* ── 仕上げ ───────────────────────────────────────────────── */
+
+.card-title {
+  font-size: 17px;
+}
+
+.card-sub {
+  color: var(--ink-3);
+}
+
+/* 棒は下から立ち上げる。数字が入れ替わったことが分かる程度に短く */
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.bar {
+  transform-origin: bottom;
+  animation: bar-grow 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.wrap > .card,
+.wrap > .hero,
+.result-grid > .stack > * {
+  animation: rise 0.36s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.wrap > .hero { animation-delay: 0.02s; }
+.result-grid > .stack > *:nth-child(2) { animation-delay: 0.06s; }
+.result-grid > .stack > *:nth-child(3) { animation-delay: 0.1s; }
+
+/* 帯の中の差額。棒のとなりに置いて、どちらがどれだけ安いかを1目盛りで見せる */
+.delta-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--gold);
+  color: var(--forest-2);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media print {
+  /* 紙では地色を抜かない。深緑のベタはインクを食ううえ、
+     コピー機を通すと数字が潰れる */
+  .hero {
+    background: #fff !important;
+    color: var(--ink) !important;
+    border: 1px solid #999 !important;
+  }
+
+  .hero::before {
+    display: none;
+  }
+
+  .hero .eyebrow,
+  .hero .note,
+  .hero .note strong,
+  .hero .compare-name,
+  .hero .compare-amount,
+  .hero .hero-figure,
+  .hero .hero-figures dt,
+  .hero .hero-figures dd {
+    color: var(--ink) !important;
+  }
+
+  .hero-figure {
+    font-size: 30pt;
+  }
+
+  .compare-track {
+    background: #e5e5e5 !important;
+  }
+
+  .delta-chip {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid #999;
+  }
+
+  .hero-figures {
+    border-top-color: #ccc;
+  }
+}
+
+/* 深緑の面の上に置く主ボタン。緑を重ねると沈むので金を当てる */
+.btn-gold {
+  background: var(--gold);
+  color: var(--forest-2);
+}
+
+.btn-gold:hover:not(:disabled) {
+  background: #e5c483;
+}
+
+.hero .btn-gold:focus-visible {
+  outline-color: var(--gold);
 }
