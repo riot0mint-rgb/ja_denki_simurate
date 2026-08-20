@@ -75,15 +75,19 @@ function CompareBars({
       name: currentName,
       suffix: '（現在）',
       yen: currentYen,
-      color: 'rgba(244,241,230,0.45)',
-      chip: null as string | null
+      color: 'var(--line-strong)',
+      chip: null as string | null,
+      chipColor: ''
     },
     {
       name: candidateName,
       suffix: '',
       yen: candidateYen,
-      color: 'var(--gold)',
-      chip: diff === 0 ? '同額' : `${diff > 0 ? '−' : '+'}${formatCurrency(Math.abs(diff))}`
+      color: 'var(--green-bright)',
+      chip: diff === 0 ? '同額' : `${diff > 0 ? '−' : '+'}${formatCurrency(Math.abs(diff))}`,
+      // 差額チップは向きで色を変える。安くなっていないのに緑だと逆に読める
+      chipColor:
+        diff > 0 ? 'var(--green-bright)' : diff < 0 ? 'var(--loss)' : 'var(--ink-3)'
     }
   ]
   return (
@@ -96,7 +100,14 @@ function CompareBars({
           </span>
           <span className="compare-amount num">
             {formatCurrency(r.yen)}
-            {r.chip && <span className="delta-chip" style={{ marginLeft: '8px' }}>{r.chip}</span>}
+            {r.chip && (
+              <span
+                className="delta-chip"
+                style={{ marginLeft: '8px', background: r.chipColor }}
+              >
+                {r.chip}
+              </span>
+            )}
           </span>
           <span className="compare-track">
             <span
@@ -145,7 +156,7 @@ function MonthlyBars({
               />
               <span
                 className="bar"
-                style={{ height: `${(m.candidateYen / max) * 100}%`, background: 'var(--green)' }}
+                style={{ height: `${(m.candidateYen / max) * 100}%`, background: 'var(--green-bright)' }}
               />
             </div>
             <span className="bar-label">{m.month}</span>
@@ -158,7 +169,7 @@ function MonthlyBars({
           {currentName}（現在）
         </span>
         <span>
-          <span className="bar-swatch" style={{ background: 'var(--green)' }} />
+          <span className="bar-swatch" style={{ background: 'var(--green-bright)' }} />
           {candidateName}
         </span>
       </div>

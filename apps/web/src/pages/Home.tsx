@@ -14,7 +14,7 @@ export default function Home({ onStartInput }: HomeProps) {
     <main className="wrap">
       <section className="card hero">
         <p className="eyebrow">中国電力・auでんき ↔ JAでんき</p>
-        <h1 style={{ fontSize: '28px', margin: '12px 0 0', letterSpacing: '0.01em' }}>
+        <h1 style={{ fontSize: '28px', margin: '12px 0 0', letterSpacing: '0.01em', color: 'var(--green-deep)' }}>
           いまの検針票から、
           <br />
           年間いくら変わるかを出します。
