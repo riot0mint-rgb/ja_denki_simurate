@@ -69,7 +69,12 @@ export type { ComparisonScenario }
  * 全社共通の一覧を出すと、選べるのに計算できない月が混ざる。
  */
 export function periodOptionsFor(scenario: ComparisonScenario): RatePeriod[] {
-  return availablePeriods(scenario.fuelProvider)
+  // JAでんき側は事業者を問わず中国電力エリアの燃調を使う（billOf 参照）ので、
+  // 現行プラン側だけで絞ると JA 候補が計算できない月を出してしまう。
+  // 両方そろっている月に限る
+  const key = (p: RatePeriod) => `${p.year}-${p.month}`
+  const ja = new Set(availablePeriods('chugoku').map(key))
+  return availablePeriods(scenario.fuelProvider).filter(p => ja.has(key(p)))
 }
 
 export const DEFAULT_RATE_PERIOD = DEFAULT_PERIOD

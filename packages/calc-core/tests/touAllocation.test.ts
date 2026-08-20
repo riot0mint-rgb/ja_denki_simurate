@@ -1,5 +1,9 @@
 import { Decimal } from '../src/decimal-config';
-import { CalendarInput, allocateFromEconomyNight } from '../src/touAllocation';
+import {
+  CalendarInput,
+  allocateFromEconomyNight,
+  allocateFromFamilyTime
+} from '../src/touAllocation';
 
 /**
  * ④「時間帯別結果」の按分式を、セル単位で固定する。
@@ -67,6 +71,31 @@ describe('④時間帯別電灯 → 夜トクの按分（元資料の式を固�
           }
         }
       }
+    }
+  });
+
+  // 端数を 0 の区分に寄せると -1e-10 になり、「負の使用量」として
+  // 正当な検針票まで計算不可になる。最も大きい区分に寄せる
+  it('ナイトタイムが0でも負にならない', () => {
+    for (const [days, we, hol] of [
+      [29, 4, 0],
+      [31, 4, 1],
+      [31, 11, 2]
+    ]) {
+      const cal = calendar({ days, weekendDays: we, holidayDays: hol });
+      const { bands } = allocateFromFamilyTime(
+        {
+          daySummerKwh: new Decimal('3'),
+          dayOtherKwh: new Decimal('97'),
+          familyKwh: new Decimal('0'),
+          nightKwh: new Decimal('0')
+        },
+        cal
+      );
+      expect(bands.night.isNegative()).toBe(false);
+      expect(bands.night.toNumber()).toBe(0);
+      const sum = Object.values(bands).reduce((a, v) => a.plus(v), new Decimal('0'));
+      expect(sum.equals(100)).toBe(true);
     }
   });
 

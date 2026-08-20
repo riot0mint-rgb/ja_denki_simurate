@@ -117,6 +117,13 @@ export function holidaysOf(year: number): Set<string> {
   ]);
 }
 
+const MS_PER_DAY = 86400000;
+
+/** 検針期間として扱う上限。これを超える入力は日付の打ち間違い */
+const MAX_PERIOD_DAYS = 400;
+
+const spanOf = (start: number, end: number) => Math.round((end - start) / MS_PER_DAY) + 1;
+
 export interface MeterPeriodDays {
   /** 検針期間の日数（両端を含む） */
   days: number;
@@ -135,17 +142,15 @@ export function countMeterPeriodDays(startDate: string, endDate: string): MeterP
   const end = parseDate(endDate);
   // 0（1970-01-01）を偽値として弾かないよう null で判定する。countMonthDays と揃える
   if (start === null || end === null || start > end) return null;
-
-  // 検針期間は通常1か月程度。異常に長い入力は誤りとみなす。
-  const spanDays = Math.round((end - start) / 86400000) + 1;
-  if (spanDays > 400) return null;
+  // 検針期間は通常1か月程度。異常に長い入力は誤りとみなす
+  if (spanOf(start, end) > MAX_PERIOD_DAYS) return null;
 
   let days = 0;
   let weekendDays = 0;
   let holidayDays = 0;
   const holidayCache = new Map<number, Set<string>>();
 
-  for (let t = start; t <= end; t += 86400000) {
+  for (let t = start; t <= end; t += MS_PER_DAY) {
     const d = new Date(t);
     const year = d.getUTCFullYear();
     const dow = d.getUTCDay();
@@ -183,8 +188,11 @@ export function countMonthDays(startDate: string, endDate: string, month: number
   const start = parseDate(startDate);
   const end = parseDate(endDate);
   if (start === null || end === null || start > end) return null;
+  // 上限は countMeterPeriodDays と揃える。日付入力の途中で桁違いの期間になると、
+  // 画面の描画中に数百万日ぶんのループを回して固まる
+  if (spanOf(start, end) > MAX_PERIOD_DAYS) return null;
   let count = 0;
-  for (let t = start; t <= end; t += 86400000) {
+  for (let t = start; t <= end; t += MS_PER_DAY) {
     if (new Date(t).getUTCMonth() + 1 === month) count += 1;
   }
   return count;

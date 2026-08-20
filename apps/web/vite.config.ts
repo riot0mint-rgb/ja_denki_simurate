@@ -11,10 +11,17 @@ import { resolve } from 'node:path'
  * キャッシュ名も成果物のハッシュから作り、内容が変わったときだけ更新が走るようにする。
  */
 function serviceWorkerManifest(): Plugin {
-  const precache = new Set<string>(['/', '/index.html', '/manifest.json', '/icon-192x192.png', '/icon-512x512.png'])
+  const ALWAYS = ['/', '/index.html', '/manifest.json', '/icon-192x192.png', '/icon-512x512.png']
+  // ビルドごとに作り直す。使い回すと watch や連続ビルドで前回のハッシュ付き
+  // ファイル名が残り、cache.addAll がその404で失敗して SW が入らなくなる。
+  // 登録エラーは握りつぶしているので、オフライン動作と更新バナーが黙って死ぬ
+  let precache = new Set<string>(ALWAYS)
   return {
     name: 'sw-manifest',
     apply: 'build',
+    buildStart() {
+      precache = new Set<string>(ALWAYS)
+    },
     generateBundle(_options, bundle) {
       for (const file of Object.keys(bundle)) {
         if (file !== 'sw.js') precache.add('/' + file)

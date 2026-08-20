@@ -89,22 +89,25 @@ const BAND_SCALE = 10;
 /** ここまでは有効桁の丸め由来とみなす（kWh） */
 const ROUNDING_NOISE = new Decimal('1e-6');
 
-function settleBands(
-  total: Decimal,
-  parts: { daySummer: Decimal; dayOther: Decimal; holiday: Decimal; night: Decimal }
-): TouAllocation {
-  const daySummer = parts.daySummer.toDecimalPlaces(BAND_SCALE);
-  const dayOther = parts.dayOther.toDecimalPlaces(BAND_SCALE);
-  const holiday = parts.holiday.toDecimalPlaces(BAND_SCALE);
-  const nightAsRemainder = total.minus(daySummer).minus(dayOther).minus(holiday);
-  const drift = nightAsRemainder.minus(parts.night).abs();
-  return {
-    daySummer,
-    dayOther,
-    holiday,
-    night: drift.lessThanOrEqualTo(ROUNDING_NOISE) ? nightAsRemainder : parts.night
+function settleBands(total: Decimal, parts: TouAllocation): TouAllocation {
+  const rounded: TouAllocation = {
+    daySummer: parts.daySummer.toDecimalPlaces(BAND_SCALE),
+    dayOther: parts.dayOther.toDecimalPlaces(BAND_SCALE),
+    night: parts.night.toDecimalPlaces(BAND_SCALE),
+    holiday: parts.holiday.toDecimalPlaces(BAND_SCALE)
   };
+  const keys = Object.keys(rounded) as Array<keyof TouAllocation>;
+  const leftover = keys.reduce((a, k) => a.minus(rounded[k]), total);
+
+  // 誤差を超えるずれは式の値をそのまま残し、上位で計算不可として止めさせる
+  if (leftover.abs().greaterThan(ROUNDING_NOISE)) return rounded;
+
+  // 端数は**最も大きい区分**に寄せる。0 の区分に寄せると -1e-10 のような
+  // 負値になり、「負の使用量が出た」として正当な検針票まで弾いてしまう
+  const largest = keys.reduce((a, k) => (rounded[k].greaterThan(rounded[a]) ? k : a), keys[0]);
+  return { ...rounded, [largest]: rounded[largest].plus(leftover) };
 }
+
 
 export function allocateFromFamilyTime(
   usage: FamilyTimeUsage,
@@ -145,8 +148,8 @@ export function allocateFromFamilyTime(
     bands: settleBands(total, {
       daySummer: day.times(summerShare),
       dayOther: day.times(otherShare),
-      holiday,
-      night
+      night,
+      holiday
     }),
     steps: [
       { label: '平日数', value: weekdayCount },

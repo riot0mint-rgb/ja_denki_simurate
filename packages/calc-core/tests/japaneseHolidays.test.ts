@@ -158,6 +158,13 @@ describe('1970年の検針期間（0 を偽値として弾かない）', () => {
 });
 
 describe('特定の月に属する日数', () => {
+  // 上限が無いと、日付入力の途中で桁違いの期間になったとき
+  // 画面の描画中に数百万日ぶんのループを回して固まる
+  it('400日を超える期間は countMeterPeriodDays と同じく null', () => {
+    expect(countMonthDays('2020-01-01', '2030-01-01', 7)).toBeNull();
+    expect(countMeterPeriodDays('2020-01-01', '2030-01-01')).toBeNull();
+  });
+
   it('7月検針の7月日数', () => {
     // 6/5〜7/4 なら 7月は4日
     expect(countMonthDays('2026-06-05', '2026-07-04', 7)).toBe(4);

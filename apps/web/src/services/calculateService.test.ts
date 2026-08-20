@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { Decimal } from '@ja-denki-simulator/calc-core'
+import { Decimal, UsageInput } from '@ja-denki-simulator/calc-core'
+import type { ComparisonScenario } from '../data/rates'
 import {
   calculateComparison,
   formatCurrency,
@@ -19,6 +20,39 @@ function ok(scenarioId: string, usage: Parameters<typeof calculateComparison>[1]
   const r = calculateComparison(scenarioId, usage, { period: JULY, ...opts })
   if (r.status !== 'ok') throw new Error(`unsupported: ${r.reason}`)
   return r.view
+}
+
+const sampleCalendar = {
+  days: 30,
+  weekendDays: 8,
+  holidayDays: 1,
+  holidayUsageRatio: 'same' as const,
+  julyDays: 0,
+  octoberDays: 0
+}
+
+/** 入力フォームの種類ごとに、計算が通る最小限の使用量を作る */
+function sampleUsageFor(form: ComparisonScenario['usageForm']): UsageInput {
+  switch (form) {
+    case 'total':
+      return { totalKwh: 350, contractKw: 6, contractKva: 10 }
+    case 'seasonal':
+      return { seasonal: { summerKwh: 350, otherKwh: 0 }, contractKw: 6 }
+    case 'tou':
+      return { contractKw: 6, tou: { dayOther: 100, night: 200, holiday: 50 } }
+    case 'family':
+      return {
+        contractKva: 10,
+        familyTime: { dayOther: 120, family: 80, night: 250 },
+        calendar: sampleCalendar
+      }
+    case 'economy_night':
+      return {
+        contractKva: 10,
+        economyNight: { dayKwh: 200, nightKwh: 300 },
+        calendar: sampleCalendar
+      }
+  }
 }
 
 describe('シナリオ定義', () => {
@@ -71,6 +105,18 @@ describe('対象月', () => {
     const key = (p: { year: number; month: number }) => `${p.year}-${p.month}`
     const chugokuKeys = new Set(chugoku.map(key))
     expect(au.every(p => chugokuKeys.has(key(p)))).toBe(true)
+  })
+
+  // JAでんき側は事業者を問わず中国電力エリアの燃調を使うため、
+  // 現行プラン側だけで絞ると JA 候補が計算できない月を出してしまう
+  it('選べる月はすべて実際に計算できる', () => {
+    for (const scenario of SCENARIOS) {
+      for (const period of periodOptionsFor(scenario)) {
+        const usage = sampleUsageFor(scenario.usageForm)
+        const r = calculateComparison(scenario.scenarioId, usage, { period })
+        expect(r.status, `${scenario.scenarioId} / ${period.year}-${period.month}`).toBe('ok')
+      }
+    }
   })
 
   it('収録のない月は推測せず unsupported を返す', () => {
