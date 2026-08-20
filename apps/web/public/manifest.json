@@ -1,0 +1,66 @@
+{
+  "name": "JAでんき料金比較シミュレーター",
+  "short_name": "JAでんき料金比較",
+  "description": "中国電力とJAでんきの料金をかんたん比較。月額・年額削減額を自動計算",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2d9d78",
+  "background_color": "#ffffff",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192x192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-540x720.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-1280x720.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "料金比較を開始",
+      "short_name": "比較開始",
+      "description": "JAでんきとの料金比較を開始します",
+      "url": "/?mode=input",
+      "icons": [
+        {
+          "src": "/shortcut-icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import { useMemo } from 'react'
+import { calculateComparison, formatCurrency, formatPercentage } from '../services/calculateService'
+
 interface ComparisonResultProps {
   usageKwh: number;
   currentProvider: string;
@@ -5,8 +8,12 @@ interface ComparisonResultProps {
 }
 
 export default function ComparisonResult({ usageKwh, currentProvider, onBack }: ComparisonResultProps) {
-  const monthlySavings = 500 // Placeholder - will be calculated by calc-core
-  const annualSavings = monthlySavings * 12
+  const comparison = useMemo(
+    () => calculateComparison(usageKwh, currentProvider),
+    [usageKwh, currentProvider]
+  )
+
+  const monthlySavingColor = comparison.monthlySavings > 0 ? '#16a34a' : '#dc2626'
 
   return (
     <div className="container">
@@ -23,29 +30,74 @@ export default function ComparisonResult({ usageKwh, currentProvider, onBack }: 
           textAlign: 'center'
         }}>
           <p style={{ fontSize: '14px', opacity: 0.9 }}>毎月のお得額</p>
-          <h2 style={{ fontSize: '32px', margin: '10px 0' }}>¥{monthlySavings.toLocaleString()}</h2>
-          <p style={{ fontSize: '14px', opacity: 0.9 }}>年間削減額: ¥{annualSavings.toLocaleString()}</p>
+          <h2 style={{ fontSize: '32px', margin: '10px 0' }}>
+            {formatCurrency(comparison.monthlySavings)}
+          </h2>
+          <p style={{ fontSize: '14px', opacity: 0.9 }}>
+            年間削減額: {formatCurrency(comparison.annualSavings)}
+          </p>
+          {comparison.campaignBonus > 0 && (
+            <p style={{ fontSize: '12px', opacity: 0.85, marginTop: '10px' }}>
+              + キャンペーン割引 {formatCurrency(comparison.campaignBonus)} (初期3か月)
+            </p>
+          )}
         </div>
 
         <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-          <h3 style={{ marginBottom: '15px' }}>比較条件</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <h3 style={{ marginBottom: '15px' }}>料金比較表</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', fontSize: '12px' }}>
             <div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>電力会社</p>
-              <p style={{ fontWeight: 'bold' }}>{currentProvider === 'chugoku' ? '中国電力' : currentProvider}</p>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '5px' }}>現在</p>
+              <p style={{ fontWeight: 'bold', fontSize: '16px' }}>{formatCurrency(comparison.currentProviderCharge)}</p>
             </div>
             <div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>月間使用量</p>
-              <p style={{ fontWeight: 'bold' }}>{usageKwh} kWh</p>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '5px' }}>JAでんき</p>
+              <p style={{ fontWeight: 'bold', fontSize: '16px' }}>
+                {comparison.recommendedPlan === 'raten_a'
+                  ? formatCurrency(comparison.jadenRatenACharge)
+                  : formatCurrency(comparison.jadenRatenSCharge)}
+              </p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '5px' }}>削減額</p>
+              <p style={{ fontWeight: 'bold', fontSize: '16px', color: monthlySavingColor }}>
+                {formatCurrency(comparison.monthlySavings)}
+              </p>
             </div>
           </div>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ marginBottom: '10px' }}>詳細</h3>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.8' }}>
-            この試算は相対値をベースにした概算値です。正確な金額については、
+        <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+          <h3 style={{ marginBottom: '15px' }}>推奨プラン</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>推奨プラン</p>
+              <p style={{ fontWeight: 'bold' }}>
+                {comparison.recommendedPlan === 'raten_a' ? 'JAでんき 従量電灯A' : 'JAでんき 従量電灯S'}
+              </p>
+            </div>
+            <div>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>削減率</p>
+              <p style={{ fontWeight: 'bold' }}>
+                {comparison.monthlySavingsPercent >= 0 ? '-' : '+'}{formatPercentage(Math.abs(comparison.monthlySavingsPercent))}
+              </p>
+            </div>
+            <div>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>月間使用量</p>
+              <p style={{ fontWeight: 'bold' }}>{usageKwh.toLocaleString()} kWh</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>電力会社</p>
+              <p style={{ fontWeight: 'bold' }}>中国電力</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '20px', padding: '15px', background: '#fef3c7', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
+          <p style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
+            <strong>注意:</strong> この試算は相対値をベースにした概算値です。正確な金額については、
             JAでんきの公式サイトまたは営業担当までお問い合わせください。
+            燃料費調整や再エネ賦課金の詳細は今後更新される予定です。
           </p>
         </div>
 
