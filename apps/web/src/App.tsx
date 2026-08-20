@@ -42,6 +42,12 @@ export default function App() {
   return (
     <div className="app">
       {applyUpdate && <UpdateBanner onApply={applyUpdate} />}
+      <header className="topbar">
+        <div className="topbar-inner">
+          <span className="wordmark">JAでんき料金比較</span>
+          <span className="topbar-sub">中国電力エリア・低圧</span>
+        </div>
+      </header>
       {currentPage === 'home' && <Home onStartInput={() => setCurrentPage('input')} />}
       {/*
         入力画面はいったん開いたら畳まずに隠しておく。条件を変えて試算し直すたびに

@@ -12,6 +12,7 @@ import {
   periodOptionsFor,
   DEFAULT_RATE_PERIOD,
   GAS_SET_DISCOUNT_YEN,
+  calculateAnnual,
   allElectricTermsOf
 } from './calculateService'
 
@@ -464,5 +465,85 @@ describe('表示の整形', () => {
   it('割合は既定で小数1桁', () => {
     expect(formatPercentage(12.34)).toContain('12.3')
     expect(formatPercentage(12.34, 0)).toContain('12')
+  })
+})
+
+// 年額を月額×12で出すと、燃料費調整額が毎月改定されることを無視した数字になる。
+// 12か月ぶんの実際の単価で積み上げる（CLAUDE.md ルール6・8）
+describe('年間の試算', () => {
+  const AUG = { year: 2026, month: 8 }
+
+  const annual = (id: string, usage: object, opts: object = {}) => {
+    const r = calculateComparison(id, usage, { period: AUG, ...opts })
+    if (r.status !== 'ok') throw new Error('前提の月額が計算できていない')
+    return calculateAnnual(id, usage, r.view.recommended.planId, { period: AUG, ...opts })!
+  }
+
+  it('12か月それぞれの単価で積み上げる', () => {
+    const a = annual('chugoku_juryo_a', { totalKwh: 348 })
+    expect(a.basis).toBe('rollup')
+    expect(a.months).toHaveLength(12)
+    expect(a.rangeLabel).toBe('2025年9月〜2026年8月')
+    // 各月の合計が年額に一致する
+    expect(a.months.reduce((s, m) => s + m.currentYen, 0)).toBe(a.currentYen)
+    expect(a.months.reduce((s, m) => s + m.candidateYen, 0)).toBe(a.candidateYen)
+    expect(a.savingsYen).toBe(a.currentYen - a.candidateYen)
+  })
+
+  // 積み上げと月額×12 が一致するなら、わざわざ12回計算する意味がない
+  it('月額×12 とは一致しない（燃調が毎月違うため）', () => {
+    const monthly = calculateComparison('chugoku_juryo_a', { totalKwh: 348 }, { period: AUG })
+    if (monthly.status !== 'ok') throw new Error('unreachable')
+    const a = annual('chugoku_juryo_a', { totalKwh: 348 })
+    expect(a.currentYen).not.toBe(monthly.view.current.monthlyChargeYen * 12)
+    // 月ごとの請求額も一定ではない
+    expect(new Set(a.months.map(m => m.currentYen)).size).toBeGreaterThan(1)
+  })
+
+  it('ガスセット割は12か月ぶん引く', () => {
+    const without = annual('chugoku_juryo_a', { totalKwh: 348 })
+    const with_ = annual('chugoku_juryo_a', { totalKwh: 348 }, { gasSetDiscount: true })
+    expect(with_.savingsYen - without.savingsYen).toBe(GAS_SET_DISCOUNT_YEN * 12)
+    expect(with_.gasSetDiscountYen).toBe(GAS_SET_DISCOUNT_YEN * 12)
+  })
+
+  it('初年度は新規契約割引を足す', () => {
+    const a = annual('chugoku_juryo_a', { totalKwh: 348 })
+    expect(a.firstYearSavingsYen - a.savingsYen).toBe(3000)
+  })
+
+  // 時間帯別プランは月ごとの内訳が検針票からしか分からない。
+  // 同じ内訳を12か月に当てると、7月の入力を1月の単価で計算することになる
+  it('時間帯別プランは積み上げず、その旨を返す', () => {
+    const a = annual('chugoku_night_holiday', { contractKw: 6, tou: { night: 430 } })
+    expect(a.basis).toBe('times_twelve')
+    expect(a.months).toHaveLength(0)
+    expect(a.fallbackReason).toMatch(/12倍/)
+  })
+
+  it('12か月ぶんの燃調が無い事業者は積み上げない', () => {
+    // auでんきの燃調は 2026-07 以降しか収録していない
+    const a = annual('au_m_plan', { totalKwh: 348 })
+    expect(a.basis).toBe('times_twelve')
+    expect(a.fallbackReason).toMatch(/収録されていない/)
+  })
+
+  it('積み上げない場合でも年額は月額×12 に一致する', () => {
+    const monthly = calculateComparison('au_m_plan', { totalKwh: 348 }, { period: AUG })
+    if (monthly.status !== 'ok') throw new Error('unreachable')
+    const a = annual('au_m_plan', { totalKwh: 348 })
+    expect(a.currentYen).toBe(monthly.view.current.monthlyChargeYen * 12)
+  })
+
+  it('知らないプランには年額を出さない（ルール8）', () => {
+    expect(calculateAnnual('unknown', { totalKwh: 348 }, 'x', { period: AUG })).toBeNull()
+    expect(
+      calculateAnnual('chugoku_juryo_a', { totalKwh: 348 }, 'no_such_plan', { period: AUG })
+    ).toBeNull()
+  })
+
+  it('月額が計算できない入力には年額も出さない', () => {
+    expect(calculateAnnual('chugoku_juryo_a', { totalKwh: -1 }, 'ja_denki_juryo_a', { period: AUG }))
+      .toBeNull()
   })
 })

@@ -13,6 +13,7 @@ import {
   findScenario,
   formatCurrency,
   calculateComparison,
+  calculateAnnual,
   isSummerMonth,
   needsCalendar
 } from '../services/calculateService'
@@ -41,30 +42,7 @@ function defaultMeterPeriod(year: number, month: number): { start: string; end: 
   return { start: `${prevYear}-${pad(prevMonth)}-06`, end: `${year}-${pad(month)}-05` }
 }
 
-const numberFieldStyle: React.CSSProperties = {
-  marginTop: '6px',
-  fontSize: '18px',
-  padding: '12px',
-  width: '100%'
-}
-
-const chipStyle = (active: boolean): React.CSSProperties => ({
-  padding: '10px 16px',
-  borderRadius: '999px',
-  border: active ? '2px solid #2d9d78' : '1px solid var(--border-color)',
-  background: active ? 'rgba(45,157,120,0.12)' : 'transparent',
-  color: 'inherit',
-  fontWeight: active ? 700 : 400,
-  cursor: 'pointer',
-  fontSize: '15px'
-})
-
-const cardStyle: React.CSSProperties = {
-  background: 'var(--bg-secondary)',
-  padding: '16px',
-  borderRadius: '8px',
-  marginBottom: '16px'
-}
+const chipClass = (active: boolean) => (active ? 'chip is-active' : 'chip')
 
 function NumberField({
   id,
@@ -80,13 +58,12 @@ function NumberField({
   onChange: (v: string) => void
 }) {
   return (
-    <div style={{ marginBottom: '14px' }}>
-      <label htmlFor={id}><strong>{label}</strong></label>
-      {hint && (
-        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0' }}>{hint}</p>
-      )}
+    <div className="field">
+      <label className="field-label" htmlFor={id}>{label}</label>
+      {hint && <p className="field-hint">{hint}</p>}
       <input
         id={id}
+        className="input input-lg"
         type="number"
         inputMode="decimal"
         step="1"
@@ -94,7 +71,6 @@ function NumberField({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder="0"
-        style={numberFieldStyle}
       />
     </div>
   )
@@ -104,17 +80,42 @@ function TotalBadge({ total }: { total: number }) {
   return (
     <div
       style={{
-        padding: '10px 12px',
-        borderRadius: '6px',
-        background: 'rgba(45,157,120,0.10)',
-        fontSize: '14px'
+        marginTop: '16px',
+        padding: '12px 14px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--green-soft)',
+        display: 'flex',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        gap: '10px',
+        flexWrap: 'wrap'
       }}
     >
-      合計 <strong>{total.toLocaleString()}</strong> kWh
-      <span style={{ color: 'var(--text-secondary)', marginLeft: '8px', fontSize: '12px' }}>
+      <span style={{ fontSize: '14px', whiteSpace: 'nowrap' }}>
+        合計{' '}
+        <strong className="num" style={{ fontSize: '19px' }}>{total.toLocaleString()}</strong> kWh
+      </span>
+      <span className="note" style={{ color: 'var(--green-dark)' }}>
         検針票の合計と一致するか確認してください
       </span>
     </div>
+  )
+}
+
+/** 入力中に出す差額。おトク・割高を色だけでなく語でも書く */
+function PreviewFigure({ label, yen, size }: { label: string; yen: number; size: number }) {
+  const saving = yen >= 0
+  return (
+    <span style={{ whiteSpace: 'nowrap' }}>
+      <span className="note" style={{ marginRight: '6px' }}>{label}</span>
+      <strong
+        className="num"
+        style={{ fontSize: `${size}px`, color: saving ? 'var(--gain)' : 'var(--loss)' }}
+      >
+        {formatCurrency(Math.abs(yen))}
+      </strong>
+      <span className="note" style={{ marginLeft: '4px' }}>{saving ? 'おトク' : '割高'}</span>
+    </span>
   )
 }
 
@@ -252,6 +253,14 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
     () => calculateComparison(scenarioId, usage, { period }),
     [scenarioId, usage, period]
   )
+  // 年額は月額の12倍ではない（燃調が毎月変わる）。入力中から年額も見せる
+  const annualPreview = useMemo(
+    () =>
+      preview.status === 'ok'
+        ? calculateAnnual(scenarioId, usage, preview.view.recommended.planId, { period })
+        : null,
+    [scenarioId, usage, period, preview]
+  )
 
   const touTotal = num(dayKwh) + (mixedSeason ? num(daySummerKwh) : 0) + num(nightKwh) + num(holidayKwh)
   // 季節をまたがない月は famDaySummer を計算に渡さない。合計にだけ残ると
@@ -274,11 +283,12 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
             : ecoTotal > 0 && calendar !== undefined
 
   return (
-    <div className="container">
-      <div className="header"><h1>料金を試算</h1></div>
-      <div className="content">
-        <div style={cardStyle}>
-          <label htmlFor="scenario"><strong>現在のご契約プラン</strong></label>
+    <main className="wrap">
+      <h1 className="page-title">料金を試算</h1>
+      <p className="page-lead">検針票に書かれている内容をそのまま入れてください。</p>
+      <div className="stack">
+        <div className="card">
+          <label className="field-label" htmlFor="scenario">現在のご契約プラン</label>
           <select
             id="scenario"
             value={scenarioId}
@@ -291,19 +301,17 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
                 setPeriod(DEFAULT_RATE_PERIOD)
               }
             }}
-            style={{ marginTop: '8px', fontSize: '16px', padding: '10px' }}
+            className="select"
           >
             {SCENARIOS.map(s => (
               <option key={s.scenarioId} value={s.scenarioId}>{s.label}</option>
             ))}
           </select>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            {scenario.hint}
-          </p>
+          <p className="field-hint">{scenario.hint}</p>
         </div>
 
-        <div style={cardStyle}>
-          <label htmlFor="period"><strong>検針月</strong></label>
+        <div className="card">
+          <label className="field-label" htmlFor="period">検針月</label>
           <select
             id="period"
             value={`${period.year}-${period.month}`}
@@ -311,7 +319,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               const [y, m] = e.target.value.split('-').map(Number)
               setPeriod({ year: y, month: m })
             }}
-            style={{ marginTop: '8px', fontSize: '16px', padding: '10px' }}
+            className="select"
           >
             {periodOptions.map(p => (
               <option key={`${p.year}-${p.month}`} value={`${p.year}-${p.month}`}>
@@ -319,7 +327,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               </option>
             ))}
           </select>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
+          <p className="field-hint">
             燃料費調整額・再エネ賦課金は月ごとに改定されます
             {/* 7月・10月の検針期間は季節をまたぐ。片方だけと書くと、
                 下で2欄を出していることと食い違う */}
@@ -333,26 +341,28 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         </div>
 
         {needsCalendar(scenario) && (
-          <div style={cardStyle}>
-            <strong>検針期間</strong>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 10px' }}>
+          <div className="card">
+            <p className="card-title">検針期間</p>
+            <p className="card-sub">
               日数・土日・祝日は自動で数えます。夜トクプランの「ホリデータイム」を求めるために必要です
             </p>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
               <input
                 type="date"
                 aria-label="検針期間の開始日"
                 value={startDate}
                 onChange={e => setMeterStart(e.target.value)}
-                style={{ ...numberFieldStyle, fontSize: '15px' }}
+                className="input"
+                style={{ marginTop: 0 }}
               />
-              <span>〜</span>
+              <span style={{ color: 'var(--ink-3)' }}>〜</span>
               <input
                 type="date"
                 aria-label="検針期間の終了日"
                 value={endDate}
                 onChange={e => setMeterEnd(e.target.value)}
-                style={{ ...numberFieldStyle, fontSize: '15px' }}
+                className="input"
+                style={{ marginTop: 0 }}
               />
             </div>
             {dayCounts ? (
@@ -363,21 +373,22 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
                     ['weekendDays', '土日'],
                     ['holidayDays', '祝日']
                   ] as const).map(([key, label]) => (
-                    <label key={key} style={{ flex: 1, fontSize: '12px' }}>
-                      {label}
+                    <label key={key} style={{ flex: 1 }}>
+                      <span className="field-hint" style={{ marginTop: 0 }}>{label}</span>
                       <input
+                        className="input num"
                         type="number"
                         inputMode="numeric"
                         min="0"
                         aria-label={label}
                         value={dayCounts[key]}
                         onChange={e => setDayCounts({ ...dayCounts, [key]: e.target.value })}
-                        style={{ ...numberFieldStyle, fontSize: '16px', padding: '8px' }}
+                        style={{ marginTop: '4px', padding: '9px 10px' }}
                       />
                     </label>
                   ))}
                 </div>
-                <p style={{ fontSize: '12px', color: calendarValid ? 'var(--text-secondary)' : '#dc2626', marginTop: '8px' }}>
+                <p className="note" style={{ color: calendarValid ? 'var(--ink-2)' : 'var(--loss)', marginTop: '8px' }}>
                   {calendarValid
                     ? `平日 ${periodDays!.days - periodDays!.weekendDays - periodDays!.holidayDays}日。検針票と違う場合は直接直してください`
                     : periodDays !== null &&
@@ -386,30 +397,28 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
                       : '日数の内訳が合いません。土日と祝日の合計が日数を超えています'}
                 </p>
                 {daysEdited && mixedSeason && (
-                  <p style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>
+                  <p className="note" style={{ color: 'var(--warn-ink)', marginTop: '4px' }}>
                     日数（{periodDays!.days}日）と検針期間の日付（{spanDays}日）が違います。
                     夏季とその他季の分け方は日付のほうから求めます。
                   </p>
                 )}
               </>
             ) : (
-              <p style={{ fontSize: '13px', marginTop: '10px', color: '#dc2626' }}>
+              <p className="note" style={{ marginTop: '10px', color: 'var(--loss)' }}>
                 検針期間を正しく入力してください
               </p>
             )}
 
-            <div style={{ marginTop: '16px' }}>
-              <strong>休日の電気の使い方</strong>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 8px' }}>
-                平日と比べて休日にどれくらい電気を使うか
-              </p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ marginTop: '20px' }}>
+              <p className="field-label">休日の電気の使い方</p>
+              <p className="field-hint">平日と比べて休日にどれくらい電気を使うか</p>
+              <div className="chip-row">
                 {HOLIDAY_RATIOS.map(r => (
                   <button
                     key={r.value}
                     type="button"
                     title={r.hint}
-                    style={chipStyle(holidayRatio === r.value)}
+                    className={chipClass(holidayRatio === r.value)}
                     onClick={() => setHolidayRatio(r.value)}
                   >
                     {r.label}
@@ -421,17 +430,17 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         )}
 
         {scenario.contract !== 'none' && (
-          <div style={cardStyle}>
-            <strong>{scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}</strong>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 10px' }}>
+          <div className="card">
+            <p className="card-title">{scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}</p>
+            <p className="card-sub">
               検針票の「ご契約{scenario.contract === 'kva' ? '容量' : '電力'}」欄
             </p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+            <div className="chip-row">
               {(scenario.contract === 'kva' ? COMMON_KVA : COMMON_KW).map(v => (
                 <button
                   key={v}
                   type="button"
-                  style={chipStyle(contract === String(v))}
+                  className={chipClass(contract === String(v))}
                   onClick={() => setContract(String(v))}
                 >
                   {v}{scenario.contract === 'kva' ? 'kVA' : 'kW'}
@@ -439,19 +448,20 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               ))}
             </div>
             <input
+              className="input num"
               type="number"
               inputMode="decimal"
               min="0"
               step="0.5"
               value={contract}
               onChange={e => setContract(e.target.value)}
-              style={numberFieldStyle}
+              style={{ marginTop: '12px', maxWidth: '160px' }}
               aria-label={scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}
             />
           </div>
         )}
 
-        <div style={cardStyle}>
+        <div className="card">
           {scenario.usageForm === 'total' && (
             <NumberField
               id="usage"
@@ -571,12 +581,16 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               )}
               <NumberField id="famFamily" label="ファミリータイム kWh" value={famFamily} onChange={setFamFamily} />
               <NumberField id="famNight" label="ナイトタイム kWh" value={famNight} onChange={setFamNight} />
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 12px', cursor: 'pointer' }}>
+              <label className="choice choice-block">
                 <input type="checkbox" checked={allElectric} onChange={e => setAllElectric(e.target.checked)} />
                 <span>
                   電化住宅割を適用する
-                  {allElectricTerms &&
-                    `（基本料金＋電力量料金の${allElectricTerms.ratePercent}%・上限${allElectricTerms.capYen.toLocaleString()}円）`}
+                  {allElectricTerms && (
+                    <span className="field-hint">
+                      基本料金＋電力量料金の{allElectricTerms.ratePercent}%・上限
+                      {allElectricTerms.capYen.toLocaleString()}円
+                    </span>
+                  )}
                 </span>
               </label>
               <TotalBadge total={familyTotal} />
@@ -596,35 +610,37 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         </div>
 
         {hasInput && preview.status === 'ok' && (
-          <div
-            style={{
-              ...cardStyle,
-              background: 'linear-gradient(135deg, #2d9d78 0%, #247a5f 100%)',
-              color: 'white'
-            }}
-          >
-            <p style={{ fontSize: '13px', opacity: 0.9, margin: 0 }}>試算中</p>
-            <p style={{ fontSize: '15px', margin: '6px 0 0' }}>
-              {preview.view.recommended.planName}なら{' '}
-              <strong style={{ fontSize: '22px' }}>
-                {formatCurrency(Math.abs(preview.view.recommended.monthlySavingsYen))}
-              </strong>{' '}
-              {preview.view.recommended.monthlySavingsYen >= 0 ? '月々おトク' : '月々割高'}
-            </p>
+          <div className="card" style={{ borderColor: 'var(--green)' }}>
+            <p className="eyebrow">この内容での試算</p>
+            <p style={{ fontWeight: 700, marginTop: '4px' }}>{preview.view.recommended.planName}</p>
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px 28px',
+                flexWrap: 'wrap',
+                marginTop: '10px',
+                alignItems: 'baseline'
+              }}
+            >
+              <PreviewFigure
+                label="月あたり"
+                yen={preview.view.recommended.monthlySavingsYen}
+                size={24}
+              />
+              {annualPreview && <PreviewFigure label="年間" yen={annualPreview.savingsYen} size={30} />}
+            </div>
           </div>
         )}
 
         {hasInput && preview.status === 'unsupported' && (
-          <div style={{ ...cardStyle, background: '#fef3c7', borderLeft: '4px solid #f59e0b' }}>
-            <p style={{ color: '#92400e', fontSize: '13px', margin: 0 }}>{preview.reason}</p>
-          </div>
+          <div className="note-warn">{preview.reason}</div>
         )}
 
-        <div className="button-group">
-          <button type="button" className="secondary" onClick={onBack}>戻る</button>
+        <div className="btn-row section-gap">
+          <button type="button" className="btn btn-ghost" onClick={onBack}>戻る</button>
           <button
             type="button"
-            className="primary"
+            className="btn btn-primary"
             disabled={!hasInput}
             onClick={() => onComplete(scenarioId, usage, period)}
           >
@@ -632,6 +648,6 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
           </button>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

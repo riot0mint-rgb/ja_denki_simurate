@@ -8,7 +8,7 @@ describe('画面遷移', () => {
   it('結果から戻っても入力が残っている', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: '月の電気代を入力する' }))
+    await user.click(screen.getByRole('button', { name: '検針票から試算する' }))
 
     await user.selectOptions(screen.getByLabelText('現在のご契約プラン'), [
       screen.getByRole('option', { name: '中国電力 電化Style' }) as HTMLOptionElement
@@ -30,8 +30,8 @@ describe('画面遷移', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'JAでんき料金比較' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '月の電気代を入力する' }))
+    expect(screen.getByRole('heading', { name: /年間いくら変わるか/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '検針票から試算する' }))
 
     expect(screen.getByRole('heading', { name: '料金を試算' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('ご使用量 (kWh)'), '348')
@@ -42,6 +42,6 @@ describe('画面遷移', () => {
 
     expect(screen.getByRole('heading', { name: '料金を試算' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '戻る' }))
-    expect(screen.getByRole('heading', { name: 'JAでんき料金比較' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /年間いくら変わるか/ })).toBeInTheDocument()
   })
 })

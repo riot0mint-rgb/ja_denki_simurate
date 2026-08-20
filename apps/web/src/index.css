@@ -1,80 +1,641 @@
+/* ─────────────────────────────────────────────────────────────
+   JAでんき料金比較 — デザイントークン
+
+   狙いは「公共料金の明細書」の質感。営業がお客様の検針票の横に
+   並べて見せる道具なので、販促バナーではなく帳票に寄せる。
+   グラデーション・強い影・浮き上がるホバーは使わない。
+
+   和文は端末のフォントを使う（外部フォントを読み込まない）。
+   Phase A はブラウザ内で完結する設計で、オフラインでも使える
+   ことが要件のため、外部への font 取得を持ち込まない。
+   欧文を先に置くのは、数字とラテン文字を欧文フォントから取り、
+   和文だけを日本語フォントに落とすため。
+   ───────────────────────────────────────────────────────────── */
+
 :root {
-  --primary-color: #2d9d78;
-  --secondary-color: #f97316;
-  --danger-color: #dc2626;
-  --success-color: #16a34a;
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --border-color: #e5e7eb;
+  /* 紙とインク。ニュートラルはわずかに緑寄りにして主色となじませる */
+  --ink: #101c18;
+  --ink-2: #57675f;
+  --ink-3: #8b978f;
+  --paper: #ffffff;
+  --paper-2: #f4f7f5;
+  --paper-3: #e9efeb;
+  --line: #dce4df;
+  --line-strong: #c2cec7;
+
+  /* 主色。JAでんきの緑を落として帳票に耐える濃さにする */
+  --green: #1f6f52;
+  --green-dark: #16513c;
+  --green-soft: #e7f1ec;
+
+  /* 増減。赤緑だけに頼らず、符号と語で必ず併記する */
+  --gain: #106b41;
+  --loss: #9c3226;
+
+  --warn-bg: #fdf6e6;
+  --warn-line: #d9b45c;
+  --warn-ink: #6f5310;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --maxw: 660px;
+
+  /* 和文と欧文。欧文を先に置き、数字はここから取る */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI',
+    Roboto, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic',
+    'Yu Gothic Medium', 'Yu Gothic', 'Noto Sans JP', Meiryo, sans-serif;
 }
 
-* {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body, #root {
-  width: 100%;
-  height: 100%;
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  line-height: 1.6;
+  background-color: var(--paper-2);
+  color: var(--ink);
   font-size: 16px;
+  line-height: 1.75;
+  /* 日本語の見出し・本文の折り返しを整える。「な／し」のような
+     1文字だけの行送りを防ぐ */
+  text-wrap: pretty;
 }
 
-button {
+h1,
+h2,
+h3 {
+  line-height: 1.35;
+  text-wrap: balance;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* 数字は等幅で桁を揃える。金額が縦に並ぶ画面なので効く */
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── 面 ───────────────────────────────────────────────────── */
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card + .card,
+.card + .stack-gap,
+.stack > * + * {
+  margin-top: 14px;
+}
+
+.stack {
+  display: block;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card-sub {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin-top: 4px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+
+/* ── 入力 ─────────────────────────────────────────────────── */
+
+.field + .field {
+  margin-top: 16px;
+}
+
+.field-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 2px;
+  line-height: 1.6;
+}
+
+.input,
+.select {
   font-family: inherit;
-  font-size: inherit;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  cursor: pointer;
-  transition: all 0.2s;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  width: 100%;
+  margin-top: 6px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-lg {
+  font-size: 20px;
   font-weight: 600;
+  padding: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%),
+    linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
 }
 
-button.primary {
-  background-color: var(--primary-color);
-  color: white;
+.input:focus,
+.select:focus,
+.chip:focus-visible,
+.btn:focus-visible,
+input[type='radio']:focus-visible,
+input[type='checkbox']:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
 }
 
-button.primary:hover {
-  background-color: #247a5f;
+.input:focus,
+.select:focus {
+  border-color: var(--green);
+  outline-offset: 0;
 }
 
-button.secondary {
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+.field-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
 }
 
-input, select {
+.field-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── チップ（選択肢） ─────────────────────────────────────── */
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.chip {
   font-family: inherit;
-  font-size: inherit;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chip:hover {
+  background: var(--paper-2);
+}
+
+.chip.is-active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── ボタン ───────────────────────────────────────────────── */
+
+.btn {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 13px 18px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  /* 「詳しい結果を／見る」のような語中での折り返しを止める */
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--green-dark);
+}
+
+.btn-ghost {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.btn-ghost:hover {
+  background: var(--paper-2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-row .btn {
+  flex: 1;
+}
+
+.btn-full {
   width: 100%;
 }
 
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(45, 157, 120, 0.1);
+/* ── ラジオ・チェック ─────────────────────────────────────── */
+
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin-top: 12px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  /* 「な／し」と1文字ずつ割れるのを防ぐ */
+  white-space: nowrap;
+}
+
+.choice input {
+  accent-color: var(--green);
+  width: 18px;
+  height: 18px;
+}
+
+/* ── 注記 ─────────────────────────────────────────────────── */
+
+.note {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+
+.note-warn {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-sm);
+  color: var(--warn-ink);
+  padding: 14px 16px;
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+/* ── 金額 ─────────────────────────────────────────────────── */
+
+.hero {
+  border-color: var(--line-strong);
+}
+
+.hero-figure {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 6px 0 2px;
+  white-space: nowrap;
+}
+
+.figure-gain { color: var(--gain); }
+.figure-loss { color: var(--loss); }
+.figure-flat { color: var(--ink); }
+
+/* 現在と乗り換え後の年額を横棒で並べる */
+.compare-bars {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.compare-name {
+  font-size: 13px;
+  color: var(--ink-2);
+  min-width: 0;
+}
+
+.compare-amount {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.compare-track {
+  display: block;
+  grid-column: 1 / -1;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  overflow: hidden;
+}
+
+.compare-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* ── 月別の差額 ───────────────────────────────────────────── */
+
+.bars {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bar-slot {
+  height: 104px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+}
+
+.bar-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.bar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.bar-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.bar-label {
+  font-size: 10px;
+  color: var(--ink-3);
+  text-align: center;
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── 比較表 ───────────────────────────────────────────────── */
+
+.rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+.rate-table th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  text-align: right;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.rate-table th:first-child {
+  text-align: left;
+}
+
+.rate-table td {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: baseline;
+}
+
+.rate-table td + td {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-left: 10px;
+}
+
+.rate-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.plan-name {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* プラン名の途中で折れると「従量電灯／A」になる。名前は一塊で扱い、
+   入りきらないときはタグだけを次の行へ送る */
+.plan-name > span:first-child {
+  white-space: nowrap;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--green);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.is-current td {
+  color: var(--ink-2);
+}
+
+/* ── 内訳 ─────────────────────────────────────────────────── */
+
+details.card > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+details.card > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.card > summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--ink-3);
+  border-bottom: 2px solid var(--ink-3);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  flex: none;
+}
+
+details.card[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.formula {
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.9;
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .compare-fill,
+  .bar,
+  .tag {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── ヒーロー内の組み ─────────────────────────────────────── */
+
+.hero-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.hero-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.hero-figures dd {
+  font-size: 20px;
+  font-weight: 700;
+  /* 「￥436お／トク」と語中で折れるのを止める */
+  white-space: nowrap;
+}
+
+/* プラン名は一塊で扱い、「（現在）」だけを次の行へ送る */
+.compare-name > span {
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr 1.05fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .hero-figure {
+    font-size: 52px;
+  }
+}
+
+/* 広い画面では本文幅を広げ、結果を2カラムに割る。
+   custom property の上書きは、あとから読まれるこのファイルに置く */
+@media (min-width: 1000px) {
+  :root {
+    --maxw: 1080px;
+  }
+}
+
+/* 説明が2行以上になるチェックは、頭を揃えて折り返しを許す */
+.choice-block {
+  align-items: flex-start;
+  white-space: normal;
+  margin-top: 16px;
+}
+
+.choice-block input {
+  margin-top: 3px;
+  flex: none;
 }

@@ -434,3 +434,153 @@ export function formatCurrency(amountYen: number): string {
 export function formatPercentage(percent: number, decimalPlaces: number = 1): string {
   return formatDecimalPercentage(new Decimal(percent), decimalPlaces)
 }
+
+/* ─────────────────────────────────────────────────────────────
+   年間の試算
+
+   他社のシミュレーターと同じく「年間でいくら変わるか」を主役にする。
+   ただし月額を12倍しただけの数字は年額として正しくない。
+   燃料費調整額は毎月改定され、月によって 3円/kWh 以上動くためである。
+
+   収録済みの12か月ぶんの単価でそれぞれ計算し、積み上げる。
+   使用量は毎月同じと仮定する（季節変動は入力から知りようがない）。
+   この仮定は画面にも印刷物にも明記する。
+   ───────────────────────────────────────────────────────────── */
+
+export interface AnnualMonth {
+  year: number
+  month: number
+  label: string
+  currentYen: number
+  candidateYen: number
+  /** 現在 − 乗り換え後。プラスがおトク。ガスセット割は含めない */
+  savingsYen: number
+}
+
+export interface AnnualView {
+  /** rollup … 12か月それぞれの単価で積み上げた／times_twelve … 月額×12 */
+  basis: 'rollup' | 'times_twelve'
+  planId: string
+  planName: string
+  rangeLabel: string
+  months: AnnualMonth[]
+  currentYen: number
+  candidateYen: number
+  /** 年間のおトク額。ガスセット割を含む */
+  savingsYen: number
+  gasSetDiscountYen: number
+  firstYearSavingsYen: number
+  /** 積み上げなかった理由。basis が times_twelve のときだけ入る */
+  fallbackReason: string | null
+}
+
+const MONTHS_IN_YEAR = 12
+
+/** period を最終月とする12か月。古い順 */
+function monthsEndingAt(period: RatePeriod): RatePeriod[] {
+  const out: RatePeriod[] = []
+  for (let back = MONTHS_IN_YEAR - 1; back >= 0; back--) {
+    const zeroBased = period.year * 12 + (period.month - 1) - back
+    out.push({ year: Math.floor(zeroBased / 12), month: (zeroBased % 12) + 1 })
+  }
+  return out
+}
+
+/**
+ * 年間の試算。
+ *
+ * 積み上げるのは **総使用量だけで決まるプラン**に限る。
+ * 季節別単価や時間帯別のプランは、月が変われば夏季／その他季の分け方も
+ * 検針期間の平日・休日数も変わるが、入力は1か月ぶんしかない。
+ * 同じ内訳を12か月に当てると、7月の入力を1月の単価で計算するような
+ * 数字を作ってしまう。推測になるので積み上げない（CLAUDE.md ルール8）。
+ */
+export function calculateAnnual(
+  scenarioId: string,
+  usage: UsageInput,
+  planId: string,
+  options: CalculateOptions = {}
+): AnnualView | null {
+  const scenario = findScenario(scenarioId)
+  if (!scenario) return null
+
+  const period = options.period ?? DEFAULT_PERIOD
+  const base = calculateComparison(scenarioId, usage, { period })
+  if (base.status !== 'ok') return null
+
+  const baseCandidate = base.view.candidates.find(c => c.planId === planId)
+  if (!baseCandidate) return null
+
+  const gasSetDiscountYen = options.gasSetDiscount === true
+    ? GAS_SET_DISCOUNT_MONTHLY.times(MONTHS_IN_YEAR).toNumber()
+    : 0
+
+  const timesTwelve = (fallbackReason: string): AnnualView => {
+    const currentYen = base.view.current.monthlyChargeYen * MONTHS_IN_YEAR
+    const candidateYen = baseCandidate.monthlyChargeYen * MONTHS_IN_YEAR
+    const savingsYen = currentYen - candidateYen + gasSetDiscountYen
+    return {
+      basis: 'times_twelve',
+      planId,
+      planName: baseCandidate.planName,
+      rangeLabel: `${period.year}年${period.month}月の単価で12か月`,
+      months: [],
+      currentYen,
+      candidateYen,
+      savingsYen,
+      gasSetDiscountYen,
+      firstYearSavingsYen: savingsYen + FIRST_YEAR_SPECIAL_DISCOUNT.toNumber(),
+      fallbackReason
+    }
+  }
+
+  if (scenario.usageForm !== 'total') {
+    return timesTwelve(
+      '時間帯別・季節別のプランは、月ごとの内訳が検針票からしか分からないため、この月の試算を12倍しています'
+    )
+  }
+
+  const available = new Set(periodOptionsFor(scenario).map(p => `${p.year}-${p.month}`))
+  const span = monthsEndingAt(period)
+  if (!span.every(p => available.has(`${p.year}-${p.month}`))) {
+    return timesTwelve('12か月ぶんの燃料費調整額がまだ収録されていないため、この月の試算を12倍しています')
+  }
+
+  const months: AnnualMonth[] = []
+  for (const p of span) {
+    const r = calculateComparison(scenarioId, usage, { period: p })
+    if (r.status !== 'ok') {
+      return timesTwelve('一部の月が計算できないため、この月の試算を12倍しています')
+    }
+    const c = r.view.candidates.find(x => x.planId === planId)
+    if (!c) return timesTwelve('一部の月でこのプランが計算できないため、この月の試算を12倍しています')
+    months.push({
+      year: p.year,
+      month: p.month,
+      label: `${p.month}月`,
+      currentYen: r.view.current.monthlyChargeYen,
+      candidateYen: c.monthlyChargeYen,
+      savingsYen: r.view.current.monthlyChargeYen - c.monthlyChargeYen
+    })
+  }
+
+  const currentYen = months.reduce((a, m) => a + m.currentYen, 0)
+  const candidateYen = months.reduce((a, m) => a + m.candidateYen, 0)
+  const savingsYen = currentYen - candidateYen + gasSetDiscountYen
+  const first = span[0]
+  const last = span[span.length - 1]
+
+  return {
+    basis: 'rollup',
+    planId,
+    planName: baseCandidate.planName,
+    rangeLabel: `${first.year}年${first.month}月〜${last.year}年${last.month}月`,
+    months,
+    currentYen,
+    candidateYen,
+    savingsYen,
+    gasSetDiscountYen,
+    firstYearSavingsYen: savingsYen + FIRST_YEAR_SPECIAL_DISCOUNT.toNumber(),
+    fallbackReason: null
+  }
+}

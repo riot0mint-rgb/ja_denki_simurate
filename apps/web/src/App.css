@@ -1,60 +1,101 @@
+/* ─────────────────────────────────────────────────────────────
+   画面の骨格。
+   モバイル1カラムを基本に、広い画面では結果を2カラムに割る。
+   営業がタブレットで開くことがあるため、幅が余ったときに
+   1カラムのまま間延びしないようにする。
+   ───────────────────────────────────────────────────────────── */
+
 .app {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-primary);
+  background: var(--paper-2);
 }
 
-.container {
-  flex: 1;
-  max-width: 600px;
+.topbar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-inner {
+  max-width: var(--maxw);
   margin: 0 auto;
-  width: 100%;
-  padding: 20px;
+  padding: 14px 20px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.header {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 16px 20px;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.header h1 {
-  font-size: 24px;
-  margin: 0;
-}
-
-.content {
-  flex: 1;
-  padding: 30px 20px;
-}
-
-.button-group {
-  display: flex;
+  align-items: baseline;
   gap: 12px;
-  margin-top: 20px;
 }
 
-.button-group button {
+.wordmark {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* 主色は金額に取っておく。ワードマークには細い緑の下線だけを当てる */
+.wordmark::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--green);
+  margin-top: 3px;
+}
+
+.topbar-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wrap {
   flex: 1;
-  /* 既定の 24px 左右余白だと 420px 幅で「詳しい結果を見る」が
-     2行に折れて語の途中で切れる */
-  padding-left: 12px;
-  padding-right: 12px;
-}
-
-.button-full {
   width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 20px 20px 40px;
 }
 
-@media (min-width: 768px) {
-  .container {
-    max-width: 100%;
+.page-title {
+  font-size: 21px;
+  margin-bottom: 4px;
+}
+
+.page-lead {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin-bottom: 18px;
+}
+
+.section-gap {
+  margin-top: 26px;
+}
+
+.hr {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 22px 0;
+}
+
+/* 広い画面では結果を2カラムにする。
+   --maxw の切り替えは index.css 側に置いてある（後から読まれる側で
+   上書きされるため。ここに書くと効かない） */
+@media (min-width: 1000px) {
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .result-grid > .stack > * + * {
+    margin-top: 14px;
   }
 }
 
@@ -68,64 +109,67 @@
     display: none !important;
   }
 
-  /* 画面用の余白と中央寄せは紙では邪魔になる */
-  .container {
+  body {
+    background: #fff;
+    font-size: 10pt;
+    line-height: 1.6;
+  }
+
+  /* 紙にも製品名を残す。誰が出した試算なのかが分からない紙は使えない */
+  .topbar {
+    position: static;
+    border-bottom: 1px solid #999;
+    margin-bottom: 10px;
+  }
+
+  .topbar .wordmark::after {
+    display: none;
+  }
+
+  .topbar-inner,
+  .wrap {
     max-width: 100%;
-    padding: 0;
-    display: block;
+    padding: 0 0 8px;
   }
 
-  .content {
-    padding: 0;
+  .wrap {
+    padding: 10px 0 0;
   }
 
-  /* 見出しの緑帯とグラデーションは既定でインク節約のため落とされる。
-     金額の背景が白飛びして読めなくなるため明示的に出す */
-  .header,
-  .content > div:first-child {
+  /* 金額のカードだけは地色を残す。そこが一番読ませたい */
+  .hero {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  .header h1 {
-    font-size: 16pt;
-  }
-
-  body {
-    font-size: 10pt;
-    line-height: 1.5;
-  }
-
-  /* カードの塗りは紙では枠線のほうが読みやすい。
-     ただし先頭の金額カードだけは色を残す（そこが一番読ませたい） */
-  .content > div[style]:not(:first-child),
-  .content > details[style] {
-    background: transparent !important;
-    border: 1px solid #ccc;
-    padding: 10px !important;
-    margin-bottom: 10px !important;
+  .card {
+    border: 1px solid #bbb;
+    border-radius: 0;
+    padding: 10px 12px;
     break-inside: avoid;
   }
 
-  /* 内訳と出典は途中で切れると根拠として使えない */
-  details {
+  .card + .card {
+    margin-top: 8px;
+  }
+
+  .result-grid {
+    display: block;
+  }
+
+  details,
+  table {
     break-inside: avoid;
   }
 
   details > summary {
     list-style: none;
-    font-size: 11pt;
-  }
-
-  table {
-    break-inside: avoid;
   }
 
   a[href]::after {
     content: none !important;
   }
 
-  /* 画面では不要だが紙には必要な情報（試算日・免責） */
   .print-only {
     display: block !important;
   }

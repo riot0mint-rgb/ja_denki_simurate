@@ -7,21 +7,28 @@ import { GAS_SET_DISCOUNT_YEN } from '../services/calculateService'
 const JULY = { year: 2026, month: 7 }
 
 function show(scenarioId: string, usage: object, onBack = vi.fn()) {
-  render(<ComparisonResult scenarioId={scenarioId} usage={usage} period={JULY} onBack={onBack} />)
-  return onBack
+  const r = render(
+    <ComparisonResult scenarioId={scenarioId} usage={usage} period={JULY} onBack={onBack} />
+  )
+  return Object.assign(onBack, {
+    /** 年間のおトク額。金額そのものは月によって動くので、値ではなく変化を見る */
+    annual: () => r.container.querySelector('.hero-figure')!.textContent
+  })
 }
 
 describe('結果画面', () => {
-  it('安くなるときは「毎月のお得額」を出す', () => {
+  // 年額を主役に出す。月額の12倍ではなく、12か月ぶんの燃調で積み上げる
+  it('安くなるときは年間のおトク額を主役に出す', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
-    expect(screen.getByText('毎月のお得額')).toBeInTheDocument()
-    expect(screen.getByText(/年間削減額/)).toBeInTheDocument()
+    expect(screen.getByText('年間の想定おトク額')).toBeInTheDocument()
+    expect(screen.getByText('月あたり')).toBeInTheDocument()
+    expect(screen.getAllByText(/おトク$/).length).toBeGreaterThan(0)
   })
 
-  it('高くなるときは「現在の方が安い」と明示する（誤解を招かない）', () => {
+  it('高くなるときは「ご負担増」と明示する（誤解を招かない）', () => {
     show('au_m_plan', { totalKwh: 348 })
-    expect(screen.getByText('毎月の差額（現在の方が安い）')).toBeInTheDocument()
-    expect(screen.getByText(/年間増加額/)).toBeInTheDocument()
+    expect(screen.getByText('年間の想定ご負担増額')).toBeInTheDocument()
+    expect(screen.getAllByText(/ご負担増$/).length).toBeGreaterThan(0)
   })
 
   it('比較表に現在プランと候補が並ぶ', () => {
@@ -29,7 +36,7 @@ describe('結果画面', () => {
     const table = screen.getByRole('table')
     expect(within(table).getByText(/中国電力 従量電灯A（現在）/)).toBeInTheDocument()
     expect(within(table).getByText(/JAでんき 従量電灯A/)).toBeInTheDocument()
-    expect(within(table).getByText(/★推奨/)).toBeInTheDocument()
+    expect(within(table).getByText('おすすめ')).toBeInTheDocument()
   })
 
   // 同額なのに「+￥0」を赤で出すと、高くなったように読める
@@ -45,7 +52,7 @@ describe('結果画面', () => {
   // なっていた。スマートコースは 1〜16kWh で最低料金が同額
   it('同額のときは見出しも「同額」と揃える', () => {
     show('chugoku_smart', { totalKwh: 10 })
-    expect(screen.getByText('毎月の料金は同額です')).toBeInTheDocument()
+    expect(screen.getByText('年間の料金は同額です')).toBeInTheDocument()
     expect(screen.queryByText(/切り替えても$/)).not.toBeInTheDocument()
     expect(screen.getByText(/同額です。ご使用量が変わると差が出ます/)).toBeInTheDocument()
   })
@@ -58,10 +65,10 @@ describe('結果画面', () => {
   })
 
   it('ガスセット割を入れると年額が増える', async () => {
-    show('chugoku_juryo_a', { totalKwh: 348 })
-    const annualBefore = screen.getByText(/年間削減額/).textContent
+    const r = show('chugoku_juryo_a', { totalKwh: 348 })
+    const before = r.annual()
     await userEvent.click(screen.getByRole('radio', { name: /^あり/ }))
-    expect(screen.getByText(/年間削減額/).textContent).not.toBe(annualBefore)
+    expect(r.annual()).not.toBe(before)
   })
 
   it('計算できないときは理由と次の一手を出し、推測値を出さない（ルール8）', () => {
@@ -81,16 +88,16 @@ describe('結果画面', () => {
 // 年額はガスセット割を含むため、月額と符号が食い違うことがある。
 // 月額の符号で年額のラベルを決めると「増加額 ￥720」のような表示になる
 describe('年額のラベルは年額の符号で決める', () => {
-  it('ガスセット割で年額が黒字に転じたら「削減額」と出す', async () => {
+  it('ガスセット割で年額が黒字に転じたら「おトク」と出す', async () => {
     // ナイトホリデー 442kWh 付近は月額がわずかにマイナス。
     // セット割 110円/月 を入れると年額は黒字になる
     show('chugoku_night_holiday', { contractKw: 6, tou: { night: 430 } })
-    expect(screen.getByText(/年間増加額/)).toBeInTheDocument()
+    expect(screen.getByText('年間の想定ご負担増額')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('radio', { name: /^あり/ }))
-    expect(screen.getByText(/年間削減額/)).toBeInTheDocument()
-    // 月額の見出しは月額のまま（現在の方が安い）
-    expect(screen.getByText('毎月の差額（現在の方が安い）')).toBeInTheDocument()
+    expect(screen.getByText('年間の想定おトク額')).toBeInTheDocument()
+    // 月あたりの符号は月あたりで決める。年額が黒字でも月額は割高のまま
+    expect(screen.getByText(/^￥\d+ご負担増$/)).toBeInTheDocument()
   })
 })
 
@@ -151,7 +158,7 @@ describe('結果画面（つづき）', () => {
   it('注意書きに検針月・単価の適用月・未計上項目を書く', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
     expect(screen.getByText(/2026年7月適用の単価に/)).toBeInTheDocument()
-    expect(screen.getByText(/2026年7月の燃料費調整額・再エネ賦課金/)).toBeInTheDocument()
+    expect(screen.getByText(/2026年7月の燃料費調整額・再エネ賦課金を/)).toBeInTheDocument()
     expect(screen.getByText(/検針票発行手数料/)).toBeInTheDocument()
   })
 
@@ -213,16 +220,16 @@ describe('安くならないときも正直に出す', () => {
     expect(screen.getByText(/現在のご契約のご継続をおすすめします/)).toBeInTheDocument()
   })
 
-  it('高いプランを「★推奨」と出さない', () => {
+  it('高いプランを「おすすめ」と出さない', () => {
     show('au_m_plan', { totalKwh: 348 })
-    expect(screen.queryByText(/★推奨/)).not.toBeInTheDocument()
+    expect(screen.queryByText('おすすめ')).not.toBeInTheDocument()
   })
 
-  // 「初年度合計: -￥5,000」は、合計が得だと読み違える
+  // 符号を落として「初年度 ￥5,000」と出すと、得だと読み違える
   it('初年度も負担増なら、負担増と書く', () => {
     show('au_m_plan', { totalKwh: 348 })
-    expect(screen.getByText(/初年度は .* の負担増/)).toBeInTheDocument()
-    expect(screen.queryByText(/初年度合計/)).not.toBeInTheDocument()
+    const label = screen.getByText('新規契約割引 ￥3,000 込み').closest('dt')!
+    expect(label.parentElement!.textContent).toMatch(/ご負担増$/)
   })
 })
 
