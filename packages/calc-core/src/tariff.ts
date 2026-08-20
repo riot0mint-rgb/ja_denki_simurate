@@ -21,14 +21,12 @@ export function calculateTieredCharge(
     const startKwh = new Decimal(tier.startKwh);
     const endKwhValue = tier.endKwh !== null ? new Decimal(tier.endKwh) : null;
 
-    let chargedKwh: Decimal;
-    let isApplicable = false;
+    let chargedKwh: Decimal | null = null;
 
     if (endKwhValue === null) {
       // 最終段階 (300 kWh以上の場合など)
       if (usageDecimal.greaterThan(startKwh)) {
         chargedKwh = usageDecimal.minus(startKwh);
-        isApplicable = true;
       }
     } else {
       // 中間段階 (例: 15-120 kWh)
@@ -37,11 +35,10 @@ export function calculateTieredCharge(
           ? usageDecimal
           : endKwhValue;
         chargedKwh = effectiveEnd.minus(startKwh);
-        isApplicable = true;
       }
     }
 
-    if (isApplicable) {
+    if (chargedKwh !== null) {
       const charge = chargedKwh.times(tier.unitPriceYenPerKwh);
       calculations.push({
         tierNumber: tier.tierNumber,

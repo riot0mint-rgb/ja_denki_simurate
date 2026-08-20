@@ -198,10 +198,58 @@ const chugokuRatenA: RatePlan = {
   ]
 };
 
+const chugokuRatenS: RatePlan = {
+  planId: 'chugoku_raten_s',
+  planName: '中国電力（従量電灯S）',
+  contractType: 'household_low_usage',
+  applicableUsage: '≤ 217 kWh/month',
+  effectiveFrom: '2026-10-01',
+  effectiveTo: null,
+  baseCharge: {
+    value: new Decimal('1500.00'),
+    unit: 'per_month'
+  },
+  minimumCharge: {
+    value: new Decimal('1500.00'),
+    unit: 'per_month'
+  },
+  tiers: [
+    {
+      tierNumber: 1,
+      startKwh: 0,
+      endKwh: null,
+      unitPriceYenPerKwh: new Decimal('28.00'),
+      sourceFile: '中国電力料金メニュー定義書（参考値）'
+    }
+  ],
+  fuelAdjustment: {
+    status: 'unconfirmed'
+  },
+  renewableLevy: {
+    status: 'unconfirmed'
+  },
+  tax: {
+    status: 'unconfirmed'
+  },
+  roundingRule: {
+    method: 'round',
+    unit: 'yen'
+  },
+  sources: [
+    {
+      document: '中国電力料金メニュー定義書（参考値）',
+      date: '2026-10-01',
+      pageRange: '1-5',
+      contains: ['tier_prices']
+    }
+  ]
+};
+
 export const fixtures = {
   jadenRatenA,
   jadenRatenS,
   chugokuRatenA,
+  chugokuRatenS,
 
   boundaryValues: [0, 1, 14, 15, 16, 119, 120, 121, 299, 300, 301, 900]
 };
