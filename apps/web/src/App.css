@@ -42,6 +42,10 @@
 
 .button-group button {
   flex: 1;
+  /* 既定の 24px 左右余白だと 420px 幅で「詳しい結果を見る」が
+     2行に折れて語の途中で切れる */
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .button-full {

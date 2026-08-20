@@ -14,6 +14,17 @@ interface ComparisonResultProps {
   onBack: () => void;
 }
 
+/**
+ * 金額セル。360px 幅では「−」と「￥436」が別行に割れて増減が読めなくなる。
+ * 桁を揃えるために等幅数字も当てる
+ */
+const moneyCellStyle: React.CSSProperties = {
+  textAlign: 'right',
+  padding: '8px 4px',
+  whiteSpace: 'nowrap',
+  fontVariantNumeric: 'tabular-nums'
+}
+
 const cardStyle: React.CSSProperties = {
   background: 'var(--bg-secondary)',
   padding: '20px',
@@ -137,7 +148,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
             <tbody>
               <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
                 <td style={{ padding: '8px 4px' }}>{v.current.planName}（現在）</td>
-                <td style={{ textAlign: 'right', padding: '8px 4px', fontWeight: 'bold' }}>
+                <td style={{ ...moneyCellStyle, fontWeight: 'bold' }}>
                   {formatCurrency(v.current.monthlyChargeYen)}
                 </td>
                 <td style={{ textAlign: 'right', padding: '8px 4px', color: 'var(--text-secondary)' }}>—</td>
@@ -152,12 +163,11 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
                     <td style={{ padding: '8px 4px', fontWeight: rec ? 'bold' : 'normal' }}>
                       {c.planName}{rec ? '  ★推奨' : ''}
                     </td>
-                    <td style={{ textAlign: 'right', padding: '8px 4px', fontWeight: 'bold' }}>
+                    <td style={{ ...moneyCellStyle, fontWeight: 'bold' }}>
                       {formatCurrency(c.monthlyChargeYen)}
                     </td>
                     <td style={{
-                      textAlign: 'right',
-                      padding: '8px 4px',
+                      ...moneyCellStyle,
                       color:
                         c.monthlySavingsYen > 0
                           ? '#16a34a'
@@ -206,12 +216,19 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           <div
             role="radiogroup"
             aria-label="ガスとでんきのセット割"
-            style={{ display: 'flex', gap: '20px' }}
+            style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px' }}
           >
             {GAS_SET_OPTIONS.map(o => (
               <label
                 key={o.label}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  // 折り返すと「な／し」のように1文字ずつ割れて読めなくなる
+                  whiteSpace: 'nowrap'
+                }}
               >
                 <input
                   type="radio"
