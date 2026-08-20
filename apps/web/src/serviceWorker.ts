@@ -13,21 +13,30 @@ export function registerServiceWorker(onUpdateAvailable: UpdateHandler): void {
   navigator.serviceWorker
     .register('/sw.js')
     .then(registration => {
+      const notify = () => onUpdateAvailable(() => applyUpdate(registration))
+
+      /** installed になった時点で通知する。controller が居るときだけが「更新」 */
+      const watch = (worker: ServiceWorker | null) => {
+        if (!worker) return
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+          notify()
+          return
+        }
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) notify()
+        })
+      }
+
       // 既に待機中の新版があるケース（前回タブを閉じずに再訪した場合など）
       if (registration.waiting) {
-        onUpdateAvailable(() => applyUpdate(registration))
+        notify()
         return
       }
-      registration.addEventListener('updatefound', () => {
-        const installing = registration.installing
-        if (!installing) return
-        installing.addEventListener('statechange', () => {
-          // controller が居るときだけが「更新」。初回インストールは通知しない
-          if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-            onUpdateAvailable(() => applyUpdate(registration))
-          }
-        })
-      })
+      // register() が解決した時点で既にインストールが始まっていることがある。
+      // updatefound はもう発火済みなので、ここで拾わないと更新が通知されないまま
+      // 古い単価で試算し続けることになる
+      watch(registration.installing)
+      registration.addEventListener('updatefound', () => watch(registration.installing))
     })
     .catch(() => {
       // 登録に失敗してもアプリは通常どおり動く。オフライン対応が効かないだけ

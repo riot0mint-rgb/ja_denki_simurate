@@ -33,13 +33,15 @@ function nthMonday(year: number, month: number, nth: number): number {
  * 5月6日が休日でありながら平日として数えられ、ホリデータイムの按分がずれる。
  * ゴールデンウィークのように祝日が続く並びでは、連続する祝日を飛ばした先が振替になる。
  *
- * 振替を作るのは**国民の祝日だけ**。入力シートの注記にある「そのほか」
- * （1/2〜1/4・5/1・5/2・12/30・12/31）は年末年始の慣行であって祝日法の対象ではない。
- * ここから振替を作ると、元資料に無い休日を勝手に生やすことになる（ルール8）。
- * ただし振替先を送る判定には「そのほか」も含めた集合を使う —
- * 実際に休みの日を飛ばさないと振替先が休日と重なってしまうため。
+ * 振替の対象も、振替先を送る判定も、**国民の祝日だけ**で行う。
+ * 条文が「その日後においてその日に最も近い『国民の祝日』でない日」と定めているため。
+ *
+ * 入力シートの注記にある「そのほか」（1/2〜1/4・5/1・5/2・12/30・12/31）は
+ * 年末年始の慣行であって祝日法の対象ではない。これを飛ばす対象に含めると、
+ * 元日が日曜の年に 1/2〜1/4 を飛び越えて **1/5 という存在しない休日を生やす**
+ * （2034年・2023年で確認）。法どおり 1/2 が振替になり、それは既に「そのほか」にある。
  */
-function substituteHolidays(year: number, statutory: Set<string>, allClosed: Set<string>): string[] {
+function substituteHolidays(year: number, statutory: Set<string>): string[] {
   const key = (m: number, d: number) => `${m}-${d}`;
   const out: string[] = [];
   for (const k of statutory) {
@@ -52,7 +54,7 @@ function substituteHolidays(year: number, statutory: Set<string>, allClosed: Set
     const next = new Date(date);
     do {
       next.setUTCDate(next.getUTCDate() + 1);
-    } while (allClosed.has(key(next.getUTCMonth() + 1, next.getUTCDate())));
+    } while (statutory.has(key(next.getUTCMonth() + 1, next.getUTCDate())));
     out.push(key(next.getUTCMonth() + 1, next.getUTCDate()));
   }
   return out;
@@ -81,8 +83,7 @@ export function holidaysOf(year: number): Set<string> {
   ]);
   // 入力シートの注記にある「そのほか」。祝日法の対象ではないが休みとして数える
   const others = [key(1, 2), key(1, 3), key(1, 4), key(5, 1), key(5, 2), key(12, 30), key(12, 31)];
-  const allClosed = new Set([...statutory, ...others]);
-  return new Set([...allClosed, ...substituteHolidays(year, statutory, allClosed)]);
+  return new Set([...statutory, ...others, ...substituteHolidays(year, statutory)]);
 }
 
 export interface MeterPeriodDays {

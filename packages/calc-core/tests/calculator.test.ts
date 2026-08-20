@@ -1,6 +1,6 @@
 import { BillingCalculator } from '../src/calculator';
 import { lookupFuelAdjustment, lookupRenewableLevy, RatePeriod } from '../src/monthlyRates';
-import { RatePlan, UsageInput } from '../src/models';
+import { RatePlan, RoundingProfile, UsageInput } from '../src/models';
 import * as F from './fixtures';
 
 const calculator = new BillingCalculator();
@@ -247,6 +247,51 @@ describe('一律単価型（シンプルコース）', () => {
     const b = bill(F.chugokuSimple, { totalKwh: 65 });
     expect(b.notes).toEqual([]);
     expect(b.total.toNumber()).toBeGreaterThan(1845);
+  });
+});
+
+// 丸め方は事業者ごとに違う（auでんきは従量料金と燃調を切り上げる）。
+// 以前は最低料金型だけが plan.rounding を見ており、他の構造は素通りしていた。
+// 今は該当プランが無いが、au 低圧電力を足した瞬間に静かに切り上げが消える状態だった。
+describe('丸め方はどの構造でもプランの定義に従う', () => {
+  const UP: RoundingProfile = {
+    energyTotal: 'up',
+    fuelSubtotal: 'up',
+    levySubtotal: 'down',
+    finalTotal: 'none'
+  };
+
+  const cases: Array<[string, RatePlan, UsageInput]> = [
+    ['最低料金型', F.jaDenkiJuryoA, { totalKwh: 348 }],
+    ['一律単価型', F.chugokuSimple, { totalKwh: 348 }],
+    ['契約容量型', F.chugokuJuryoB, { totalKwh: 348, contractKva: 10 }],
+    ['契約電力＋季節別', F.chugokuLowVoltage, { seasonal: { summerKwh: 300, otherKwh: 0 }, contractKw: 6 }],
+    ['時間帯別', F.chugokuDenkaStyle, { contractKw: 6, tou: { night: 348 } }],
+    ['契約電力＋一律', F.chugokuMidnightB, { totalKwh: 348, contractKw: 4 }]
+  ];
+
+  // energyTotal は au明細 I13（基本料金＋電力量料金の合計）の位置に掛かる
+  it.each(cases)('%s: 切り上げ指定なら基本料金＋電力量料金が整数になる', (_label, plan, usage) => {
+    const b = bill({ ...plan, rounding: UP } as RatePlan, usage);
+    expect(b.energyChargeTotal.isInteger()).toBe(true);
+  });
+
+  it.each(cases)('%s: 切り上げ指定なら燃料費調整額が整数になる', (_label, plan, usage) => {
+    const b = bill({ ...plan, rounding: UP } as RatePlan, usage);
+    expect(b.fuelAdjustment.isInteger()).toBe(true);
+  });
+
+  it('丸め指定が none なら端数がそのまま残る', () => {
+    const b = bill(F.chugokuDenkaStyle, { contractKw: 6, tou: { night: 348 } });
+    expect(b.energyChargeTotal.isInteger()).toBe(false);
+  });
+
+  // 丸めた値が請求額の計算に使われているか。内訳だけ丸めて合計は元の値、
+  // という取りこぼしを防ぐ（finalTotal は none なので単純な足し算になる）
+  it.each(cases)('%s: 丸めた内訳がそのまま請求額に積まれる', (_label, plan, usage) => {
+    const b = bill({ ...plan, rounding: UP } as RatePlan, usage);
+    const sum = b.energyChargeTotal.plus(b.discount).plus(b.fuelAdjustment).plus(b.renewableLevy);
+    expect(b.total.toString()).toBe(sum.toString());
   });
 });
 

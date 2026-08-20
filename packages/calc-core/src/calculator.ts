@@ -193,11 +193,21 @@ export class BillingCalculator {
     levy: RenewableLevy
   ): MonthlyBill {
     const energy = plan.unitPriceYenPerKwh.times(usage);
-    const fuelCharge = fuel.unitPriceYenPerKwh.times(usage);
-    const levyCharge = roundDownToYen(levy.unitPriceYenPerKwh.times(usage));
-    const beforeLevy = energy.plus(fuelCharge);
+    // 基本料金を持たない構造なので、energyTotal はそのまま電力量料金に掛かる
+    const energyChargeTotal = applyRounding(energy, plan.rounding.energyTotal);
+    const fuelCharge = applyRounding(
+      fuel.unitPriceYenPerKwh.times(usage),
+      plan.rounding.fuelSubtotal
+    );
+    const levyCharge = applyRounding(
+      levy.unitPriceYenPerKwh.times(usage),
+      plan.rounding.levySubtotal
+    );
+    const beforeLevy = energyChargeTotal.plus(fuelCharge);
     const applied = beforeLevy.lessThan(plan.minimumMonthlyThreshold);
-    const total = applied ? plan.minimumMonthlyBill : roundDownToYen(beforeLevy.plus(levyCharge));
+    const total = applied
+      ? plan.minimumMonthlyBill
+      : applyRounding(beforeLevy.plus(levyCharge), plan.rounding.finalTotal);
 
     return this.assemble(plan, {
       baseCharge: new Decimal('0'),
@@ -212,7 +222,7 @@ export class BillingCalculator {
         }
       ],
       energySubtotal: energy,
-      energyChargeTotal: energy,
+      energyChargeTotal,
       discount: new Decimal('0'),
       fuelCharge,
       levyCharge,
@@ -269,13 +279,20 @@ export class BillingCalculator {
         });
       }
 
-      const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+      const fuelCharge = applyRounding(
+        input.fuelAdjustment.unitPriceYenPerKwh.times(usage),
+        plan.rounding.fuelSubtotal
+      );
       const levyCharge = applyRounding(
         input.renewableLevy.unitPriceYenPerKwh.times(usage),
         plan.rounding.levySubtotal
       );
+      const energyChargeTotal = applyRounding(
+        baseCharge.plus(energySubtotal),
+        plan.rounding.energyTotal
+      );
       const total = applyRounding(
-        baseCharge.plus(energySubtotal).plus(fuelCharge).plus(levyCharge),
+        energyChargeTotal.plus(fuelCharge).plus(levyCharge),
         plan.rounding.finalTotal
       );
 
@@ -284,7 +301,7 @@ export class BillingCalculator {
         baseLabel: `基本料金 ${baseUnit.toFixed(2)}円 × ${kva.value.toFixed(0)}kVA`,
         lines,
         energySubtotal,
-        energyChargeTotal: baseCharge.plus(energySubtotal),
+        energyChargeTotal,
         discount: new Decimal('0'),
         fuelCharge,
         levyCharge,
@@ -342,13 +359,20 @@ export class BillingCalculator {
       }
     ];
     const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
-    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const fuelCharge = applyRounding(
+      input.fuelAdjustment.unitPriceYenPerKwh.times(usage),
+      plan.rounding.fuelSubtotal
+    );
     const levyCharge = applyRounding(
       input.renewableLevy.unitPriceYenPerKwh.times(usage),
       plan.rounding.levySubtotal
     );
+    const energyChargeTotal = applyRounding(
+      baseCharge.plus(energySubtotal),
+      plan.rounding.energyTotal
+    );
     const total = applyRounding(
-      baseCharge.plus(energySubtotal).plus(fuelCharge).plus(levyCharge),
+      energyChargeTotal.plus(fuelCharge).plus(levyCharge),
       plan.rounding.finalTotal
     );
 
@@ -359,7 +383,7 @@ export class BillingCalculator {
         baseLabel: `基本料金 ${baseUnit.toFixed(3)}円 × ${kw.value.toFixed(1)}kW`,
         lines,
         energySubtotal,
-        energyChargeTotal: baseCharge.plus(energySubtotal),
+        energyChargeTotal,
         discount: new Decimal('0'),
         fuelCharge,
         levyCharge,
@@ -444,14 +468,21 @@ export class BillingCalculator {
       baseCharge.plus(energySubtotal)
     );
 
-    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const fuelCharge = applyRounding(
+      input.fuelAdjustment.unitPriceYenPerKwh.times(usage),
+      plan.rounding.fuelSubtotal
+    );
     const levyCharge = applyRounding(
       input.renewableLevy.unitPriceYenPerKwh.times(usage),
       plan.rounding.levySubtotal
     );
     // 最低月額料金型は、従量料金と燃料費調整額の合計が閾値に満たない月だけ
     // 最低月額料金を請求する。判定は賦課金を足す前に行う（シンプルコースと同じ）。
-    const beforeLevy = baseCharge.plus(energySubtotal).plus(discount).plus(fuelCharge);
+    const energyChargeTotal = applyRounding(
+      baseCharge.plus(energySubtotal),
+      plan.rounding.energyTotal
+    );
+    const beforeLevy = energyChargeTotal.plus(discount).plus(fuelCharge);
     const minimumApplied =
       plan.minimumMonthly !== null && beforeLevy.lessThan(plan.minimumMonthly.threshold);
     const total = minimumApplied
@@ -476,7 +507,7 @@ export class BillingCalculator {
           : '基本料金なし（最低月額料金制）',
         lines,
         energySubtotal,
-        energyChargeTotal: baseCharge.plus(energySubtotal),
+        energyChargeTotal,
         discount,
         fuelCharge,
         levyCharge,
@@ -500,12 +531,22 @@ export class BillingCalculator {
     return this.withTotalKwh(input.usage, usage => {
       const baseCharge = plan.baseChargePerKw.times(kw.value);
       const energy = plan.unitPriceYenPerKwh.times(usage);
-      const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+      const fuelCharge = applyRounding(
+        input.fuelAdjustment.unitPriceYenPerKwh.times(usage),
+        plan.rounding.fuelSubtotal
+      );
       const levyCharge = applyRounding(
         input.renewableLevy.unitPriceYenPerKwh.times(usage),
         plan.rounding.levySubtotal
       );
-      const rounded = roundDownToYen(baseCharge.plus(energy).plus(fuelCharge).plus(levyCharge));
+      const energyChargeTotal = applyRounding(
+        baseCharge.plus(energy),
+        plan.rounding.energyTotal
+      );
+      const rounded = applyRounding(
+        energyChargeTotal.plus(fuelCharge).plus(levyCharge),
+        plan.rounding.finalTotal
+      );
       const noUsage = usage.isZero();
       const total = plan.halveTotalWhenNoUsage && noUsage ? rounded.dividedBy(2) : rounded;
 
@@ -522,7 +563,7 @@ export class BillingCalculator {
           }
         ],
         energySubtotal: energy,
-        energyChargeTotal: baseCharge.plus(energy),
+        energyChargeTotal,
         discount: new Decimal('0'),
         fuelCharge,
         levyCharge,
@@ -586,13 +627,20 @@ export class BillingCalculator {
       baseCharge.plus(energySubtotal)
     );
 
-    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const fuelCharge = applyRounding(
+      input.fuelAdjustment.unitPriceYenPerKwh.times(usage),
+      plan.rounding.fuelSubtotal
+    );
     const levyCharge = applyRounding(
       input.renewableLevy.unitPriceYenPerKwh.times(usage),
       plan.rounding.levySubtotal
     );
+    const energyChargeTotal = applyRounding(
+      baseCharge.plus(energySubtotal),
+      plan.rounding.energyTotal
+    );
     const total = applyRounding(
-      baseCharge.plus(energySubtotal).plus(discount).plus(fuelCharge).plus(levyCharge),
+      energyChargeTotal.plus(discount).plus(fuelCharge).plus(levyCharge),
       plan.rounding.finalTotal
     );
 
@@ -603,7 +651,7 @@ export class BillingCalculator {
         baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toFixed(0)}kVA超過分`}）`,
         lines,
         energySubtotal,
-        energyChargeTotal: baseCharge.plus(energySubtotal),
+        energyChargeTotal,
         discount,
         fuelCharge,
         levyCharge,
@@ -666,13 +714,20 @@ export class BillingCalculator {
     });
     const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
 
-    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const fuelCharge = applyRounding(
+      input.fuelAdjustment.unitPriceYenPerKwh.times(usage),
+      plan.rounding.fuelSubtotal
+    );
     const levyCharge = applyRounding(
       input.renewableLevy.unitPriceYenPerKwh.times(usage),
       plan.rounding.levySubtotal
     );
+    const energyChargeTotal = applyRounding(
+      baseCharge.plus(energySubtotal),
+      plan.rounding.energyTotal
+    );
     const total = applyRounding(
-      baseCharge.plus(energySubtotal).plus(fuelCharge).plus(levyCharge),
+      energyChargeTotal.plus(fuelCharge).plus(levyCharge),
       plan.rounding.finalTotal
     );
 
@@ -683,7 +738,7 @@ export class BillingCalculator {
         baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toFixed(0)}kVA超過分`}）`,
         lines,
         energySubtotal,
-        energyChargeTotal: baseCharge.plus(energySubtotal),
+        energyChargeTotal,
         discount: new Decimal('0'),
         fuelCharge,
         levyCharge,

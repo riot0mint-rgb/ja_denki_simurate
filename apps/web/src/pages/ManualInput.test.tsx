@@ -136,6 +136,54 @@ describe('対象月から季節を決めて入力欄を減らす', () => {
     expect(screen.getByLabelText('ご使用量 (kWh)・その他季単価')).toBeInTheDocument()
   })
 
+  // ③④⑤の入力シートはいずれも「夏季」と「その他季」を別々に聞いている。
+  // 1欄にまとめると、7月・10月の検針が丸ごと片方の単価で計算されてしまう
+  it('時間帯別プランも7月は夏季とその他季を併記する', async () => {
+    setup()
+    await pickPlan('中国電力 電化Style')
+    await pickMonth('2026年7月')
+    expect(screen.getByLabelText('デイタイム夏季 kWh')).toBeInTheDocument()
+    expect(screen.getByLabelText('デイタイムその他季 kWh')).toBeInTheDocument()
+
+    await pickMonth('2026年8月')
+    expect(screen.queryByLabelText('デイタイム夏季 kWh')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('デイタイム（夏季） kWh')).toBeInTheDocument()
+  })
+
+  it('季節をまたぐ月は両方の入力が計算に渡る', async () => {
+    const { onComplete, user } = setup()
+    await pickPlan('中国電力 電化Style')
+    await pickMonth('2026年7月')
+    await user.type(screen.getByLabelText('デイタイム夏季 kWh'), '100')
+    await user.type(screen.getByLabelText('デイタイムその他季 kWh'), '200')
+    await user.type(screen.getByLabelText('ナイトタイム kWh'), '300')
+    await user.click(screen.getByRole('button', { name: '詳しい結果を見る' }))
+
+    const [, usage] = onComplete.mock.calls[0]
+    expect(usage.tou).toMatchObject({ daySummer: 100, dayOther: 200, night: 300 })
+  })
+
+  it('低圧電力も7月は夏季とその他季を併記する', async () => {
+    const { onComplete, user } = setup()
+    await pickPlan('中国電力 低圧電力')
+    await pickMonth('2026年7月')
+    await user.type(screen.getByLabelText('ご使用量 (kWh)・夏季単価'), '150')
+    await user.type(screen.getByLabelText('ご使用量 (kWh)・その他季単価'), '250')
+    await user.click(screen.getByRole('button', { name: '詳しい結果を見る' }))
+
+    const [, usage] = onComplete.mock.calls[0]
+    expect(usage.seasonal).toEqual({ summerKwh: 150, otherKwh: 250 })
+    expect(usage.totalKwh).toBe(400)
+  })
+
+  it('季節をまたがない月は1欄のまま（入力を増やさない）', async () => {
+    setup()
+    await pickPlan('中国電力 低圧電力')
+    await pickMonth('2026年8月')
+    expect(screen.queryByLabelText('ご使用量 (kWh)・その他季単価')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('ご使用量 (kWh)・夏季単価')).toBeInTheDocument()
+  })
+
   it('ファミリータイムは7月だけ夏季とその他季を併記する', async () => {
     setup()
     await pickPlan('中国電力 ファミリータイムⅡ')
@@ -199,6 +247,21 @@ describe('合計の確認と按分の入力', () => {
     await user.type(screen.getByLabelText('ナイトタイム kWh'), '200')
     await user.type(screen.getByLabelText('ホリデータイム kWh'), '50')
     expect(screen.getByText('350')).toBeInTheDocument()
+  })
+
+  // 季節をまたがない月は famDaySummer を計算に渡さない。
+  // 合計にだけ残ると、請求されない kWh を検針票と突き合わせさせてしまう
+  it('検針月を変えたら合計から使わない欄が外れる', async () => {
+    const { user } = setup()
+    await pickPlan('中国電力 ファミリータイムⅡ')
+    await pickMonth('2026年7月')
+    await user.type(screen.getByLabelText('デイタイム夏季 kWh'), '100')
+    await user.type(screen.getByLabelText('ナイトタイム kWh'), '200')
+    expect(screen.getByText('300')).toBeInTheDocument()
+
+    await pickMonth('2026年8月')
+    expect(screen.getByText('200')).toBeInTheDocument()
+    expect(screen.queryByText('300')).not.toBeInTheDocument()
   })
 
   it('休日の使い方を切り替えると按分が変わる', async () => {

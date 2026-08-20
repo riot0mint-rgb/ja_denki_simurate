@@ -125,6 +125,8 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [summerKwh, setSummerKwh] = useState('')
   const [otherKwh, setOtherKwh] = useState('')
   const [dayKwh, setDayKwh] = useState('')
+  // 検針期間が季節をまたぐ月だけ使う「デイタイム夏季」
+  const [daySummerKwh, setDaySummerKwh] = useState('')
   const [nightKwh, setNightKwh] = useState('')
   const [holidayKwh, setHolidayKwh] = useState('')
   // ファミリータイム／時間帯別電灯
@@ -199,16 +201,20 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
     if (scenario.usageForm === 'total') {
       base.totalKwh = num(totalKwh)
     } else if (scenario.usageForm === 'seasonal') {
-      // 対象月で夏季かその他季かが決まるため、入力欄は 1 つで足りる
-      base.seasonal = summer
-        ? { summerKwh: num(summerKwh), otherKwh: 0 }
-        : { summerKwh: 0, otherKwh: num(otherKwh) }
-      base.totalKwh = summer ? num(summerKwh) : num(otherKwh)
+      // 検針期間が季節をまたぐ月（7月・10月）は両方が発生する。
+      // ⑤の入力シートも「その他」E16 と「夏季」E18 を別々に聞いている
+      base.seasonal = mixedSeason
+        ? { summerKwh: num(summerKwh), otherKwh: num(otherKwh) }
+        : summer
+          ? { summerKwh: num(summerKwh), otherKwh: 0 }
+          : { summerKwh: 0, otherKwh: num(otherKwh) }
+      base.totalKwh = base.seasonal.summerKwh + base.seasonal.otherKwh
     } else if (scenario.usageForm === 'tou') {
-      // 同上。デイタイムは夏季／その他季のどちらか一方しか発生しない
+      // 同上。③の入力シートも「デイタイムその他」F16 と「デイタイム夏季」F18 を
+      // 別々に聞いている。1欄にまとめると7月・10月の検針が丸ごと片方の単価になる
       base.tou = {
-        daySummer: summer ? num(dayKwh) : 0,
-        dayOther: summer ? 0 : num(dayKwh),
+        daySummer: mixedSeason ? num(daySummerKwh) : summer ? num(dayKwh) : 0,
+        dayOther: mixedSeason ? num(dayKwh) : summer ? 0 : num(dayKwh),
         night: num(nightKwh),
         holiday: num(holidayKwh)
       }
@@ -227,7 +233,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
     }
     return base
   }, [
-    scenario, contract, totalKwh, summerKwh, otherKwh, dayKwh, nightKwh, holidayKwh, summer,
+    scenario, contract, totalKwh, summerKwh, otherKwh, dayKwh, daySummerKwh, nightKwh, holidayKwh, summer,
     famDaySummer, famDayOther, famFamily, famNight, ecoDay, ecoNight, allElectric,
     calendar, mixedSeason, summerOnly
   ])
@@ -238,8 +244,11 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
     [scenarioId, usage, period]
   )
 
-  const touTotal = num(dayKwh) + num(nightKwh) + num(holidayKwh)
-  const familyTotal = num(famDaySummer) + num(famDayOther) + num(famFamily) + num(famNight)
+  const touTotal = num(dayKwh) + (mixedSeason ? num(daySummerKwh) : 0) + num(nightKwh) + num(holidayKwh)
+  // 季節をまたがない月は famDaySummer を計算に渡さない。合計にだけ残ると
+  // 検針票と突き合わせる利用者に、請求されない kWh を見せてしまう
+  const familyTotal =
+    (mixedSeason ? num(famDaySummer) : 0) + num(famDayOther) + num(famFamily) + num(famNight)
   const ecoTotal = num(ecoDay) + num(ecoNight)
   const hasInput =
     scenario.usageForm === 'total'
@@ -425,31 +434,71 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
             />
           )}
 
-          {scenario.usageForm === 'seasonal' && (
-            <NumberField
-              id="usage"
-              label={summer ? 'ご使用量 (kWh)・夏季単価' : 'ご使用量 (kWh)・その他季単価'}
-              hint={
-                summer
-                  ? '7〜9月は夏季単価が適用されます'
-                  : '4〜6月・10〜3月はその他季単価が適用されます'
-              }
-              value={summer ? summerKwh : otherKwh}
-              onChange={summer ? setSummerKwh : setOtherKwh}
-            />
-          )}
+          {scenario.usageForm === 'seasonal' &&
+            (mixedSeason ? (
+              <>
+                <p style={{ fontSize: '13px', marginBottom: '12px' }}>
+                  この検針期間は夏季とその他季にまたがります。検針票の内訳どおりに入力してください
+                </p>
+                <NumberField
+                  id="usageSummer"
+                  label="ご使用量 (kWh)・夏季単価"
+                  hint="7〜9月にかかる分"
+                  value={summerKwh}
+                  onChange={setSummerKwh}
+                />
+                <NumberField
+                  id="usage"
+                  label="ご使用量 (kWh)・その他季単価"
+                  value={otherKwh}
+                  onChange={setOtherKwh}
+                />
+                <TotalBadge total={num(summerKwh) + num(otherKwh)} />
+              </>
+            ) : (
+              <NumberField
+                id="usage"
+                label={summer ? 'ご使用量 (kWh)・夏季単価' : 'ご使用量 (kWh)・その他季単価'}
+                hint={
+                  summer
+                    ? '7〜9月は夏季単価が適用されます'
+                    : '4〜6月・10〜3月はその他季単価が適用されます'
+                }
+                value={summer ? summerKwh : otherKwh}
+                onChange={summer ? setSummerKwh : setOtherKwh}
+              />
+            ))}
 
           {scenario.usageForm === 'tou' && (
             <>
               <p style={{ fontSize: '13px', marginBottom: '12px' }}>
                 検針票の時間帯ごとのご使用量を入力してください
+                {mixedSeason && '（この検針期間は夏季とその他季にまたがります）'}
               </p>
-              <NumberField
-                id="day"
-                label={summer ? 'デイタイム（夏季） kWh' : 'デイタイム kWh'}
-                value={dayKwh}
-                onChange={setDayKwh}
-              />
+              {mixedSeason ? (
+                <>
+                  <NumberField
+                    id="daySummer"
+                    label="デイタイム夏季 kWh"
+                    hint="検針期間が7〜9月にかかる分"
+                    value={daySummerKwh}
+                    onChange={setDaySummerKwh}
+                  />
+                  <NumberField
+                    id="day"
+                    label="デイタイムその他季 kWh"
+                    value={dayKwh}
+                    onChange={setDayKwh}
+                  />
+                </>
+              ) : (
+                <NumberField
+                  id="day"
+                  label={summer ? 'デイタイム（夏季） kWh' : 'デイタイム kWh'}
+                  value={dayKwh}
+                  onChange={setDayKwh}
+                />
+              )}
               <NumberField id="night" label="ナイトタイム kWh" value={nightKwh} onChange={setNightKwh} />
               <NumberField
                 id="holiday"
@@ -466,6 +515,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
             <>
               <p style={{ fontSize: '13px', marginBottom: '12px' }}>
                 検針票の時間帯ごとのご使用量を入力してください
+                {mixedSeason && '（この検針期間は夏季とその他季にまたがります）'}
               </p>
               {mixedSeason ? (
                 <>
