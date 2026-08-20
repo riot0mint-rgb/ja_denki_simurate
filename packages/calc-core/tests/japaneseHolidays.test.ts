@@ -33,6 +33,36 @@ describe('国民の祝日', () => {
   });
 });
 
+describe('国民の休日（祝日法第3条第3項）', () => {
+  const has = (year: number, key: string) => holidaysOf(year).has(key);
+
+  it('祝日に前後を挟まれた日は休日になる', () => {
+    // 2026年は 9/21 敬老の日 と 9/23 秋分の日 の間の 9/22
+    expect(has(2026, '9-21')).toBe(true);
+    expect(has(2026, '9-22')).toBe(true);
+    expect(has(2026, '9-23')).toBe(true);
+    // 2032年は 9/20 と 9/22 の間の 9/21
+    expect(has(2032, '9-21')).toBe(true);
+  });
+
+  it('祝日が離れている年には作らない', () => {
+    // 2025年は 9/15 敬老の日 と 9/23 秋分の日 で中1日ではない
+    expect(has(2025, '9-16')).toBe(false);
+    expect(has(2025, '9-22')).toBe(false);
+  });
+
+  it('「そのほか」に挟まれた日は休日にしない', () => {
+    // 1/2 と 1/4 は「そのほか」。間の 1/3 は元から「そのほか」だが、
+    // 12/31 と 1/2 に挟まれた 1/1 のような判定を持ち込まない
+    expect(has(2026, '12-29')).toBe(false);
+  });
+
+  it('国民の休日も検針期間の祝日日数に数える', () => {
+    // 2026-09-06〜10-05 には 9/21・9/22・9/23 が入る（すべて平日）
+    expect(countMeterPeriodDays('2026-09-06', '2026-10-05')?.holidayDays).toBe(3);
+  });
+});
+
 describe('振替休日（祝日法第3条第2項）', () => {
   const has = (year: number, key: string) => holidaysOf(year).has(key);
 

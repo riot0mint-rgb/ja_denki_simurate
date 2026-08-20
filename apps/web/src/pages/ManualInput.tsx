@@ -254,7 +254,10 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
     scenario.usageForm === 'total'
       ? totalKwh.trim() !== ''
       : scenario.usageForm === 'seasonal'
-        ? (summer ? summerKwh : otherKwh).trim() !== ''
+        // 季節をまたぐ月は2欄あるので、どちらか一方の入力で先へ進める
+        ? (mixedSeason
+            ? summerKwh.trim() !== '' || otherKwh.trim() !== ''
+            : (summer ? summerKwh : otherKwh).trim() !== '')
         : scenario.usageForm === 'tou'
           ? touTotal > 0
           : scenario.usageForm === 'family'

@@ -60,6 +60,30 @@ function substituteHolidays(year: number, statutory: Set<string>): string[] {
   return out;
 }
 
+/**
+ * 前後を国民の祝日に挟まれた日を休日にする（祝日法第3条第3項「国民の休日」）。
+ *
+ * 敬老の日と秋分の日が中1日で並ぶ年に効く。2026年は 9/21（敬老の日）と
+ * 9/23（秋分の日）の間の 9/22 が該当する。これが無いと 9月の検針期間で
+ * ホリデータイムが1日ぶん少なく見積もられる。
+ *
+ * 振替休日と同じく、判定に使うのは国民の祝日だけ。「そのほか」を含めると
+ * 年末年始に挟まれた日を勝手に休日にしてしまう。
+ */
+function bridgeHolidays(year: number, statutory: Set<string>): string[] {
+  const key = (m: number, d: number) => `${m}-${d}`;
+  const out: string[] = [];
+  for (const k of statutory) {
+    const [m, d] = k.split('-').map(Number);
+    const middle = new Date(Date.UTC(year, m - 1, d + 1));
+    const after = new Date(Date.UTC(year, m - 1, d + 2));
+    const middleKey = key(middle.getUTCMonth() + 1, middle.getUTCDate());
+    const afterKey = key(after.getUTCMonth() + 1, after.getUTCDate());
+    if (!statutory.has(middleKey) && statutory.has(afterKey)) out.push(middleKey);
+  }
+  return out;
+}
+
 /** その年の国民の祝日・そのほかの日（月日の集合） */
 export function holidaysOf(year: number): Set<string> {
   const key = (m: number, d: number) => `${m}-${d}`;
@@ -83,7 +107,14 @@ export function holidaysOf(year: number): Set<string> {
   ]);
   // 入力シートの注記にある「そのほか」。祝日法の対象ではないが休みとして数える
   const others = [key(1, 2), key(1, 3), key(1, 4), key(5, 1), key(5, 2), key(12, 30), key(12, 31)];
-  return new Set([...statutory, ...others, ...substituteHolidays(year, statutory)]);
+  // 国民の休日は祝日どうしの間に生まれるので、振替より先に求める
+  const bridged = bridgeHolidays(year, statutory);
+  const withBridged = new Set([...statutory, ...bridged]);
+  return new Set([
+    ...withBridged,
+    ...others,
+    ...substituteHolidays(year, withBridged)
+  ]);
 }
 
 export interface MeterPeriodDays {

@@ -305,6 +305,22 @@ describe('入力検証（CLAUDE.md ルール8）', () => {
   });
 });
 
+describe('内訳の表示（紙に出る）', () => {
+  // 按分した使用量には端数が出る。0桁で丸めると紙の上で掛け算が合わなくなる
+  it('端数のある使用量でも掛け算が合う', () => {
+    const b = bill(F.chugokuDenkaStyle, { contractKw: 6, tou: { dayOther: 67.18, night: 200 } });
+    const line = b.formula.split('→').find(x => x.includes('デイタイムその他季'))!;
+    const m = line.match(/([\d.]+)円 × ([\d.]+)kWh = ([\d.]+)円/)!;
+    // 表示は小数2桁までなので、掛け算との差は1銭未満に収まっていればよい
+    expect(Math.abs(Number(m[1]) * Number(m[2]) - Number(m[3]))).toBeLessThan(0.01);
+  });
+
+  it('整数の使用量に不要な小数を付けない', () => {
+    const b = bill(F.chugokuDenkaStyle, { contractKw: 6, tou: { night: 200 } });
+    expect(b.formula).toContain('× 200kWh');
+  });
+});
+
 describe('出典と内訳', () => {
   it('計算結果はプランの出典を持ち回る', () => {
     const b = bill(F.jaDenkiYotoku, { contractKw: 6, tou: { night: 100 } });

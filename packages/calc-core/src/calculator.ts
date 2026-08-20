@@ -783,7 +783,12 @@ export class BillingCalculator {
   ): MonthlyBill {
     const usedLines = parts.lines.filter(l => l.quantity === null || l.quantity.greaterThan(0));
     const desc = usedLines
-      .map(l => `${l.label}: ${l.unitPrice?.toFixed(2)}円 × ${l.quantity?.toFixed(0)}${l.unit} = ${l.amount.toFixed(2)}円`)
+      // 按分した使用量には端数が出る。0桁で丸めると紙の上で掛け算が合わなくなる
+      // （44.40円 × 67kWh = 2982.73円 のように見えてしまう）
+      .map(
+        l =>
+          `${l.label}: ${l.unitPrice?.toFixed(2)}円 × ${l.quantity?.toDecimalPlaces(2).toString()}${l.unit} = ${l.amount.toFixed(2)}円`
+      )
       .join(' + ');
 
     const formula = [
