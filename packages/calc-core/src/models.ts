@@ -271,6 +271,14 @@ export interface MonthlyBill {
   totalKwh: Decimal;
   /** 最低月額料金・半額ルールなど、特記すべき適用があれば記録する */
   notes: string[];
+  /**
+   * 最低月額料金で請求額を置き換えたか。
+   *
+   * true のとき、上の内訳（energySubtotal / fuelAdjustment / renewableLevy）は
+   * **請求された額ではなく、閾値判定に使った計算過程**である。
+   * 足しても total にはならない。監査でこの内訳を使うときは必ず見ること。
+   */
+  minimumMonthlyApplied: boolean;
   /** 請求額 */
   total: Decimal;
   formula: string;

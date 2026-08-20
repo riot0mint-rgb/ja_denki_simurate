@@ -11,7 +11,8 @@ import {
   SCENARIOS,
   periodOptionsFor,
   DEFAULT_RATE_PERIOD,
-  DISCOUNT_TERMS
+  GAS_SET_DISCOUNT_YEN,
+  allElectricTermsOf
 } from './calculateService'
 
 const JULY = { year: 2026, month: 7 }
@@ -434,17 +435,23 @@ describe('画面に出す割引の条件は料金定義から引く', () => {
   it('ガスセット割の月額が計算と一致する', () => {
     const without = ok('chugoku_juryo_a', { totalKwh: 348 })
     const withGas = ok('chugoku_juryo_a', { totalKwh: 348 }, { gasSetDiscount: true })
-    expect(withGas.annualSavingsYen - without.annualSavingsYen).toBe(
-      DISCOUNT_TERMS.gasSetMonthlyYen * 12
-    )
+    expect(withGas.annualSavingsYen - without.annualSavingsYen).toBe(GAS_SET_DISCOUNT_YEN * 12)
   })
 
-  it('電化住宅割の率と上限がプラン定義と一致する', () => {
-    const plan = findScenario('chugoku_family_1')!.current
-    const terms = 'allElectricDiscount' in plan ? plan.allElectricDiscount : null
-    expect(terms).not.toBeNull()
-    expect(DISCOUNT_TERMS.allElectric.ratePercent).toBe(terms!.rate.times(100).toNumber())
-    expect(DISCOUNT_TERMS.allElectric.capYen).toBe(terms!.capYen.toNumber())
+  // 最初に見つかった1件で固定すると、プランごとに条件が違ったとき
+  // 選んでいないプランの数字を表示することになる
+  it('電化住宅割はシナリオごとにプラン定義から引く', () => {
+    for (const scenario of SCENARIOS) {
+      const plan = scenario.current
+      const defined = 'allElectricDiscount' in plan ? plan.allElectricDiscount : null
+      const shown = allElectricTermsOf(scenario)
+      if (defined === null) {
+        expect(shown, scenario.scenarioId).toBeNull()
+      } else {
+        expect(shown!.ratePercent).toBe(defined.rate.times(100).toNumber())
+        expect(shown!.capYen).toBe(defined.capYen.toNumber())
+      }
+    }
   })
 })
 

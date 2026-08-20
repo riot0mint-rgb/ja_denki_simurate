@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import {
-  DISCOUNT_TERMS,
+  GAS_SET_DISCOUNT_YEN,
   calculateComparison,
   formatCurrency,
   formatPercentage
@@ -180,7 +180,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
         <div style={cardStyle} className={gasSet ? undefined : 'print-hide'}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
             <input type="checkbox" checked={gasSet} onChange={e => setGasSet(e.target.checked)} />
-            <span>ガスとでんきのセット割を適用する（月{DISCOUNT_TERMS.gasSetMonthlyYen}円）</span>
+            <span>ガスとでんきのセット割を適用する（月{GAS_SET_DISCOUNT_YEN}円）</span>
           </label>
         </div>
 

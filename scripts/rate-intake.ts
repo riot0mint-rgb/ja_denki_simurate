@@ -18,7 +18,12 @@ import { CellRange, PlanUnderCheck, renderIntakeReport, runIntake } from './rate
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-const { outPath, positional } = parseArgs(process.argv.slice(2))
+const parsed = parseArgs(process.argv.slice(2))
+if (parsed.error) {
+  console.error(parsed.error)
+  process.exit(1)
+}
+const { outPath, positional } = parsed
 const dir = resolve(positional[0] ?? join(ROOT, 'archive'))
 
 if (!existsSync(dir)) {

@@ -16,7 +16,12 @@ import { diffRateMaster, renderDiffReport, RateMasterLike } from './rateMasterDi
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CURRENT = resolve(ROOT, 'data/rate_master.json')
 
-const { outPath, positional } = parseArgs(process.argv.slice(2))
+const parsed = parseArgs(process.argv.slice(2))
+if (parsed.error) {
+  console.error(parsed.error)
+  process.exit(1)
+}
+const { outPath, positional } = parsed
 const baselinePath = positional[0]
 
 /** 料金マスターの形になっていることを確かめる。違えば読める文言で落とす */

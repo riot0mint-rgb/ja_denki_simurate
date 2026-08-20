@@ -81,21 +81,22 @@ export const DEFAULT_RATE_PERIOD = DEFAULT_PERIOD
 
 /**
  * 画面に出す割引の条件。金額をラベルに直書きすると改定時に計算とずれる。
- * 電化住宅割はプラン定義（④結果シート H15）、セット割は①I20 が正。
+ * セット割は①I20、電化住宅割はプラン定義（④結果シート H15）が正。
  */
-export const DISCOUNT_TERMS = {
-  gasSetMonthlyYen: GAS_SET_DISCOUNT_MONTHLY.toNumber(),
-  allElectric: (() => {
-    const plan = SCENARIOS.map(s => s.current).find(
-      p => 'allElectricDiscount' in p && p.allElectricDiscount !== null
-    )
-    const terms =
-      plan && 'allElectricDiscount' in plan ? plan.allElectricDiscount : null
-    return {
-      ratePercent: terms ? terms.rate.times(100).toNumber() : 0,
-      capYen: terms ? terms.capYen.toNumber() : 0
-    }
-  })()
+export const GAS_SET_DISCOUNT_YEN = GAS_SET_DISCOUNT_MONTHLY.toNumber()
+
+/**
+ * 選択中のシナリオの電化住宅割。プランごとに条件が違いうるので、
+ * 最初に見つかった1件で固定せずシナリオから引く
+ */
+export function allElectricTermsOf(
+  scenario: ComparisonScenario
+): { ratePercent: number; capYen: number } | null {
+  const plan = scenario.current
+  const terms = 'allElectricDiscount' in plan ? plan.allElectricDiscount : null
+  return terms
+    ? { ratePercent: terms.rate.times(100).toNumber(), capYen: terms.capYen.toNumber() }
+    : null
 }
 
 export interface CalculateOptions {

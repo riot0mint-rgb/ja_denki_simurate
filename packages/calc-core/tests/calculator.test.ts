@@ -254,6 +254,29 @@ describe('一律単価型（シンプルコース）', () => {
     }
   });
 
+  // 最低月額料金は内訳を置き換える。型付きの内訳を監査に使うとき、
+  // それが「請求された額」なのか「閾値判定の計算過程」なのか区別が要る
+  it('最低月額料金を適用したことが型でも分かる', () => {
+    const applied = bill(F.chugokuSimple, { totalKwh: 40 });
+    expect(applied.minimumMonthlyApplied).toBe(true);
+    // 内訳を足しても請求額にはならない（賦課金は請求されていない）
+    const parts = applied.energyChargeTotal
+      .plus(applied.fuelAdjustment)
+      .plus(applied.renewableLevy);
+    expect(parts.equals(applied.total)).toBe(false);
+
+    const normal = bill(F.chugokuSimple, { totalKwh: 200 });
+    expect(normal.minimumMonthlyApplied).toBe(false);
+    expect(
+      normal.energyChargeTotal.plus(normal.fuelAdjustment).plus(normal.renewableLevy).equals(normal.total)
+    ).toBe(true);
+  });
+
+  it('ナイトホリデーでも同じく型で分かる', () => {
+    expect(bill(F.chugokuNightHoliday, { tou: { night: 50 } }).minimumMonthlyApplied).toBe(true);
+    expect(bill(F.chugokuNightHoliday, { tou: { night: 400 } }).minimumMonthlyApplied).toBe(false);
+  });
+
   it('65kWh から通常計算に切り替わる', () => {
     const b = bill(F.chugokuSimple, { totalKwh: 65 });
     expect(b.notes).toEqual([]);

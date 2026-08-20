@@ -7,7 +7,7 @@ import {
 } from '@ja-denki-simulator/calc-core'
 import {
   DEFAULT_RATE_PERIOD,
-  DISCOUNT_TERMS,
+  allElectricTermsOf,
   periodOptionsFor,
   SCENARIOS,
   findScenario,
@@ -145,6 +145,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [dayCounts, setDayCounts] = useState<{ days: string; weekendDays: string; holidayDays: string } | null>(null)
 
   const scenario = findScenario(scenarioId)!
+  const allElectricTerms = allElectricTermsOf(scenario)
   // 選択肢は事業者ごとに変わる（燃調の公表時期がずれるため）
   const periodOptions = periodOptionsFor(scenario)
   const summer = isSummerMonth(period.month)
@@ -320,7 +321,14 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
           </select>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>
             燃料費調整額・再エネ賦課金は月ごとに改定されます
-            {scenario.usageForm !== 'total' && (summer ? '（夏季料金の期間です）' : '（その他季の期間です）')}
+            {/* 7月・10月の検針期間は季節をまたぐ。片方だけと書くと、
+                下で2欄を出していることと食い違う */}
+            {scenario.usageForm !== 'total' &&
+              (mixedSeason
+                ? '（この検針期間は夏季とその他季にまたがります）'
+                : summer
+                  ? '（夏季料金の期間です）'
+                  : '（その他季の期間です）')}
           </p>
         </div>
 
@@ -566,9 +574,9 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 12px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={allElectric} onChange={e => setAllElectric(e.target.checked)} />
                 <span>
-                  電化住宅割を適用する（基本料金＋電力量料金の
-                  {DISCOUNT_TERMS.allElectric.ratePercent}%・上限
-                  {DISCOUNT_TERMS.allElectric.capYen.toLocaleString()}円）
+                  電化住宅割を適用する
+                  {allElectricTerms &&
+                    `（基本料金＋電力量料金の${allElectricTerms.ratePercent}%・上限${allElectricTerms.capYen.toLocaleString()}円）`}
                 </span>
               </label>
               <TotalBadge total={familyTotal} />

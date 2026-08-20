@@ -824,6 +824,7 @@ export class BillingCalculator {
       renewableLevy: parts.levyCharge,
       totalKwh: parts.totalKwh,
       notes: parts.notes,
+      minimumMonthlyApplied: parts.minimumApplied === true,
       total: parts.total,
       formula,
       sources: plan.sources
