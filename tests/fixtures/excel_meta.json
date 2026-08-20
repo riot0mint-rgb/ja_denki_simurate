@@ -323,7 +323,10 @@
     32.75,
     39.43,
     41.55
-   ]
+   ],
+   "fcaSeries": "regulated",
+   "levyOk": true,
+   "planType": "minimum_charge"
   },
   "中電スマート": {
    "label": "中電 スマート",
@@ -332,7 +335,11 @@
     32.01,
     39.43,
     41.55
-   ]
+   ],
+   "fcaSeries": "regulated",
+   "levyOk": true,
+   "planType": "minimum_charge",
+   "defect": "AB23 が直値 622.91（マスタ 基本項目!E16=669.92 を参照していない）"
   },
   "中電シンプル": {
    "label": "中電 シンプル",
@@ -341,7 +348,10 @@
     38.21,
     38.21,
     38.21
-   ]
+   ],
+   "fcaSeries": "regulated",
+   "levyOk": true,
+   "planType": "minimum_monthly"
   },
   "auでんきMプラン": {
    "label": "従量電灯A",
@@ -350,7 +360,11 @@
     32.75,
     39.43,
     41.55
-   ]
+   ],
+   "fcaSeries": "au",
+   "levyOk": true,
+   "planType": "minimum_charge",
+   "defect": "AB23/X24-X26 が 基本項目!E8-E11（中電従量電灯A）を誤参照。正しくは E44-E47"
   },
   "ドコモでんき": {
    "label": "従量電灯A",
@@ -359,7 +373,11 @@
     32.83,
     39.51,
     41.63
-   ]
+   ],
+   "fcaSeries": "regulated",
+   "levyOk": true,
+   "planType": "minimum_charge",
+   "defect": "参照は正しい（E51-E54）。マスタの値自体が2024年4月改定前"
   },
   "ソフバ おうち": {
    "label": "従量電灯A",
@@ -368,7 +386,10 @@
     32.75,
     39.43,
     41.55
-   ]
+   ],
+   "fcaSeries": "softbank",
+   "levyOk": true,
+   "planType": "minimum_charge"
   },
   "ソフバ くらし": {
    "label": "従量電灯A",
@@ -377,7 +398,11 @@
     32.75,
     39.43,
     41.55
-   ]
+   ],
+   "fcaSeries": "softbank",
+   "levyOk": true,
+   "planType": "minimum_charge",
+   "defect": "AB23/X24-X26 が 基本項目!E64-E67（SBおうちでんき）を誤参照。正しくは E70-E73"
   }
  }
 }
