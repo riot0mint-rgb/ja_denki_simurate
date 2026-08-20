@@ -4,25 +4,22 @@ import {
   Decimal,
   DiscountTerms,
   MonthlyBill,
+  RatePeriod,
   RatePlan,
+  UsageInput,
+  availablePeriods,
+  DEFAULT_PERIOD,
   formatCurrency as formatDecimalCurrency,
-  formatPercentage as formatDecimalPercentage
+  formatPercentage as formatDecimalPercentage,
+  lookupFuelAdjustment,
+  lookupRenewableLevy
 } from '@ja-denki-simulator/calc-core'
-import {
-  CURRENT_PLANS,
-  JA_DENKI_PLANS,
-  RATE_PERIOD,
-  fuelAdjustment2026_04,
-  renewableLevy2026_04
-} from '../data/rates'
+import { ComparisonScenario, SCENARIOS, findScenario } from '../data/rates'
 
 const calculator = new BillingCalculator()
 const comparator = new BillingComparator()
 
-/**
- * 割引条件。公式試算表 シート「シミュレーション結果」の I20 / I25。
- * セット割はガス契約がある世帯のみが対象のため、既定では適用しない。
- */
+/** 公式試算表「シミュレーション結果」I20 / I25 */
 const FIRST_YEAR_SPECIAL_DISCOUNT = new Decimal('3000')
 const GAS_SET_DISCOUNT_MONTHLY = new Decimal('110')
 
@@ -30,15 +27,15 @@ export interface PlanResult {
   planId: string
   planName: string
   monthlyChargeYen: number
-  /** 現行プランに対する月額削減額。正なら安くなる。 */
   monthlySavingsYen: number
-  /** 計算過程 */
   formula: string
+  notes: string[]
 }
 
 export interface ComparisonView {
-  usageKwh: number
-  ratePeriod: string
+  scenarioId: string
+  ratePeriodLabel: string
+  totalKwh: number
   current: PlanResult
   candidates: PlanResult[]
   recommended: PlanResult
@@ -47,7 +44,6 @@ export interface ComparisonView {
   firstYearSavingsYen: number
   gasSetDiscountApplied: boolean
   firstYearSpecialDiscountYen: number
-  /** 単価の出典（画面に表示して監査可能にする） */
   sources: string[]
 }
 
@@ -55,56 +51,89 @@ export type CalculationOutcome =
   | { status: 'ok'; view: ComparisonView }
   | { status: 'unsupported'; reason: string; nextSteps: string[] }
 
-export const CURRENT_PLAN_OPTIONS = CURRENT_PLANS.map(p => ({
-  planId: p.planId,
-  planName: p.planName
-}))
+export { SCENARIOS, findScenario }
+export type { ComparisonScenario }
 
-function billOf(plan: RatePlan, usageKwh: number): MonthlyBill | { reason: string; nextSteps: string[] } {
-  const result = calculator.calculate({
-    usageKwh,
-    plan,
-    fuelAdjustment: fuelAdjustment2026_04,
-    renewableLevy: renewableLevy2026_04
-  })
-  return result.status === 'ok' ? result.bill : { reason: result.reason, nextSteps: result.nextSteps }
+export const PERIOD_OPTIONS = availablePeriods('chugoku')
+export const DEFAULT_RATE_PERIOD = DEFAULT_PERIOD
+
+export interface CalculateOptions {
+  period?: RatePeriod
+  gasSetDiscount?: boolean
 }
 
-function isBill(v: MonthlyBill | { reason: string }): v is MonthlyBill {
-  return (v as MonthlyBill).total !== undefined
+/** 夏季単価が適用される月（低圧電力・時間帯別プランの季節区分） */
+export function isSummerMonth(month: number): boolean {
+  return month >= 7 && month <= 9
+}
+
+function billOf(
+  plan: RatePlan,
+  usage: UsageInput,
+  scenario: ComparisonScenario,
+  period: RatePeriod
+): { ok: true; bill: MonthlyBill } | { ok: false; reason: string; nextSteps: string[] } {
+  // JAでんきは中国電力エリアの燃調を使う。他社側だけが独自単価を持つ場合がある。
+  const provider = plan.side === 'ja' ? 'chugoku' : scenario.fuelProvider
+  const fuel = lookupFuelAdjustment(period, provider)
+  const levy = lookupRenewableLevy(period)
+  if (!fuel || !levy) {
+    return {
+      ok: false,
+      reason: `${period.year}年${period.month}月の燃料費調整額・再エネ賦課金が元資料に収録されていません`,
+      nextSteps: [
+        '対象月を変更してください',
+        '最新の試算表が公開されたら料金マスターを更新する必要があります'
+      ]
+    }
+  }
+  const result = calculator.calculate({
+    usage,
+    plan,
+    fuelAdjustment: fuel.value,
+    renewableLevy: levy.value
+  })
+  return result.status === 'ok'
+    ? { ok: true, bill: result.bill }
+    : { ok: false, reason: result.reason, nextSteps: result.nextSteps }
 }
 
 export function calculateComparison(
-  usageKwh: number,
-  currentPlanId: string,
-  options: { gasSetDiscount?: boolean } = {}
+  scenarioId: string,
+  usage: UsageInput,
+  options: CalculateOptions = {}
 ): CalculationOutcome {
-  const currentPlan = CURRENT_PLANS.find(p => p.planId === currentPlanId)
-  if (!currentPlan) {
+  const scenario = findScenario(scenarioId)
+  if (!scenario) {
     // CLAUDE.md ルール8: 未対応プランを推測計算しない
     return {
       status: 'unsupported',
-      reason: `「${currentPlanId}」は現在自動計算に対応していません`,
+      reason: `「${scenarioId}」は現在自動計算に対応していません`,
       nextSteps: [
         '検針票に記載の契約種別をご確認ください',
-        '対応プラン: ' + CURRENT_PLANS.map(p => p.planName).join(' / '),
+        '対応プラン: ' + SCENARIOS.map(s => s.label).join(' / '),
         'それ以外のプランはお手数ですが営業担当にお問い合わせください'
       ]
     }
   }
 
-  const currentBill = billOf(currentPlan, usageKwh)
-  if (!isBill(currentBill)) {
+  const period = options.period ?? DEFAULT_PERIOD
+  const currentBill = billOf(scenario.current, usage, scenario, period)
+  if (!currentBill.ok) {
     return { status: 'unsupported', reason: currentBill.reason, nextSteps: currentBill.nextSteps }
   }
 
-  const candidateBills: Array<{ planId: string; planName: string; bill: MonthlyBill }> = []
-  for (const plan of JA_DENKI_PLANS) {
-    const bill = billOf(plan, usageKwh)
-    if (!isBill(bill)) {
-      return { status: 'unsupported', reason: bill.reason, nextSteps: bill.nextSteps }
-    }
-    candidateBills.push({ planId: plan.planId, planName: plan.planName, bill })
+  // ⑥は深夜電力Bの使用量をすべて夜トクのナイトタイムとして扱う
+  const candidateUsage: UsageInput =
+    scenario.candidateUsage === 'all_night'
+      ? { ...usage, tou: { night: usage.totalKwh ?? 0 } }
+      : usage
+
+  const candidateBills: MonthlyBill[] = []
+  for (const plan of scenario.candidates) {
+    const b = billOf(plan, candidateUsage, scenario, period)
+    if (!b.ok) return { status: 'unsupported', reason: b.reason, nextSteps: b.nextSteps }
+    candidateBills.push(b.bill)
   }
 
   const gasSetDiscountApplied = options.gasSetDiscount === true
@@ -113,36 +142,37 @@ export function calculateComparison(
     firstYearSpecialDiscount: FIRST_YEAR_SPECIAL_DISCOUNT
   }
 
-  const result = comparator.compare(
-    { planId: currentPlan.planId, planName: currentPlan.planName, bill: currentBill },
-    candidateBills,
-    discounts
-  )
+  const result = comparator.compare(currentBill.bill, candidateBills, discounts)
+  const byId = new Map(candidateBills.map(b => [b.planId, b]))
+  const toPlanResult = (c: (typeof result.candidates)[number]): PlanResult => {
+    const bill = byId.get(c.planId)
+    return {
+      planId: c.planId,
+      planName: c.planName,
+      monthlyChargeYen: c.monthlyCharge.toNumber(),
+      monthlySavingsYen: c.monthlySavings.toNumber(),
+      formula: bill?.formula ?? '',
+      notes: bill?.notes ?? []
+    }
+  }
 
-  const byId = new Map(candidateBills.map(c => [c.planId, c.bill]))
-  const toPlanResult = (c: (typeof result.candidates)[number]): PlanResult => ({
-    planId: c.planId,
-    planName: c.planName,
-    monthlyChargeYen: c.monthlyCharge.toNumber(),
-    monthlySavingsYen: c.monthlySavings.toNumber(),
-    formula: byId.get(c.planId)?.formula ?? ''
-  })
-
-  const sources = [currentPlan, ...JA_DENKI_PLANS]
+  const sources = [scenario.current, ...scenario.candidates]
     .flatMap(p => p.sources)
     .map(s => `${s.document} ${s.locator}`)
 
   return {
     status: 'ok',
     view: {
-      usageKwh,
-      ratePeriod: `${RATE_PERIOD.year}年${RATE_PERIOD.month}月適用`,
+      scenarioId,
+      ratePeriodLabel: `${period.year}年${period.month}月適用`,
+      totalKwh: currentBill.bill.totalKwh.toNumber(),
       current: {
-        planId: currentPlan.planId,
-        planName: currentPlan.planName,
-        monthlyChargeYen: currentBill.total.toNumber(),
+        planId: currentBill.bill.planId,
+        planName: currentBill.bill.planName,
+        monthlyChargeYen: currentBill.bill.total.toNumber(),
         monthlySavingsYen: 0,
-        formula: currentBill.formula
+        formula: currentBill.bill.formula,
+        notes: currentBill.bill.notes
       },
       candidates: result.candidates.map(toPlanResult),
       recommended: toPlanResult(result.recommended),

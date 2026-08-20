@@ -1,23 +1,26 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { UsageInput } from '@ja-denki-simulator/calc-core'
 import { calculateComparison, formatCurrency, formatPercentage } from '../services/calculateService'
 
 interface ComparisonResultProps {
-  usageKwh: number;
-  currentProvider: string;
+  scenarioId: string;
+  usage: UsageInput;
+  period: { year: number; month: number };
   onBack: () => void;
 }
 
-const cardStyle = {
+const cardStyle: React.CSSProperties = {
   background: 'var(--bg-secondary)',
   padding: '20px',
   borderRadius: '8px',
   marginBottom: '20px'
-} as const
+}
 
-export default function ComparisonResult({ usageKwh, currentProvider, onBack }: ComparisonResultProps) {
+export default function ComparisonResult({ scenarioId, usage, period, onBack }: ComparisonResultProps) {
+  const [gasSet, setGasSet] = useState(false)
   const outcome = useMemo(
-    () => calculateComparison(usageKwh, currentProvider),
-    [usageKwh, currentProvider]
+    () => calculateComparison(scenarioId, usage, { period, gasSetDiscount: gasSet }),
+    [scenarioId, usage, period, gasSet]
   )
 
   if (outcome.status === 'unsupported') {
@@ -41,13 +44,10 @@ export default function ComparisonResult({ usageKwh, currentProvider, onBack }: 
   const v = outcome.view
   const savings = v.recommended.monthlySavingsYen
   const isSaving = savings > 0
-  const savingColor = isSaving ? '#16a34a' : '#dc2626'
 
   return (
     <div className="container">
-      <div className="header">
-        <h1>料金比較結果</h1>
-      </div>
+      <div className="header"><h1>料金比較結果</h1></div>
       <div className="content">
         <div style={{
           background: isSaving
@@ -56,26 +56,27 @@ export default function ComparisonResult({ usageKwh, currentProvider, onBack }: 
           color: 'white',
           padding: '30px',
           borderRadius: '12px',
-          marginBottom: '30px',
+          marginBottom: '24px',
           textAlign: 'center'
         }}>
           <p style={{ fontSize: '14px', opacity: 0.9 }}>
             {isSaving ? '毎月のお得額' : '毎月の差額（現在の方が安い）'}
           </p>
-          <h2 style={{ fontSize: '32px', margin: '10px 0' }}>
-            {formatCurrency(Math.abs(savings))}
-          </h2>
+          <h2 style={{ fontSize: '32px', margin: '10px 0' }}>{formatCurrency(Math.abs(savings))}</h2>
           <p style={{ fontSize: '14px', opacity: 0.9 }}>
             年間{isSaving ? '削減額' : '増加額'}: {formatCurrency(Math.abs(v.annualSavingsYen))}
           </p>
           <p style={{ fontSize: '12px', opacity: 0.85, marginTop: '10px' }}>
-            初年度合計（新規契約割引 {formatCurrency(v.firstYearSpecialDiscountYen)} を含む）:{' '}
+            初年度合計（新規契約割引 {formatCurrency(v.firstYearSpecialDiscountYen)} 含む）:{' '}
             {formatCurrency(v.firstYearSavingsYen)}
           </p>
         </div>
 
         <div style={cardStyle}>
-          <h3 style={{ marginBottom: '15px' }}>料金比較表（{v.ratePeriod}）</h3>
+          <h3 style={{ marginBottom: '4px' }}>料金比較表</h3>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+            {v.ratePeriodLabel} ／ ご使用量 {v.totalKwh.toLocaleString()} kWh
+          </p>
           <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border, #ddd)' }}>
@@ -93,11 +94,11 @@ export default function ComparisonResult({ usageKwh, currentProvider, onBack }: 
                 <td style={{ textAlign: 'right', padding: '8px 4px', color: 'var(--text-secondary)' }}>—</td>
               </tr>
               {v.candidates.map(c => {
-                const recommended = c.planId === v.recommended.planId
+                const rec = c.planId === v.recommended.planId
                 return (
                   <tr key={c.planId} style={{ borderBottom: '1px solid var(--border, #eee)' }}>
-                    <td style={{ padding: '8px 4px', fontWeight: recommended ? 'bold' : 'normal' }}>
-                      {c.planName}{recommended ? '  ★推奨' : ''}
+                    <td style={{ padding: '8px 4px', fontWeight: rec ? 'bold' : 'normal' }}>
+                      {c.planName}{rec ? '  ★推奨' : ''}
                     </td>
                     <td style={{ textAlign: 'right', padding: '8px 4px', fontWeight: 'bold' }}>
                       {formatCurrency(c.monthlyChargeYen)}
@@ -114,41 +115,28 @@ export default function ComparisonResult({ usageKwh, currentProvider, onBack }: 
               })}
             </tbody>
           </table>
+          <p style={{ fontSize: '13px', marginTop: '12px' }}>
+            推奨: <strong>{v.recommended.planName}</strong>（削減率 {formatPercentage(v.savingsPercent)}）
+          </p>
         </div>
 
         <div style={cardStyle}>
-          <h3 style={{ marginBottom: '15px' }}>推奨プラン</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-            <div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>推奨プラン</p>
-              <p style={{ fontWeight: 'bold' }}>{v.recommended.planName}</p>
-            </div>
-            <div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>削減率</p>
-              <p style={{ fontWeight: 'bold', color: savingColor }}>
-                {formatPercentage(v.savingsPercent)}
-              </p>
-            </div>
-            <div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>月間使用量</p>
-              <p style={{ fontWeight: 'bold' }}>{usageKwh.toLocaleString()} kWh</p>
-            </div>
-            <div>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>現在のご契約</p>
-              <p style={{ fontWeight: 'bold' }}>{v.current.planName}</p>
-            </div>
-          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+            <input type="checkbox" checked={gasSet} onChange={e => setGasSet(e.target.checked)} />
+            <span>ガスとでんきのセット割を適用する（月110円）</span>
+          </label>
         </div>
 
         <details style={cardStyle}>
           <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>計算の内訳を表示</summary>
           <div style={{ marginTop: '15px', fontSize: '12px', lineHeight: 1.8 }}>
-            <p style={{ fontWeight: 'bold', marginTop: '10px' }}>{v.current.planName}</p>
-            <p style={{ color: 'var(--text-secondary)' }}>{v.current.formula}</p>
-            {v.candidates.map(c => (
-              <div key={c.planId}>
-                <p style={{ fontWeight: 'bold', marginTop: '10px' }}>{c.planName}</p>
-                <p style={{ color: 'var(--text-secondary)' }}>{c.formula}</p>
+            {[v.current, ...v.candidates].map(p => (
+              <div key={p.planId}>
+                <p style={{ fontWeight: 'bold', marginTop: '10px' }}>{p.planName}</p>
+                <p style={{ color: 'var(--text-secondary)' }}>{p.formula}</p>
+                {p.notes.map(n => (
+                  <p key={n} style={{ color: '#92400e' }}>※ {n}</p>
+                ))}
               </div>
             ))}
             <p style={{ fontWeight: 'bold', marginTop: '15px' }}>単価の出典</p>
@@ -160,16 +148,14 @@ export default function ComparisonResult({ usageKwh, currentProvider, onBack }: 
 
         <div style={{ marginBottom: '20px', padding: '15px', background: '#fef3c7', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
           <p style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
-            <strong>注意:</strong> {v.ratePeriod}の単価による試算です。
-            燃料費調整額・再エネ賦課金は毎月改定されるため、実際の請求額とは異なる場合があります。
-            {!v.gasSetDiscountApplied && ' ガスとでんきのセット割は含んでいません。'}
+            <strong>注意:</strong> {v.ratePeriodLabel}の単価による試算です。
+            燃料費調整額・再エネ賦課金は毎月改定されます。
+            検針票発行手数料（1契約55円）やポイント還元は含んでいません。
             正確な金額は営業担当までお問い合わせください。
           </p>
         </div>
 
-        <button className="primary button-full" onClick={onBack}>
-          別の条件で比較する
-        </button>
+        <button className="primary button-full" onClick={onBack}>条件を変えて試算する</button>
       </div>
     </div>
   )

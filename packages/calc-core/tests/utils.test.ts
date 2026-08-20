@@ -1,5 +1,5 @@
 import { Decimal, configureDecimal } from '../src/decimal-config';
-import { roundDownToYen, describeRounding } from '../src/rounding';
+import { applyRounding, describeRounding, roundDownToYen, roundUpToYen } from '../src/rounding';
 import {
   describeAnnualSavings,
   describeMonthlyDifference,
@@ -48,8 +48,22 @@ describe('roundDownToYen', () => {
     expect(v.floor().toNumber()).toBe(-1235);
   });
 
-  it('説明文を返す', () => {
-    expect(describeRounding()).toBe('円未満切り捨て');
+  it('端数処理の説明文を返す', () => {
+    expect(describeRounding('down')).toBe('円未満切り捨て');
+    expect(describeRounding('up')).toBe('円未満切り上げ');
+    expect(describeRounding('none')).toBe('端数処理なし');
+  });
+
+  it('切り上げは 0 から離れる方向', () => {
+    expect(roundUpToYen(new Decimal('1234.01')).toNumber()).toBe(1235);
+    expect(roundUpToYen(new Decimal('-1234.01')).toNumber()).toBe(-1235);
+  });
+
+  it('applyRounding はモードどおりに適用する', () => {
+    const v = new Decimal('100.5');
+    expect(applyRounding(v, 'none').toNumber()).toBe(100.5);
+    expect(applyRounding(v, 'up').toNumber()).toBe(101);
+    expect(applyRounding(v, 'down').toNumber()).toBe(100);
   });
 });
 

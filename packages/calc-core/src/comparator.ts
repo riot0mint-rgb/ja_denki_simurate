@@ -46,21 +46,21 @@ export class BillingComparator {
    * 分岐点が動き、定数と単価が乖離すると誤ったプランを推奨するため。
    */
   compare(
-    current: { planId: string; planName: string; bill: MonthlyBill },
-    candidates: Array<{ planId: string; planName: string; bill: MonthlyBill }>,
+    current: MonthlyBill,
+    candidates: MonthlyBill[],
     discounts: DiscountTerms
   ): ComparisonResult {
     if (candidates.length === 0) {
       throw new Error('比較対象のプランが指定されていません');
     }
 
-    const currentCharge = current.bill.total;
+    const currentCharge = current.total;
 
     const compared: PlanComparison[] = candidates.map(c => ({
       planId: c.planId,
       planName: c.planName,
-      monthlyCharge: c.bill.total,
-      monthlySavings: currentCharge.minus(c.bill.total)
+      monthlyCharge: c.total,
+      monthlySavings: currentCharge.minus(c.total)
     }));
 
     const recommended = compared.reduce((best, c) =>

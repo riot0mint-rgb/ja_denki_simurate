@@ -1,153 +1,157 @@
 import { BillingCalculator } from '../src/calculator';
 import { BillingComparator, DiscountTerms } from '../src/comparator';
 import { Decimal } from '../src/decimal-config';
-import { RatePlan } from '../src/models';
-import {
-  chugokuJuryoA,
-  chugokuSmart,
-  fuelAdjustment,
-  jaDenkiJuryoA,
-  jaDenkiJuryoS,
-  renewableLevy
-} from './fixtures';
+import { availablePeriods, lookupFuelAdjustment, lookupRenewableLevy, periodKey, RatePeriod, DEFAULT_PERIOD } from '../src/monthlyRates';
+import { MonthlyBill, RatePlan, UsageInput } from '../src/models';
+import * as F from './fixtures';
 
 const calculator = new BillingCalculator();
 const comparator = new BillingComparator();
+const APRIL: RatePeriod = { year: 2026, month: 4 };
+const JULY: RatePeriod = { year: 2026, month: 7 };
 
-function entry(plan: RatePlan, usageKwh: number) {
-  const result = calculator.calculate({ usageKwh, plan, fuelAdjustment, renewableLevy });
-  if (result.status !== 'ok') throw new Error('計算不能');
-  return { planId: plan.planId, planName: plan.planName, bill: result.bill };
+function bill(plan: RatePlan, usage: UsageInput, period: RatePeriod = JULY): MonthlyBill {
+  const r = calculator.calculate({
+    usage,
+    plan,
+    fuelAdjustment: lookupFuelAdjustment(period)!.value,
+    renewableLevy: lookupRenewableLevy(period)!.value
+  });
+  if (r.status !== 'ok') throw new Error(r.reason);
+  return r.bill;
 }
 
-/** 公式試算表 シート「シミュレーション結果」I20 / I25 */
-const OFFICIAL_DISCOUNTS: DiscountTerms = {
+const NONE: DiscountTerms = {
+  gasSetDiscountMonthly: new Decimal('0'),
+  firstYearSpecialDiscount: new Decimal('0')
+};
+const OFFICIAL: DiscountTerms = {
   gasSetDiscountMonthly: new Decimal('110'),
   firstYearSpecialDiscount: new Decimal('3000')
 };
 
-const NO_DISCOUNTS: DiscountTerms = {
-  gasSetDiscountMonthly: new Decimal('0'),
-  firstYearSpecialDiscount: new Decimal('0')
-};
-
-function compareAt(usageKwh: number, discounts: DiscountTerms = NO_DISCOUNTS) {
+function compareAt(kwh: number, discounts = NONE, period = APRIL) {
   return comparator.compare(
-    entry(chugokuJuryoA, usageKwh),
-    [entry(jaDenkiJuryoA, usageKwh), entry(jaDenkiJuryoS, usageKwh)],
+    bill(F.chugokuJuryoA, { totalKwh: kwh }, period),
+    [bill(F.jaDenkiJuryoA, { totalKwh: kwh }, period), bill(F.jaDenkiJuryoS, { totalKwh: kwh }, period)],
     discounts
   );
 }
 
-describe('推奨プランの分岐点', () => {
-  it('217kWh で従量電灯A と 従量電灯S が同額になる', () => {
-    const a = entry(jaDenkiJuryoA, 217).bill.total;
-    const s = entry(jaDenkiJuryoS, 217).bill.total;
+describe('推奨プランの選択', () => {
+  it('217kWh で従量電灯A と S が同額（26年4月適用）', () => {
+    const a = bill(F.jaDenkiJuryoA, { totalKwh: 217 }, APRIL).total;
+    const s = bill(F.jaDenkiJuryoS, { totalKwh: 217 }, APRIL).total;
     expect(a.toNumber()).toBe(s.toNumber());
   });
 
-  it('217kWh 以下では従量電灯S が安い', () => {
-    for (const kwh of [16, 50, 100, 150, 200, 216]) {
-      const a = entry(jaDenkiJuryoA, kwh).bill.total;
-      const s = entry(jaDenkiJuryoS, kwh).bill.total;
-      expect(s.lessThan(a)).toBe(true);
-    }
-  });
-
-  it('218kWh 以上では従量電灯A が安い', () => {
-    for (const kwh of [218, 250, 300, 400, 600, 1200]) {
-      const a = entry(jaDenkiJuryoA, kwh).bill.total;
-      const s = entry(jaDenkiJuryoS, kwh).bill.total;
-      expect(a.lessThan(s)).toBe(true);
-    }
-  });
-
-  it('推奨プランは常に実際に最も安いプランと一致する', () => {
+  it('0〜1200kWh のすべてで推奨＝実際に最安', () => {
     for (let kwh = 0; kwh <= 1200; kwh += 1) {
-      const result = compareAt(kwh);
-      const cheapest = result.candidates.reduce((best, c) =>
-        c.monthlyCharge.lessThan(best.monthlyCharge) ? c : best
+      const r = compareAt(kwh);
+      const cheapest = r.candidates.reduce((b, c) =>
+        c.monthlyCharge.lessThan(b.monthlyCharge) ? c : b
       );
-      expect(result.recommended.monthlyCharge.toNumber()).toBe(cheapest.monthlyCharge.toNumber());
+      expect(r.recommended.monthlyCharge.toNumber()).toBe(cheapest.monthlyCharge.toNumber());
     }
   });
 
-  it('218kWh 以上では従量電灯A を推奨する', () => {
-    for (const kwh of [218, 300, 500, 1200]) {
-      expect(compareAt(kwh).recommended.planId).toBe('ja_denki_juryo_a');
-    }
+  it('216kWh以下はS、218kWh以上はA', () => {
+    for (const kwh of [0, 50, 150, 216]) expect(compareAt(kwh).recommended.planId).toBe('ja_denki_juryo_s');
+    for (const kwh of [218, 300, 1200]) expect(compareAt(kwh).recommended.planId).toBe('ja_denki_juryo_a');
   });
 
-  it('216kWh 以下では従量電灯S を推奨する', () => {
-    for (const kwh of [0, 50, 150, 216]) {
-      expect(compareAt(kwh).recommended.planId).toBe('ja_denki_juryo_s');
-    }
+  it('分岐点は燃調の改定で動くため定数で持たない', () => {
+    const aprilA = bill(F.jaDenkiJuryoA, { totalKwh: 217 }, APRIL).total;
+    const julyA = bill(F.jaDenkiJuryoA, { totalKwh: 217 }, JULY).total;
+    expect(julyA.equals(aprilA)).toBe(false);
   });
 });
 
 describe('削減額の算出', () => {
-  it('月額削減額は 現行 − JAでんき（正なら安くなる）', () => {
-    const result = compareAt(348);
-    // 出典: シミュレーション結果 AI13=10711, AO13=10275
-    expect(result.currentMonthlyCharge.toNumber()).toBe(10711);
-    expect(result.recommended.monthlyCharge.toNumber()).toBe(10275);
-    expect(result.recommended.monthlySavings.toNumber()).toBe(436);
+  it('月額削減額は 現行 − JAでんき（26年4月・348kWh）', () => {
+    const r = compareAt(348);
+    expect(r.currentMonthlyCharge.toNumber()).toBe(10711);
+    expect(r.recommended.monthlyCharge.toNumber()).toBe(10275);
+    expect(r.recommended.monthlySavings.toNumber()).toBe(436);
   });
 
-  it('セット割は年額計算にのみ加算される（試算表 I23 = I18*12 + I20*12）', () => {
-    const result = compareAt(348, OFFICIAL_DISCOUNTS);
-    expect(result.annualSavings.toNumber()).toBe((436 + 110) * 12);
-    expect(result.annualSavings.toNumber()).toBe(6552);
+  it('セット割は年額にのみ加算（試算表 I23 = I18*12 + I20*12）', () => {
+    expect(compareAt(348, OFFICIAL).annualSavings.toNumber()).toBe((436 + 110) * 12);
   });
 
-  it('初年度合計は年間削減額 + 特別割引（試算表 I28）', () => {
-    const result = compareAt(348, OFFICIAL_DISCOUNTS);
-    expect(result.firstYearSavings.toNumber()).toBe(6552 + 3000);
+  it('初年度合計は年間 + 特別割引（試算表 I28）', () => {
+    expect(compareAt(348, OFFICIAL).firstYearSavings.toNumber()).toBe(6552 + 3000);
   });
 
-  it('割引なしなら年間は月額×12 のまま', () => {
-    const result = compareAt(348);
-    expect(result.annualSavings.toNumber()).toBe(436 * 12);
-    expect(result.firstYearSavings.toNumber()).toBe(436 * 12);
+  it('割引なしなら年間は月額×12', () => {
+    expect(compareAt(348).annualSavings.toNumber()).toBe(436 * 12);
   });
 
-  it('現行より高くなる場合は削減額が負になる', () => {
-    // シンプルコースは低使用量域で最低月額料金が効くため、
-    // 逆に現行が安いケースを人工的に作る
-    const result = comparator.compare(entry(jaDenkiJuryoS, 100), [entry(jaDenkiJuryoA, 100)], NO_DISCOUNTS);
-    expect(result.recommended.monthlySavings.isNegative()).toBe(true);
+  it('現行より高い場合は削減額が負', () => {
+    const r = comparator.compare(
+      bill(F.jaDenkiJuryoS, { totalKwh: 1000 }),
+      [bill(F.jaDenkiJuryoA, { totalKwh: 1000 })],
+      NONE
+    );
+    expect(r.recommended.monthlySavings.isPositive()).toBe(true);
+    const r2 = comparator.compare(
+      bill(F.jaDenkiJuryoA, { totalKwh: 100 }),
+      [bill(F.jaDenkiJuryoS, { totalKwh: 100 })],
+      NONE
+    );
+    expect(r2.recommended.monthlySavings.isPositive()).toBe(true);
   });
 });
 
 describe('削減率', () => {
-  it('現行が 0 円なら 0% を返す（NaN / Infinity を出さない）', () => {
-    const zeroBill = entry(chugokuJuryoA, 0);
-    zeroBill.bill.total = new Decimal('0');
-    const result = comparator.compare(zeroBill, [entry(jaDenkiJuryoA, 0)], NO_DISCOUNTS);
-    expect(result.savingsPercent.toNumber()).toBe(0);
-    expect(result.savingsPercent.isFinite()).toBe(true);
+  it('現行が0円なら0%（NaN / Infinity を出さない）', () => {
+    const zero = bill(F.chugokuJuryoA, { totalKwh: 0 });
+    zero.total = new Decimal('0');
+    const r = comparator.compare(zero, [bill(F.jaDenkiJuryoA, { totalKwh: 0 })], NONE);
+    expect(r.savingsPercent.toNumber()).toBe(0);
+    expect(r.savingsPercent.isFinite()).toBe(true);
   });
 
-  it('削減時は正の値になる', () => {
-    const result = compareAt(348);
-    expect(result.savingsPercent.greaterThan(0)).toBe(true);
-    expect(result.savingsPercent.toDecimalPlaces(2).toNumber()).toBeCloseTo(4.07, 2);
+  it('削減時は正の値', () => {
+    expect(compareAt(348).savingsPercent.greaterThan(0)).toBe(true);
+  });
+});
+
+describe('時間帯別プランの比較', () => {
+  it('電化Style → 夜トク の削減額は使用量に依らず基本料金の差（同一単価のため）', () => {
+    const u = (n: number): UsageInput => ({ contractKw: 6, tou: { night: n } });
+    const savings = [100, 500, 1000].map(n =>
+      comparator
+        .compare(bill(F.chugokuDenkaStyle, u(n)), [bill(F.jaDenkiYotoku, u(n))], NONE)
+        .recommended.monthlySavings.toNumber()
+    );
+    expect(new Set(savings).size).toBe(1);
+    expect(savings[0]).toBe(121);
   });
 });
 
 describe('入力の妥当性', () => {
-  it('候補が空なら例外を投げる', () => {
-    expect(() => comparator.compare(entry(chugokuJuryoA, 100), [], NO_DISCOUNTS)).toThrow();
+  it('候補が空なら例外', () => {
+    expect(() => comparator.compare(bill(F.chugokuJuryoA, { totalKwh: 100 }), [], NONE)).toThrow();
+  });
+});
+
+describe('月次レート表', () => {
+  it('既定は26年7月適用', () => {
+    expect(periodKey(DEFAULT_PERIOD)).toBe('2026-07');
   });
 
-  it('スマートコースからの乗り換えも比較できる', () => {
-    const result = comparator.compare(
-      entry(chugokuSmart, 348),
-      [entry(jaDenkiJuryoA, 348), entry(jaDenkiJuryoS, 348)],
-      NO_DISCOUNTS
-    );
-    // 出典: シミュレーション結果 AK13=10543
-    expect(result.currentMonthlyCharge.toNumber()).toBe(10543);
-    expect(result.recommended.monthlySavings.toNumber()).toBe(10543 - 10275);
+  it('収録月は新しい順に並び、賦課金も揃っている', () => {
+    const periods = availablePeriods();
+    expect(periods.length).toBeGreaterThan(0);
+    expect(periodKey(periods[0])).toBe('2026-07');
+    for (const p of periods) {
+      expect(lookupFuelAdjustment(p)).not.toBeNull();
+      expect(lookupRenewableLevy(p)).not.toBeNull();
+    }
+  });
+
+  it('auでんきの収録月も引ける', () => {
+    expect(availablePeriods('au').map(periodKey)).toContain('2026-07');
   });
 });

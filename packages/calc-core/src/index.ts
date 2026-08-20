@@ -3,13 +3,21 @@ export {
   PlanStructure,
   RateSource,
   Tier,
+  RoundingProfile,
+  CHUGOKU_ROUNDING,
   FuelAdjustment,
   RenewableLevy,
   TieredMinimumPlan,
   FlatRatePlan,
+  CapacityTieredPlan,
+  DemandSeasonalPlan,
+  TouBand,
+  TimeOfUsePlan,
+  DemandFlatPlan,
   RatePlan,
+  UsageInput,
   CalculationInput,
-  TierBreakdown,
+  ChargeLine,
   MonthlyBill,
   UnsupportedResult,
   BillResult
@@ -22,7 +30,22 @@ export {
   PlanComparison,
   ComparisonResult
 } from './comparator.js';
-export { roundDownToYen, describeRounding } from './rounding.js';
+export {
+  RatePeriod,
+  periodKey,
+  FuelAdjustmentProvider,
+  lookupFuelAdjustment,
+  lookupRenewableLevy,
+  availablePeriods,
+  DEFAULT_PERIOD
+} from './monthlyRates.js';
+export {
+  roundDownToYen,
+  roundUpToYen,
+  applyRounding,
+  describeRounding,
+  RoundingMode
+} from './rounding.js';
 export {
   validateUsageKwh,
   ValidationResult,

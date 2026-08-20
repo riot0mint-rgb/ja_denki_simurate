@@ -2,186 +2,547 @@ import { Decimal } from './decimal-config.js';
 import {
   BillResult,
   CalculationInput,
+  CapacityTieredPlan,
+  ChargeLine,
+  DemandFlatPlan,
+  DemandSeasonalPlan,
   FlatRatePlan,
   FuelAdjustment,
   MonthlyBill,
+  RatePlan,
   RenewableLevy,
   TieredMinimumPlan,
-  TierBreakdown
+  TimeOfUsePlan,
+  TouBand,
+  UsageInput
 } from './models.js';
-import { roundDownToYen } from './rounding.js';
+import { applyRounding, roundDownToYen } from './rounding.js';
 import { validateUsageKwh } from './utils.js';
 
+const TOU_BAND_LABEL: Record<TouBand, string> = {
+  dayOther: 'デイタイムその他季',
+  daySummer: 'デイタイム夏季',
+  night: 'ナイトタイム',
+  holiday: 'ホリデータイム'
+};
+
+const TOU_BASE_INCLUDED_KW = 10;
+
+function unsupported(reason: string, nextSteps: string[]): BillResult {
+  return { status: 'unsupported', reason, nextSteps };
+}
+
 /**
- * JAでんき公式試算表と同一の手順で月額電気料金を算出する。
+ * 公式試算表と同一の手順で月額電気料金を算出する。
  *
- * 元資料: ①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年4月適用.xlsx
- *         シート「シミュレーション結果明細 VS従量Ａ」/「〜 VSシンプル」
- *
- * 段階制プラン (Excel 明細 VS従量Ａ):
- *   (1) 最低料金                = 定額（最初の15kWh分を含む）
- *   (2) 第1段階                 = 単価 × MAX(MIN(使用量,120)-15, 0)
- *   (3) 第2段階                 = 単価 × MAX(MIN(使用量,300)-120, 0)
- *   (4) 第3段階                 = 単価 × (使用量 - (2)kWh - (3)kWh - 15)
- *   (9) 燃料費調整額            = 15kWh分定額 + 単価 × MAX(使用量-15, 0)
- *  (13) 再エネ賦課金            = ROUNDDOWN(単価 × MAX(使用量, 15))
- *       電気料金                = ROUNDDOWN( (1)+(2)+(3)+(4)+(9)+(13) )
- *
- * 一律単価プラン (Excel 明細 VSシンプル):
- *   (6) 従量料金                = 単価 × 使用量
- *   (9) 燃料費調整額            = 単価 × 使用量
- *  (12) 再エネ賦課金            = ROUNDDOWN(単価 × 使用量)
- *       電気料金                = IF( (6)+(9) < 最低月額閾値, 最低月額請求額,
- *                                     ROUNDDOWN( (6)+(9)+(12) ) )
+ * 各プラン構造は元資料のどのシートに対応するかを private メソッドの
+ * コメントに記載している。丸めの位置・半額ルール・割引上限は
+ * すべて元資料の数式をそのまま写している。
  */
 export class BillingCalculator {
   calculate(input: CalculationInput): BillResult {
-    const validation = validateUsageKwh(input.usageKwh);
-    if (!validation.valid) {
-      return {
-        status: 'unsupported',
-        reason: validation.reason,
-        nextSteps: [
-          'ご使用量（kWh）を検針票のとおりに入力してください',
-          '0 以上の数値のみ計算できます'
-        ]
-      };
+    const { plan, usage } = input;
+    switch (plan.structure) {
+      case 'tiered_minimum':
+        return this.withTotalKwh(usage, kwh =>
+          this.tieredMinimum(kwh, plan, input.fuelAdjustment, input.renewableLevy)
+        );
+      case 'flat_rate':
+        return this.withTotalKwh(usage, kwh =>
+          this.flatRate(kwh, plan, input.fuelAdjustment, input.renewableLevy)
+        );
+      case 'capacity_tiered':
+        return this.capacityTiered(input, plan);
+      case 'demand_seasonal':
+        return this.demandSeasonal(input, plan);
+      case 'time_of_use':
+        return this.timeOfUse(input, plan);
+      case 'demand_flat':
+        return this.demandFlat(input, plan);
     }
-
-    const usage = new Decimal(input.usageKwh);
-    const bill =
-      input.plan.structure === 'tiered_minimum'
-        ? this.calculateTiered(usage, input.plan, input.fuelAdjustment, input.renewableLevy)
-        : this.calculateFlat(usage, input.plan, input.fuelAdjustment, input.renewableLevy);
-
-    return { status: 'ok', bill };
   }
 
-  private calculateTiered(
+  private withTotalKwh(usage: UsageInput, build: (kwh: Decimal) => MonthlyBill): BillResult {
+    const kwh = usage.totalKwh;
+    if (kwh === undefined) {
+      return unsupported('ご使用量（kWh）が入力されていません', [
+        '検針票の「ご使用量」欄を入力してください'
+      ]);
+    }
+    const validation = validateUsageKwh(kwh);
+    if (!validation.valid) {
+      return unsupported(validation.reason, [
+        'ご使用量（kWh）を検針票のとおりに入力してください',
+        '0 以上の数値のみ計算できます'
+      ]);
+    }
+    return { status: 'ok', bill: build(new Decimal(kwh)) };
+  }
+
+  private requireContract(
+    value: number | undefined,
+    label: string,
+    unit: string
+  ): { ok: true; value: Decimal } | { ok: false; result: BillResult } {
+    if (value === undefined || !Number.isFinite(value) || value <= 0) {
+      return {
+        ok: false,
+        result: unsupported(`${label}が入力されていません`, [
+          `検針票の「${label}」欄（${unit}）を確認して入力してください`
+        ])
+      };
+    }
+    return { ok: true, value: new Decimal(value) };
+  }
+
+  /**
+   * 最低料金 + 段階制。
+   * 出典: ①明細 VS従量Ａ / ☆au Mプラン明細
+   *   (1) 最低料金        = 定額（最初の15kWh分を含む）
+   *   (2)(3)(4) 段階料金  = 単価 × 各段階の課金kWh（15kWh超から）
+   *   (6) 従量料金合計    = 丸め((1)+(2)+(3)+(4))
+   *   (9) 燃調            = 丸め(15kWh分定額 + 単価 × MAX(使用量-15,0))
+   *  (12) 賦課金          = 切り捨て(単価 × MAX(使用量,15))
+   *       電気料金        = 丸め((6)+(9)+(12))
+   */
+  private tieredMinimum(
     usage: Decimal,
     plan: TieredMinimumPlan,
     fuel: FuelAdjustment,
     levy: RenewableLevy
   ): MonthlyBill {
     const included = new Decimal(plan.minimumIncludedKwh);
-
-    const tiers: TierBreakdown[] = [];
-    let tierSubtotal = new Decimal('0');
-    let alreadyCharged = new Decimal('0');
+    const lines: ChargeLine[] = [];
+    let energySubtotal = new Decimal('0');
+    let charged = new Decimal('0');
 
     for (const tier of plan.tiers) {
-      // Excel は最終段階だけ「使用量 - 下位段階kWh - 15」で残量を求める。
-      // 上限のない段階は endKwh が null なのでこの分岐で表現する。
-      const chargedKwh =
+      const kwh =
         tier.endKwh === null
-          ? Decimal.max(usage.minus(alreadyCharged).minus(included), 0)
+          ? Decimal.max(usage.minus(charged).minus(included), 0)
           : Decimal.max(Decimal.min(usage, tier.endKwh).minus(tier.startKwh), 0);
-
-      alreadyCharged = alreadyCharged.plus(chargedKwh);
-      const charge = tier.unitPriceYenPerKwh.times(chargedKwh);
-      tierSubtotal = tierSubtotal.plus(charge);
-      tiers.push({
-        tierNumber: tier.tierNumber,
-        chargedKwh,
-        unitPriceYenPerKwh: tier.unitPriceYenPerKwh,
-        charge
+      charged = charged.plus(kwh);
+      const amount = tier.unitPriceYenPerKwh.times(kwh);
+      energySubtotal = energySubtotal.plus(amount);
+      lines.push({
+        label: `第${tier.tierNumber}段階`,
+        quantity: kwh,
+        unit: 'kWh',
+        unitPrice: tier.unitPriceYenPerKwh,
+        amount
       });
     }
 
-    const energyChargeTotal = plan.minimumCharge.plus(tierSubtotal);
-
-    const meteredKwh = Decimal.max(usage.minus(included), 0);
-    const fuelCharge = fuel.minimumCharge.plus(fuel.unitPriceYenPerKwh.times(meteredKwh));
-
-    // 賦課金は 15kWh 分 + 超過分。合算すると単価 × MAX(使用量, 15) と等しい。
-    const levyCharge = roundDownToYen(
-      levy.unitPriceYenPerKwh.times(Decimal.max(usage, included))
+    const energyChargeTotal = applyRounding(
+      plan.minimumCharge.plus(energySubtotal),
+      plan.rounding.energyTotal
+    );
+    const metered = Decimal.max(usage.minus(included), 0);
+    const fuelCharge = applyRounding(
+      fuel.minimumCharge.plus(fuel.unitPriceYenPerKwh.times(metered)),
+      plan.rounding.fuelSubtotal
+    );
+    const levyCharge = applyRounding(
+      levy.unitPriceYenPerKwh.times(Decimal.max(usage, included)),
+      plan.rounding.levySubtotal
+    );
+    const total = applyRounding(
+      energyChargeTotal.plus(fuelCharge).plus(levyCharge),
+      plan.rounding.finalTotal
     );
 
-    const total = roundDownToYen(energyChargeTotal.plus(fuelCharge).plus(levyCharge));
-
-    return {
-      minimumCharge: plan.minimumCharge,
-      tiers,
-      tierSubtotal,
+    return this.assemble(plan, {
+      baseCharge: plan.minimumCharge,
+      baseLabel: `最低料金（${plan.minimumIncludedKwh}kWhまで含む）`,
+      lines,
+      energySubtotal,
       energyChargeTotal,
-      fuelAdjustment: fuelCharge,
-      renewableLevy: levyCharge,
-      minimumMonthlyApplied: false,
+      discount: new Decimal('0'),
+      fuelCharge,
+      levyCharge,
+      totalKwh: usage,
       total,
-      formula: this.describeTiered(plan, tiers, energyChargeTotal, fuelCharge, levyCharge, total),
-      sources: plan.sources
-    };
+      notes: []
+    });
   }
 
-  private calculateFlat(
+  /**
+   * 0kWh から一律単価。
+   * 出典: ①明細 VSシンプル I20
+   *   電気料金 = IF((従量+燃調) < 閾値, 最低月額請求額, 切り捨て(従量+燃調+賦課金))
+   */
+  private flatRate(
     usage: Decimal,
     plan: FlatRatePlan,
     fuel: FuelAdjustment,
     levy: RenewableLevy
   ): MonthlyBill {
-    const energyChargeTotal = plan.unitPriceYenPerKwh.times(usage);
+    const energy = plan.unitPriceYenPerKwh.times(usage);
     const fuelCharge = fuel.unitPriceYenPerKwh.times(usage);
     const levyCharge = roundDownToYen(levy.unitPriceYenPerKwh.times(usage));
+    const beforeLevy = energy.plus(fuelCharge);
+    const applied = beforeLevy.lessThan(plan.minimumMonthlyThreshold);
+    const total = applied ? plan.minimumMonthlyBill : roundDownToYen(beforeLevy.plus(levyCharge));
 
-    // Excel は賦課金を含めずに閾値判定し、下回ったら賦課金も含めず最低月額料金に置き換える。
-    const beforeLevy = energyChargeTotal.plus(fuelCharge);
-    const minimumMonthlyApplied = beforeLevy.lessThan(plan.minimumMonthlyThreshold);
-    const total = minimumMonthlyApplied
-      ? plan.minimumMonthlyBill
-      : roundDownToYen(beforeLevy.plus(levyCharge));
-
-    return {
-      minimumCharge: new Decimal('0'),
-      tiers: [
+    return this.assemble(plan, {
+      baseCharge: new Decimal('0'),
+      baseLabel: '基本料金なし',
+      lines: [
         {
-          tierNumber: 1,
-          chargedKwh: usage,
-          unitPriceYenPerKwh: plan.unitPriceYenPerKwh,
-          charge: energyChargeTotal
+          label: '電力量料金（一律）',
+          quantity: usage,
+          unit: 'kWh',
+          unitPrice: plan.unitPriceYenPerKwh,
+          amount: energy
         }
       ],
-      tierSubtotal: energyChargeTotal,
-      energyChargeTotal,
-      fuelAdjustment: fuelCharge,
-      renewableLevy: levyCharge,
-      minimumMonthlyApplied,
+      energySubtotal: energy,
+      energyChargeTotal: energy,
+      discount: new Decimal('0'),
+      fuelCharge,
+      levyCharge,
+      totalKwh: usage,
       total,
-      formula: minimumMonthlyApplied
-        ? `従量料金 ${energyChargeTotal.toFixed(2)}円 + 燃料費調整額 ${fuelCharge.toFixed(2)}円 ` +
-          `= ${beforeLevy.toFixed(2)}円 が最低月額料金 ${plan.minimumMonthlyThreshold.toFixed(2)}円 に満たないため、` +
-          `最低月額料金 ${plan.minimumMonthlyBill.toFixed(0)}円 を適用 → 合計: ${total.toFixed(0)}円`
-        : `従量料金: ${plan.unitPriceYenPerKwh.toFixed(2)}円 × ${usage.toFixed(0)}kWh = ${energyChargeTotal.toFixed(2)}円 → ` +
-          `燃料費調整額: ${fuelCharge.toFixed(2)}円 → 再エネ賦課金: ${levyCharge.toFixed(0)}円（円未満切り捨て） → ` +
-          `合計: ${total.toFixed(0)}円（円未満切り捨て）`,
-      sources: plan.sources
+      notes: applied
+        ? [
+            `従量料金と燃料費調整額の合計が最低月額料金 ${plan.minimumMonthlyThreshold.toFixed(2)}円 に満たないため、${plan.minimumMonthlyBill.toFixed(0)}円 を適用しました`
+          ]
+        : []
+    });
+  }
+
+  /**
+   * 契約容量課金 + 0kWh からの段階制（従量電灯B）。
+   * 出典: ②明細
+   *   (1) 基本料金 = 単価/kVA × 契約kVA （使用量0なら単価半額）
+   *   (2) 第1段階 = 単価 × MIN(使用量,120)     ← 0kWh から
+   *   (3) 第2段階 = 単価 × MAX(MIN(使用量,300)-120,0)
+   *   (4) 第3段階 = IF(使用量<15, 0, 使用量-第1-第2)
+   *   賦課金に ROUNDDOWN がない点も元資料どおり。
+   */
+  private capacityTiered(input: CalculationInput, plan: CapacityTieredPlan): BillResult {
+    const kva = this.requireContract(input.usage.contractKva, 'ご契約容量', 'kVA');
+    if (!kva.ok) return kva.result;
+
+    return this.withTotalKwh(input.usage, usage => {
+      const noUsage = usage.isZero();
+      const baseUnit =
+        plan.halveBaseWhenNoUsage && noUsage
+          ? plan.baseChargePerKva.dividedBy(2)
+          : plan.baseChargePerKva;
+      const baseCharge = baseUnit.times(kva.value);
+
+      const lines: ChargeLine[] = [];
+      let energySubtotal = new Decimal('0');
+      let charged = new Decimal('0');
+      for (const tier of plan.tiers) {
+        const kwh =
+          tier.endKwh === null
+            ? usage.lessThan(15)
+              ? new Decimal('0')
+              : usage.minus(charged)
+            : Decimal.max(Decimal.min(usage, tier.endKwh).minus(tier.startKwh), 0);
+        charged = charged.plus(kwh);
+        const amount = tier.unitPriceYenPerKwh.times(kwh);
+        energySubtotal = energySubtotal.plus(amount);
+        lines.push({
+          label: `第${tier.tierNumber}段階`,
+          quantity: kwh,
+          unit: 'kWh',
+          unitPrice: tier.unitPriceYenPerKwh,
+          amount
+        });
+      }
+
+      const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+      const levyCharge = applyRounding(
+        input.renewableLevy.unitPriceYenPerKwh.times(usage),
+        plan.rounding.levySubtotal
+      );
+      const total = applyRounding(
+        baseCharge.plus(energySubtotal).plus(fuelCharge).plus(levyCharge),
+        plan.rounding.finalTotal
+      );
+
+      return this.assemble(plan, {
+        baseCharge,
+        baseLabel: `基本料金 ${baseUnit.toFixed(2)}円 × ${kva.value.toFixed(0)}kVA`,
+        lines,
+        energySubtotal,
+        energyChargeTotal: baseCharge.plus(energySubtotal),
+        discount: new Decimal('0'),
+        fuelCharge,
+        levyCharge,
+        totalKwh: usage,
+        total,
+        notes: noUsage && plan.halveBaseWhenNoUsage ? ['使用量が0kWhのため基本料金が半額です'] : []
+      });
+    });
+  }
+
+  /**
+   * 契約電力課金 + 季節別単価（低圧電力）。
+   * 出典: ⑤明細 / ☆au低圧電力明細
+   */
+  private demandSeasonal(input: CalculationInput, plan: DemandSeasonalPlan): BillResult {
+    const kw = this.requireContract(input.usage.contractKw, 'ご契約電力', 'kW');
+    if (!kw.ok) return kw.result;
+
+    const seasonal = input.usage.seasonal;
+    if (!seasonal) {
+      return unsupported('季節別のご使用量が入力されていません', [
+        '夏季（7/1〜9/30）とその他季のご使用量をそれぞれ入力してください'
+      ]);
+    }
+    for (const [label, v] of [
+      ['夏季のご使用量', seasonal.summerKwh],
+      ['その他季のご使用量', seasonal.otherKwh]
+    ] as const) {
+      const check = validateUsageKwh(v);
+      if (!check.valid) return unsupported(`${label}: ${check.reason}`, ['0 以上の数値を入力してください']);
+    }
+
+    const summer = new Decimal(seasonal.summerKwh);
+    const other = new Decimal(seasonal.otherKwh);
+    const usage = summer.plus(other);
+    const noUsage = usage.isZero();
+    const baseUnit =
+      plan.halveBaseWhenNoUsage && noUsage ? plan.baseChargePerKw.dividedBy(2) : plan.baseChargePerKw;
+    const baseCharge = baseUnit.times(kw.value);
+
+    const lines: ChargeLine[] = [
+      {
+        label: 'その他季（4/1〜6/30, 10/1〜3/31）',
+        quantity: other,
+        unit: 'kWh',
+        unitPrice: plan.otherUnitPriceYenPerKwh,
+        amount: plan.otherUnitPriceYenPerKwh.times(other)
+      },
+      {
+        label: '夏季（7/1〜9/30）',
+        quantity: summer,
+        unit: 'kWh',
+        unitPrice: plan.summerUnitPriceYenPerKwh,
+        amount: plan.summerUnitPriceYenPerKwh.times(summer)
+      }
+    ];
+    const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
+    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const levyCharge = applyRounding(
+      input.renewableLevy.unitPriceYenPerKwh.times(usage),
+      plan.rounding.levySubtotal
+    );
+    const total = applyRounding(
+      baseCharge.plus(energySubtotal).plus(fuelCharge).plus(levyCharge),
+      plan.rounding.finalTotal
+    );
+
+    return {
+      status: 'ok',
+      bill: this.assemble(plan, {
+        baseCharge,
+        baseLabel: `基本料金 ${baseUnit.toFixed(3)}円 × ${kw.value.toFixed(1)}kW`,
+        lines,
+        energySubtotal,
+        energyChargeTotal: baseCharge.plus(energySubtotal),
+        discount: new Decimal('0'),
+        fuelCharge,
+        levyCharge,
+        totalKwh: usage,
+        total,
+        notes: noUsage && plan.halveBaseWhenNoUsage ? ['使用量が0kWhのため基本料金が半額です'] : []
+      })
     };
   }
 
-  private describeTiered(
-    plan: TieredMinimumPlan,
-    tiers: TierBreakdown[],
-    energyChargeTotal: Decimal,
-    fuelCharge: Decimal,
-    levyCharge: Decimal,
-    total: Decimal
-  ): string {
-    const tierDesc = tiers
-      .filter(t => t.chargedKwh.greaterThan(0))
-      .map(
-        t =>
-          `第${t.tierNumber}段階: ${t.unitPriceYenPerKwh.toFixed(2)}円 × ${t.chargedKwh.toFixed(0)}kWh = ${t.charge.toFixed(2)}円`
-      )
+  /**
+   * 時間帯別（電化Style／ナイトホリデー／夜トクプラン）。
+   * 出典: ③明細 VS電化Style / VSナイトホリデー、④各結果シート
+   *   (1) 基本料金 10kWまで = 定額（使用量0なら半額）
+   *   (2) 10kW超過          = 単価 × MAX(契約kW-10, 0)
+   *   (4)〜(7) 電力量料金    = 各時間帯単価 × 各時間帯kWh
+   *   (9) 燃調              = 単価 × 総使用量（15kWh分割なし）
+   *  (10) 賦課金            = 切り捨て(単価 × 総使用量)
+   *       電気料金          = 切り捨て((3)+(8)+電化住宅割+(9)+(10))
+   */
+  private timeOfUse(input: CalculationInput, plan: TimeOfUsePlan): BillResult {
+    if (plan.baseChargeUpTo10Kw === null || plan.baseChargePerKwOver10 === null) {
+      return unsupported(`${plan.planName}の基本料金が元資料に記載されていないため計算できません`, [
+        '公式試算表の該当シートに基本料金の記載がありません',
+        'お手数ですが営業担当にお問い合わせください'
+      ]);
+    }
+    const kw = this.requireContract(input.usage.contractKw, 'ご契約電力', 'kW');
+    if (!kw.ok) return kw.result;
+
+    const tou = input.usage.tou;
+    if (!tou) {
+      return unsupported('時間帯別のご使用量が入力されていません', [
+        '検針票の時間帯ごとのご使用量を入力してください'
+      ]);
+    }
+
+    const bands: TouBand[] = ['dayOther', 'daySummer', 'night', 'holiday'];
+    const amounts: Record<string, Decimal> = {};
+    for (const band of bands) {
+      const v = tou[band] ?? 0;
+      const check = validateUsageKwh(v);
+      if (!check.valid) {
+        return unsupported(`${TOU_BAND_LABEL[band]}: ${check.reason}`, [
+          '0 以上の数値を入力してください'
+        ]);
+      }
+      amounts[band] = new Decimal(v);
+    }
+
+    const usage = bands.reduce((a, b) => a.plus(amounts[b]), new Decimal('0'));
+    const noUsage = usage.isZero();
+    const half = (d: Decimal) => (plan.halveBaseWhenNoUsage && noUsage ? d.dividedBy(2) : d);
+    const overKw = Decimal.max(kw.value.minus(TOU_BASE_INCLUDED_KW), 0);
+    const baseCharge = half(plan.baseChargeUpTo10Kw).plus(half(plan.baseChargePerKwOver10).times(overKw));
+
+    const lines: ChargeLine[] = bands.map(band => ({
+      label: TOU_BAND_LABEL[band],
+      quantity: amounts[band],
+      unit: 'kWh',
+      unitPrice: plan.unitPrices[band],
+      amount: plan.unitPrices[band].times(amounts[band])
+    }));
+    const energySubtotal = lines.reduce((a, l) => a.plus(l.amount), new Decimal('0'));
+
+    // 電化住宅割は基本料金+従量料金に対する定率割引で、上限額でクリップする（④結果 H15）
+    let discount = new Decimal('0');
+    const notes: string[] = [];
+    if (plan.allElectricDiscount && input.usage.allElectricDiscount) {
+      const raw = baseCharge.plus(energySubtotal).times(plan.allElectricDiscount.rate).negated();
+      discount = Decimal.max(raw, plan.allElectricDiscount.capYen.negated());
+      notes.push(
+        `電化住宅割 ${plan.allElectricDiscount.rate.times(100).toFixed(0)}%（上限 ${plan.allElectricDiscount.capYen.toFixed(0)}円）を適用`
+      );
+    }
+
+    const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+    const levyCharge = applyRounding(
+      input.renewableLevy.unitPriceYenPerKwh.times(usage),
+      plan.rounding.levySubtotal
+    );
+    const total = applyRounding(
+      baseCharge.plus(energySubtotal).plus(discount).plus(fuelCharge).plus(levyCharge),
+      plan.rounding.finalTotal
+    );
+
+    if (noUsage && plan.halveBaseWhenNoUsage) notes.push('使用量が0kWhのため基本料金が半額です');
+
+    return {
+      status: 'ok',
+      bill: this.assemble(plan, {
+        baseCharge,
+        baseLabel: `基本料金（10kWまで${overKw.isZero() ? '' : ` + ${overKw.toFixed(0)}kW超過分`}）`,
+        lines,
+        energySubtotal,
+        energyChargeTotal: baseCharge.plus(energySubtotal),
+        discount,
+        fuelCharge,
+        levyCharge,
+        totalKwh: usage,
+        total,
+        notes
+      })
+    };
+  }
+
+  /**
+   * 契約電力課金 + 一律単価（深夜電力B）。
+   * 出典: ⑥「深夜電力B」I11
+   *   電気料金 = IF(使用量=0, 切り捨て(合計)/2, 切り捨て(合計))
+   *   ※ 半額は基本料金単価ではなく請求額全体に掛かる点が他プランと異なる。
+   */
+  private demandFlat(input: CalculationInput, plan: DemandFlatPlan): BillResult {
+    const kw = this.requireContract(input.usage.contractKw, 'ご契約電力', 'kW');
+    if (!kw.ok) return kw.result;
+
+    return this.withTotalKwh(input.usage, usage => {
+      const baseCharge = plan.baseChargePerKw.times(kw.value);
+      const energy = plan.unitPriceYenPerKwh.times(usage);
+      const fuelCharge = input.fuelAdjustment.unitPriceYenPerKwh.times(usage);
+      const levyCharge = applyRounding(
+        input.renewableLevy.unitPriceYenPerKwh.times(usage),
+        plan.rounding.levySubtotal
+      );
+      const rounded = roundDownToYen(baseCharge.plus(energy).plus(fuelCharge).plus(levyCharge));
+      const noUsage = usage.isZero();
+      const total = plan.halveTotalWhenNoUsage && noUsage ? rounded.dividedBy(2) : rounded;
+
+      return this.assemble(plan, {
+        baseCharge,
+        baseLabel: `基本料金 ${plan.baseChargePerKw.toFixed(2)}円 × ${kw.value.toFixed(1)}kW`,
+        lines: [
+          {
+            label: '電力量料金',
+            quantity: usage,
+            unit: 'kWh',
+            unitPrice: plan.unitPriceYenPerKwh,
+            amount: energy
+          }
+        ],
+        energySubtotal: energy,
+        energyChargeTotal: baseCharge.plus(energy),
+        discount: new Decimal('0'),
+        fuelCharge,
+        levyCharge,
+        totalKwh: usage,
+        total,
+        notes: noUsage && plan.halveTotalWhenNoUsage ? ['使用量が0kWhのため請求額が半額です'] : []
+      });
+    });
+  }
+
+  private assemble(
+    plan: RatePlan,
+    parts: {
+      baseCharge: Decimal;
+      baseLabel: string;
+      lines: ChargeLine[];
+      energySubtotal: Decimal;
+      energyChargeTotal: Decimal;
+      discount: Decimal;
+      fuelCharge: Decimal;
+      levyCharge: Decimal;
+      totalKwh: Decimal;
+      total: Decimal;
+      notes: string[];
+    }
+  ): MonthlyBill {
+    const usedLines = parts.lines.filter(l => l.quantity === null || l.quantity.greaterThan(0));
+    const desc = usedLines
+      .map(l => `${l.label}: ${l.unitPrice?.toFixed(2)}円 × ${l.quantity?.toFixed(0)}${l.unit} = ${l.amount.toFixed(2)}円`)
       .join(' + ');
 
-    return [
-      `最低料金（${plan.minimumIncludedKwh}kWhまで含む）: ${plan.minimumCharge.toFixed(2)}円`,
-      tierDesc || '電力量料金: 0円（最低料金に含まれる範囲）',
-      `従量料金合計: ${energyChargeTotal.toFixed(2)}円`,
-      `燃料費調整額: ${fuelCharge.toFixed(2)}円`,
-      `再エネ賦課金: ${levyCharge.toFixed(0)}円（円未満切り捨て）`,
-      `合計: ${total.toFixed(0)}円（円未満切り捨て）`
+    const formula = [
+      `${parts.baseLabel}: ${parts.baseCharge.toFixed(2)}円`,
+      desc || '電力量料金: 0円',
+      ...(parts.discount.isZero() ? [] : [`割引: ${parts.discount.toFixed(2)}円`]),
+      `燃料費調整額: ${parts.fuelCharge.toFixed(2)}円`,
+      `再エネ賦課金: ${parts.levyCharge.toFixed(0)}円`,
+      `合計: ${parts.total.toFixed(2)}円`
     ].join(' → ');
+
+    return {
+      planId: plan.planId,
+      planName: plan.planName,
+      baseCharge: parts.baseCharge,
+      lines: parts.lines,
+      energySubtotal: parts.energySubtotal,
+      energyChargeTotal: parts.energyChargeTotal,
+      discount: parts.discount,
+      fuelAdjustment: parts.fuelCharge,
+      renewableLevy: parts.levyCharge,
+      totalKwh: parts.totalKwh,
+      notes: parts.notes,
+      total: parts.total,
+      formula,
+      sources: plan.sources
+    };
   }
 }
 
