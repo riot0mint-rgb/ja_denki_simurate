@@ -2,6 +2,8 @@ import { BillingCalculator } from '../src/calculator';
 import { lookupFuelAdjustment, lookupRenewableLevy, RatePeriod } from '../src/monthlyRates';
 import { RatePlan, RoundingProfile, UsageInput } from '../src/models';
 import * as F from './fixtures';
+import { allocateFromFamilyTime } from '../src/touAllocation';
+import { Decimal } from '../src/decimal-config';
 
 const calculator = new BillingCalculator();
 const JULY: RatePeriod = { year: 2026, month: 7 };
@@ -305,6 +307,59 @@ describe('入力検証（CLAUDE.md ルール8）', () => {
   });
 });
 
+// ④の按分式は元資料の側に欠陥があり、この2つは Excel でも同じ結果になる。
+// 実装は忠実に写しているので、ここでは「そうなること」を固定して見張る。
+// 利用者に見せる前に calculateService の checkAllocation が計算不可として止める。
+describe('④按分式の既知の欠陥（元資料どおり）', () => {
+  const calendar = {
+    days: 30,
+    weekendDays: 8,
+    holidayDays: 1,
+    holidayUsageRatio: 'same' as const,
+    julyDays: 0,
+    octoberDays: 0
+  };
+  const alloc = (u: Record<string, number>) =>
+    allocateFromFamilyTime(
+      {
+        daySummerKwh: new Decimal(u.daySummer ?? 0),
+        dayOtherKwh: new Decimal(u.dayOther ?? 0),
+        familyKwh: new Decimal(u.family ?? 0),
+        nightKwh: new Decimal(u.night ?? 0)
+      },
+      calendar
+    ).bands;
+  const sum = (b: Record<string, Decimal>) =>
+    Object.values(b).reduce((a, v) => a.plus(v), new Decimal('0'));
+
+  it('通常の入力では4区分の合計が総使用量に戻る', () => {
+    expect(sum(alloc({ dayOther: 120, family: 80, night: 250 })).toNumber()).toBeCloseTo(450, 6);
+  });
+
+  it('デイタイムが両季とも0だとデイタイム分が消える', () => {
+    // S8 = IF(Q8=0, 0, Q8/Q10) — 季節按分の割合が両方0になり、
+    // ファミリータイムの半分を含むデイタイム分がまるごと落ちる
+    const bands = alloc({ family: 300, night: 400 });
+    expect(sum(bands).toNumber()).toBeCloseTo(595, 6);
+    expect(bands.daySummer.isZero()).toBe(true);
+    expect(bands.dayOther.isZero()).toBe(true);
+  });
+
+  it('昼夜の偏りが極端だと負の値が出る', () => {
+    // 休日割合が上がるほど補正項が大きくなり、デイタイムが負に振り切れる
+    const bands = allocateFromFamilyTime(
+      {
+        daySummerKwh: new Decimal('0'),
+        dayOtherKwh: new Decimal('5'),
+        familyKwh: new Decimal('0'),
+        nightKwh: new Decimal('600')
+      },
+      { ...calendar, holidayUsageRatio: 'much_more' }
+    ).bands;
+    expect(bands.dayOther.isNegative()).toBe(true);
+  });
+});
+
 describe('内訳の表示（紙に出る）', () => {
   // 按分した使用量には端数が出る。0桁で丸めると紙の上で掛け算が合わなくなる
   it('端数のある使用量でも掛け算が合う', () => {
@@ -318,6 +373,24 @@ describe('内訳の表示（紙に出る）', () => {
   it('整数の使用量に不要な小数を付けない', () => {
     const b = bill(F.chugokuDenkaStyle, { contractKw: 6, tou: { night: 200 } });
     expect(b.formula).toContain('× 200kWh');
+  });
+
+  it('契約容量に端数があっても表示と課金が一致する', () => {
+    const b = bill(F.chugokuJuryoB, { totalKwh: 300, contractKva: 6.5 });
+    expect(b.formula).toContain('6.5kVA');
+    expect(b.baseCharge.toNumber()).toBeCloseTo(447.97 * 6.5, 6);
+  });
+
+  it('10kW超過分に端数があっても表示と課金が一致する', () => {
+    const b = bill(F.chugokuDenkaStyle, { contractKw: 12.5, tou: { night: 200 } });
+    expect(b.formula).toContain('2.5kW超過分');
+  });
+
+  it('賦課金を丸めないプランでは表示にも端数を出す', () => {
+    // 従量電灯B は賦課金に ROUNDDOWN が無い（②明細どおり）
+    const b = bill(F.chugokuJuryoB, { totalKwh: 255, contractKva: 10 });
+    expect(b.renewableLevy.isInteger()).toBe(false);
+    expect(b.formula).toContain(`再エネ賦課金: ${b.renewableLevy.toDecimalPlaces(2).toString()}円`);
   });
 });
 

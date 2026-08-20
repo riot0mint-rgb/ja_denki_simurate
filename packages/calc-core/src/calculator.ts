@@ -298,7 +298,7 @@ export class BillingCalculator {
 
       return this.assemble(plan, {
         baseCharge,
-        baseLabel: `基本料金 ${baseUnit.toFixed(2)}円 × ${kva.value.toFixed(0)}kVA`,
+        baseLabel: `基本料金 ${baseUnit.toFixed(2)}円 × ${kva.value.toDecimalPlaces(2).toString()}kVA`,
         lines,
         energySubtotal,
         energyChargeTotal,
@@ -503,7 +503,7 @@ export class BillingCalculator {
       bill: this.assemble(plan, {
         baseCharge,
         baseLabel: hasBaseCharge
-          ? `基本料金（10kWまで${overKw.isZero() ? '' : ` + ${overKw.toFixed(0)}kW超過分`}）`
+          ? `基本料金（10kWまで${overKw.isZero() ? '' : ` + ${overKw.toDecimalPlaces(2).toString()}kW超過分`}）`
           : '基本料金なし（最低月額料金制）',
         lines,
         energySubtotal,
@@ -648,7 +648,7 @@ export class BillingCalculator {
       status: 'ok',
       bill: this.assemble(plan, {
         baseCharge,
-        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toFixed(0)}kVA超過分`}）`,
+        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toDecimalPlaces(2).toString()}kVA超過分`}）`,
         lines,
         energySubtotal,
         energyChargeTotal,
@@ -735,7 +735,7 @@ export class BillingCalculator {
       status: 'ok',
       bill: this.assemble(plan, {
         baseCharge,
-        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toFixed(0)}kVA超過分`}）`,
+        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toDecimalPlaces(2).toString()}kVA超過分`}）`,
         lines,
         energySubtotal,
         energyChargeTotal,
@@ -796,7 +796,7 @@ export class BillingCalculator {
       desc || '電力量料金: 0円',
       ...(parts.discount.isZero() ? [] : [`割引: ${parts.discount.toFixed(2)}円`]),
       `燃料費調整額: ${parts.fuelCharge.toFixed(2)}円`,
-      `再エネ賦課金: ${parts.levyCharge.toFixed(0)}円`,
+      `再エネ賦課金: ${parts.levyCharge.toDecimalPlaces(2).toString()}円`,
       `合計: ${parts.total.toFixed(2)}円`
     ].join(' → ');
 

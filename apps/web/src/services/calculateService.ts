@@ -198,27 +198,44 @@ export function calculateComparison(
   }
 }
 
+/** 振替後の4区分は、元の総使用量をそのまま分け直したものでなければならない */
+const ALLOCATION_TOLERANCE = new Decimal('0.01')
+
 /**
- * 按分の結果に負の使用量が出ていないか確かめる。
+ * 按分の結果が使える形になっているか確かめる。
  *
- * ④の按分式には MAX(...,0) が無く、元資料の Excel 自体が負の値を出す
- * （'ファミリーⅡ結果' W10 = U10 - U12、U12 は補正項の半分。補正が大きいと負になる）。
- * 昼夜の偏りが極端な検針票で起きる。
+ * ④の按分式には元資料の側に2つの欠陥があり、どちらも黙って請求額をずらす。
  *
- * 0 に丸めると4区分の合計が総使用量と合わなくなり、請求額が静かにずれる。
- * 元資料に無い処理を足すことにもなる。だから丸めずに計算不可として返す（ルール8）。
- * 計算エンジンに渡すと「ご使用量に負の値は指定できません」と出て、
- * 入力した本人には身に覚えのない理由になってしまう。
+ * **負の使用量**: MAX(...,0) が無いため、昼夜の偏りが極端だと負になる
+ * （'ファミリーⅡ結果' W10 = U10 - U12。U12 は補正項の半分）。
+ *
+ * **使用量の欠落**: デイタイムが夏季・その他季とも 0 のとき、季節按分の割合が
+ * 両方 0 になり（S8 = IF(Q8=0,0,Q8/Q10)）、ファミリータイムの半分を含む
+ * デイタイム分がまるごと消える。実測で 700kWh の入力が 595kWh になった。
+ * **JAでんき側だけが安く出るため、削減額が過大に表示される。**
+ *
+ * どちらも 0 に丸めたり補ったりしない。元資料に無い処理を足すことになるうえ、
+ * 4区分の合計が総使用量と合わなくなる。計算不可として返す（ルール8）。
+ *
+ * 個別の症状ではなく「合計が保たれているか」を見ているのは、
+ * 按分式の欠陥をこの先も取りこぼさないため。
  */
 function checkAllocation(
-  bands: { daySummer: Decimal; dayOther: Decimal; night: Decimal; holiday: Decimal }
+  bands: { daySummer: Decimal; dayOther: Decimal; night: Decimal; holiday: Decimal },
+  expectedTotal: Decimal
 ): { ok: true } | { ok: false; reason: string; nextSteps: string[] } {
-  const negative = Object.entries(bands).filter(([, v]) => v.isNegative())
-  if (negative.length === 0) return { ok: true }
+  const unusable =
+    Object.values(bands).some(v => v.isNegative()) ||
+    Object.values(bands)
+      .reduce((a, b) => a.plus(b), new Decimal('0'))
+      .minus(expectedTotal)
+      .abs()
+      .greaterThan(ALLOCATION_TOLERANCE)
+
+  if (!unusable) return { ok: true }
   return {
     ok: false,
-    reason:
-      'ご入力の時間帯の偏りが大きく、夜トクプランの時間帯への振り替えを試算できません',
+    reason: 'ご入力の時間帯の偏りが大きく、夜トクプランの時間帯への振り替えを試算できません',
     nextSteps: [
       '各時間帯のご使用量が検針票どおりか確認してください',
       '「休日の電気の使い方」の選択を変えると試算できる場合があります',
@@ -275,7 +292,10 @@ function deriveCandidateUsage(
       },
       calendar
     ).bands
-    const check = checkAllocation(bands)
+    const check = checkAllocation(
+      bands,
+      new Decimal(f.daySummer ?? 0).plus(f.dayOther ?? 0).plus(f.family ?? 0).plus(f.night ?? 0)
+    )
     if (!check.ok) return check
     return {
       ok: true,
@@ -304,7 +324,7 @@ function deriveCandidateUsage(
     calendar,
     month
   ).bands
-  const check = checkAllocation(bands)
+  const check = checkAllocation(bands, new Decimal(e.dayKwh).plus(e.nightKwh))
   if (!check.ok) return check
   return {
     ok: true,

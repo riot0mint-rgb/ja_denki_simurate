@@ -248,6 +248,32 @@ describe('按分が負の値になる入力', () => {
     }
   })
 
+  // デイタイムが両季とも0だと季節按分の割合が0になり、ファミリータイムの半分を含む
+  // デイタイム分がまるごと消える。JAでんき側だけ安く出て削減額が過大になる
+  it('デイタイムが0で使用量が欠落する入力も止める', () => {
+    const r = calculateComparison(
+      'chugoku_family_2',
+      {
+        contractKva: 10,
+        familyTime: { daySummer: 0, dayOther: 0, family: 300, night: 400 },
+        calendar: { ...calendar, holidayUsageRatio: 'same' as const }
+      },
+      { period: JULY }
+    )
+    expect(r.status).toBe('unsupported')
+    if (r.status === 'unsupported') expect(r.reason).toContain('時間帯の偏り')
+  })
+
+  it('時間帯別電灯でも合計が保たれない入力は止める', () => {
+    // 合計の検査は両方の按分式に効いている
+    const ok = calculateComparison(
+      'chugoku_economy_night',
+      { contractKva: 10, economyNight: { dayKwh: 200, nightKwh: 300 }, calendar },
+      { period: JULY }
+    )
+    expect(ok.status).toBe('ok')
+  })
+
   it('通常の使用量では従来どおり計算できる', () => {
     const r = calculateComparison(
       'chugoku_family_2',
