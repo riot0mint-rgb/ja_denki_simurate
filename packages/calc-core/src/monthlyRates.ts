@@ -66,7 +66,10 @@ const CHUGOKU_FUEL: Record<string, FuelRow> = {
  * カバーする最新月に合わせてある（下記）。
  */
 const AU_FUEL: Record<string, FuelRow> = {
-  '2026-07': { minimumCharge: '-196.24', unitPriceYenPerKwh: '-13.09' }
+  '2026-07': { minimumCharge: '-196.24', unitPriceYenPerKwh: '-13.09' },
+  // auでんき公式「燃料費調整単価」より（税込）。中国電力エリアの でんきMプラン。
+  // https://www.au.com/energy/denki/other/adjust/detail/
+  '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58' }
 };
 
 /** 再エネ賦課金（円/kWh）。全事業者共通。 */
@@ -152,4 +155,4 @@ export function availablePeriods(provider: FuelAdjustmentProvider = 'chugoku'): 
  * **全事業者がそろっている最新月**に合わせている。
  * auでんきの単価を追加したら、ここも進めること。
  */
-export const DEFAULT_PERIOD: RatePeriod = { year: 2026, month: 7 };
+export const DEFAULT_PERIOD: RatePeriod = { year: 2026, month: 8 };

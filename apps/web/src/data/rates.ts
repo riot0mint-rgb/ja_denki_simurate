@@ -97,6 +97,15 @@ const OFFICIAL_TARIFF_CHUGOKU_SERVICE: RateSource = {
  * 料金メニュー定義書が唯一の一次情報。広島市農業協同組合が改定通知として公開している。
  * 公開されている最新は 2024年4月改定版（令和6年5月1日検針分から適用）。
  */
+/** auでんきが自社サイトで公表している料金表。中国電力エリアの でんきMプラン。 */
+const OFFICIAL_TARIFF_AU: RateSource = {
+  document: 'auでんき 料金表（中国電力エリア でんきMプラン）',
+  locator: 'https://www.au.com/energy/denki/merit/plan/',
+  effectiveFrom: '2026-07',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-20'
+}
+
 const OFFICIAL_JA_DENKI_DEFINITION: RateSource = {
   document: 'JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定',
   locator:
@@ -177,7 +186,7 @@ export const auMPlan: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.74', '39.42', '41.54'),
   rounding: AU_ROUNDING,
-  sources: [src(DOC.auM, "'ａｕ＿Ｍプラン料金早見表'!E5:E8")]
+  sources: [src(DOC.auM, "'ａｕ＿Ｍプラン料金早見表'!E5:E8"), OFFICIAL_TARIFF_AU]
 }
 
 export const jaDenkiJuryoA: TieredMinimumPlan = {

@@ -74,6 +74,8 @@ const OFFICIAL = {
     night: 30.34
   },
   chugokuMidnightB: { basePerKw: 375.92, unitPrice: 30.34 },
+  /** auでんき公式（www.au.com/energy/denki/merit/plan/）。従量電灯A から各1銭安い。 */
+  auMPlan: { minimum: 759.67, tiers: [32.74, 39.42, 41.54] },
   /** 電化住宅割引は基本料金+電力量料金の 8%、上限 3,300円。 */
   allElectricDiscount: { rate: 0.08, capYen: 3300 }
 } as const;
@@ -183,6 +185,24 @@ describe('中国電力 公式単価表との突合', () => {
         F.chugokuSimple.minimumMonthlyThreshold.toNumber()
       );
     });
+  });
+});
+
+describe('auでんき 公式料金表との突合', () => {
+  it('でんきMプラン（中国電力エリア）', () => {
+    expect(F.auMPlan.minimumCharge.toNumber()).toBe(OFFICIAL.auMPlan.minimum);
+    expect(tierPrices(F.auMPlan)).toEqual([...OFFICIAL.auMPlan.tiers]);
+  });
+
+  it('中国電力 従量電灯A から各 1 銭安い', () => {
+    const chugoku = [
+      F.chugokuJuryoA.minimumCharge.toNumber(),
+      ...tierPrices(F.chugokuJuryoA)
+    ];
+    const au = [F.auMPlan.minimumCharge.toNumber(), ...tierPrices(F.auMPlan)];
+    for (let i = 0; i < chugoku.length; i++) {
+      expect(chugoku[i] - au[i]).toBeCloseTo(0.01, 10);
+    }
   });
 });
 
