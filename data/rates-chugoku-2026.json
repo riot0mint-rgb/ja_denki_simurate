@@ -17,18 +17,467 @@
       "fiscalYear": 2026,
       "rate": 4.18,
       "appliesTo": "2026-04 〜 2027-03 使用分（低圧）",
-      "source": "https://www.meti.go.jp/press/2025/03/20260319004/20260319004.html"
+      "source": "https://www.meti.go.jp/press/2025/03/20260319004/20260319004.html",
+      "monthly": {
+        "2024-01": 1.4,
+        "2024-02": 1.4,
+        "2024-03": 1.4,
+        "2024-04": 1.4,
+        "2024-05": 3.49,
+        "2024-06": 3.49,
+        "2024-07": 3.49,
+        "2024-08": 3.49,
+        "2024-09": 3.49,
+        "2024-10": 3.49,
+        "2024-11": 3.49,
+        "2024-12": 3.49,
+        "2025-01": 3.49,
+        "2025-02": 3.49,
+        "2025-03": 3.49,
+        "2025-04": 3.49,
+        "2025-05": 3.98,
+        "2025-06": 3.98,
+        "2025-07": 3.98,
+        "2025-08": 3.98,
+        "2025-09": 3.98,
+        "2025-10": 3.98,
+        "2025-11": 3.98,
+        "2025-12": 3.98,
+        "2026-01": 3.98,
+        "2026-02": 3.98,
+        "2026-03": 3.98,
+        "2026-04": 3.98,
+        "2026-05": 4.18,
+        "2026-06": 4.18,
+        "2026-07": 4.18,
+        "2026-08": 4.18,
+        "2026-09": 4.18,
+        "2026-10": 4.18,
+        "2026-11": 4.18,
+        "2026-12": 4.18,
+        "2027-01": 4.18,
+        "2027-02": 4.18,
+        "2027-03": 4.18,
+        "2027-04": 4.18
+      }
     },
     "fuelCostAdjustment": {
-      "$comment": "15kWhを超える1kWhにつき。規制/自由とも同単価。政府の電気・ガス料金支援の値引きを織り込み済み。",
+      "$comment": "事業者ごとに 4 系統。regulated/liberalized は中国電力サイトから自動更新できるが、au/softbank は各社が独自に公表するため手動。",
       "source": "https://www.energia.co.jp/elec/seido/nencho/",
-      "monthly": {
-        "2026-04": -11.39,
-        "2026-05": -9.83,
-        "2026-06": -9.76,
-        "2026-07": -9.57,
-        "2026-08": -12.56,
-        "2026-09": -12.93
+      "lastCheckedOn": "2026-08-20",
+      "autoUpdatable": [
+        "regulated",
+        "liberalized"
+      ],
+      "series": {
+        "regulated": {
+          "2024-06": {
+            "minimumCharge": -148.05,
+            "perKwh": -9.86
+          },
+          "2024-07": {
+            "minimumCharge": -121.99,
+            "perKwh": -8.12
+          },
+          "2024-08": {
+            "minimumCharge": -123.85,
+            "perKwh": -8.25
+          },
+          "2024-09": {
+            "minimumCharge": -183.16,
+            "perKwh": -12.19
+          },
+          "2024-10": {
+            "minimumCharge": -182.16,
+            "perKwh": -12.13
+          },
+          "2024-11": {
+            "minimumCharge": -160.65,
+            "perKwh": -10.69
+          },
+          "2024-12": {
+            "minimumCharge": -126.71,
+            "perKwh": -8.44
+          },
+          "2025-01": {
+            "minimumCharge": -130.31,
+            "perKwh": -8.67
+          },
+          "2025-02": {
+            "minimumCharge": -167.85,
+            "perKwh": -11.17
+          },
+          "2025-03": {
+            "minimumCharge": -165.63,
+            "perKwh": -11.03
+          },
+          "2025-04": {
+            "minimumCharge": -145.71,
+            "perKwh": -9.7
+          },
+          "2025-05": {
+            "minimumCharge": -128.42,
+            "perKwh": -8.54
+          },
+          "2025-06": {
+            "minimumCharge": -132.86,
+            "perKwh": -8.84
+          },
+          "2025-07": {
+            "minimumCharge": -141.17,
+            "perKwh": -9.39
+          },
+          "2025-08": {
+            "minimumCharge": -177.9,
+            "perKwh": -11.85
+          },
+          "2025-09": {
+            "minimumCharge": -188.74,
+            "perKwh": -12.56
+          },
+          "2025-10": {
+            "minimumCharge": -185.34,
+            "perKwh": -12.33
+          },
+          "2025-11": {
+            "minimumCharge": -154.39,
+            "perKwh": -10.27
+          },
+          "2025-12": {
+            "minimumCharge": -153.73,
+            "perKwh": -10.23
+          },
+          "2026-01": {
+            "minimumCharge": -152.11,
+            "perKwh": -10.12
+          },
+          "2026-02": {
+            "minimumCharge": -219.29,
+            "perKwh": -14.6
+          },
+          "2026-03": {
+            "minimumCharge": -217.69,
+            "perKwh": -14.5
+          },
+          "2026-04": {
+            "minimumCharge": -171.12,
+            "perKwh": -11.39
+          },
+          "2026-05": {
+            "minimumCharge": -147.69,
+            "perKwh": -9.83
+          },
+          "2026-06": {
+            "minimumCharge": -146.74,
+            "perKwh": -9.76
+          },
+          "2026-07": {
+            "minimumCharge": -143.77,
+            "perKwh": -9.57
+          },
+          "2026-08": {
+            "minimumCharge": -188.7,
+            "perKwh": -12.56
+          },
+          "2026-09": {
+            "minimumCharge": -194.01,
+            "perKwh": -12.93
+          }
+        },
+        "liberalized": {
+          "2024-06": {
+            "minimumCharge": -148.05,
+            "perKwh": -9.86
+          },
+          "2024-07": {
+            "minimumCharge": -121.99,
+            "perKwh": -8.12
+          },
+          "2024-08": {
+            "minimumCharge": -123.85,
+            "perKwh": -8.25
+          },
+          "2024-09": {
+            "minimumCharge": -183.16,
+            "perKwh": -12.19
+          },
+          "2024-10": {
+            "minimumCharge": -182.16,
+            "perKwh": -12.13
+          },
+          "2024-11": {
+            "minimumCharge": -160.65,
+            "perKwh": -10.69
+          },
+          "2024-12": {
+            "minimumCharge": -126.71,
+            "perKwh": -8.44
+          },
+          "2025-01": {
+            "minimumCharge": -130.31,
+            "perKwh": -8.67
+          },
+          "2025-02": {
+            "minimumCharge": -167.85,
+            "perKwh": -11.17
+          },
+          "2025-03": {
+            "minimumCharge": -165.63,
+            "perKwh": -11.03
+          },
+          "2025-04": {
+            "minimumCharge": -145.71,
+            "perKwh": -9.7
+          },
+          "2025-05": {
+            "minimumCharge": -128.42,
+            "perKwh": -8.54
+          },
+          "2025-06": {
+            "minimumCharge": -132.86,
+            "perKwh": -8.84
+          },
+          "2025-07": {
+            "minimumCharge": -141.17,
+            "perKwh": -9.39
+          },
+          "2025-08": {
+            "minimumCharge": -177.9,
+            "perKwh": -11.85
+          },
+          "2025-09": {
+            "minimumCharge": -188.74,
+            "perKwh": -12.56
+          },
+          "2025-10": {
+            "minimumCharge": -185.34,
+            "perKwh": -12.33
+          },
+          "2025-11": {
+            "minimumCharge": -154.39,
+            "perKwh": -10.27
+          },
+          "2025-12": {
+            "minimumCharge": -153.73,
+            "perKwh": -10.23
+          },
+          "2026-01": {
+            "minimumCharge": -152.11,
+            "perKwh": -10.12
+          },
+          "2026-02": {
+            "minimumCharge": -219.29,
+            "perKwh": -14.6
+          },
+          "2026-03": {
+            "minimumCharge": -217.69,
+            "perKwh": -14.5
+          },
+          "2026-04": {
+            "minimumCharge": -171.12,
+            "perKwh": -11.39
+          },
+          "2026-05": {
+            "minimumCharge": -147.69,
+            "perKwh": -9.83
+          },
+          "2026-06": {
+            "minimumCharge": -146.74,
+            "perKwh": -9.76
+          },
+          "2026-07": {
+            "minimumCharge": -143.77,
+            "perKwh": -9.57
+          },
+          "2026-08": {
+            "minimumCharge": -188.7,
+            "perKwh": -12.56
+          },
+          "2026-09": {
+            "minimumCharge": -194.01,
+            "perKwh": -12.93
+          }
+        },
+        "au": {
+          "2024-06": {
+            "minimumCharge": -121.04,
+            "perKwh": -8.07
+          },
+          "2024-07": {
+            "minimumCharge": -121.97,
+            "perKwh": -8.13
+          },
+          "2024-08": {
+            "minimumCharge": -183.84,
+            "perKwh": -12.27
+          },
+          "2024-09": {
+            "minimumCharge": -183.16,
+            "perKwh": -12.21
+          },
+          "2024-10": {
+            "minimumCharge": -159.66,
+            "perKwh": -10.64
+          },
+          "2024-11": {
+            "minimumCharge": -123.14,
+            "perKwh": -8.21
+          },
+          "2024-12": {
+            "minimumCharge": -126.7,
+            "perKwh": -8.45
+          },
+          "2025-01": {
+            "minimumCharge": -167.79,
+            "perKwh": -11.18
+          },
+          "2025-02": {
+            "minimumCharge": -167.83,
+            "perKwh": -11.18
+          },
+          "2025-03": {
+            "minimumCharge": -147.61,
+            "perKwh": -9.85
+          },
+          "2025-04": {
+            "minimumCharge": -126.19,
+            "perKwh": -8.41
+          },
+          "2025-05": {
+            "minimumCharge": -128.41,
+            "perKwh": -8.56
+          },
+          "2025-06": {
+            "minimumCharge": -132.85,
+            "perKwh": -8.86
+          },
+          "2025-07": {
+            "minimumCharge": -171.15,
+            "perKwh": -11.41
+          },
+          "2025-08": {
+            "minimumCharge": -183.89,
+            "perKwh": -12.27
+          },
+          "2025-09": {
+            "minimumCharge": -182.72,
+            "perKwh": -12.27
+          },
+          "2025-10": {
+            "minimumCharge": -155.31,
+            "perKwh": -10.36
+          },
+          "2026-01": {
+            "minimumCharge": -219.59,
+            "perKwh": -14.65
+          },
+          "2026-03": {
+            "minimumCharge": -172.67,
+            "perKwh": -11.51
+          },
+          "2026-04": {
+            "minimumCharge": -148.6,
+            "perKwh": -9.9
+          },
+          "2026-05": {
+            "minimumCharge": -147.67,
+            "perKwh": -9.85
+          }
+        },
+        "softbank": {
+          "2024-06": {
+            "minimumCharge": -148.05,
+            "perKwh": -9.86
+          },
+          "2024-07": {
+            "minimumCharge": -121.99,
+            "perKwh": -8.12
+          },
+          "2024-08": {
+            "minimumCharge": -123.85,
+            "perKwh": -8.25
+          },
+          "2024-09": {
+            "minimumCharge": -183.16,
+            "perKwh": -12.19
+          },
+          "2024-10": {
+            "minimumCharge": -182.16,
+            "perKwh": -12.13
+          },
+          "2024-11": {
+            "minimumCharge": -160.65,
+            "perKwh": -10.19
+          },
+          "2024-12": {
+            "minimumCharge": -126.71,
+            "perKwh": -8.44
+          },
+          "2025-01": {
+            "minimumCharge": -130.31,
+            "perKwh": -8.67
+          },
+          "2025-02": {
+            "minimumCharge": -167.85,
+            "perKwh": -11.17
+          },
+          "2025-03": {
+            "minimumCharge": -165.63,
+            "perKwh": -11.03
+          },
+          "2025-04": {
+            "minimumCharge": -145.71,
+            "perKwh": -9.7
+          },
+          "2025-05": {
+            "minimumCharge": -128.42,
+            "perKwh": -8.54
+          },
+          "2025-06": {
+            "minimumCharge": -132.86,
+            "perKwh": -8.84
+          },
+          "2025-07": {
+            "minimumCharge": -141.17,
+            "perKwh": -9.39
+          },
+          "2025-08": {
+            "minimumCharge": -183.89,
+            "perKwh": -12.27
+          },
+          "2025-09": {
+            "minimumCharge": -188.74,
+            "perKwh": -12.56
+          },
+          "2025-10": {
+            "minimumCharge": -185.34,
+            "perKwh": -12.33
+          },
+          "2026-01": {
+            "minimumCharge": -152.11,
+            "perKwh": -10.12
+          },
+          "2026-02": {
+            "minimumCharge": -219.29,
+            "perKwh": -14.6
+          },
+          "2026-03": {
+            "minimumCharge": -217.69,
+            "perKwh": -14.5
+          },
+          "2026-04": {
+            "minimumCharge": -171.12,
+            "perKwh": -11.39
+          },
+          "2026-05": {
+            "minimumCharge": -147.69,
+            "perKwh": -9.83
+          },
+          "2026-06": {
+            "minimumCharge": -146.74,
+            "perKwh": -9.76
+          }
+        }
       }
     }
   },
