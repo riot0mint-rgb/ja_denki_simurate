@@ -1,118 +1,187 @@
-import Decimal from 'decimal.js';
+import { Decimal } from './decimal-config.js';
 import {
+  BillResult,
+  CalculationInput,
+  FlatRatePlan,
+  FuelAdjustment,
   MonthlyBill,
-  RatePlan,
-  FuelAdjustmentEntry,
-  RenewableLevyEntry,
-  CalculationInput
-} from './models';
-import { calculateTieredCharge, sumTierCharges, describeTierCalculation } from './tariff';
-import { calculateFuelAdjustment, describeFuelAdjustment } from './fuelAdjustment';
-import { calculateRenewableLevy, describeRenewableLevy } from './renewableLevy';
-import { applyRounding, getRoundingDescription } from './rounding';
+  RenewableLevy,
+  TieredMinimumPlan,
+  TierBreakdown
+} from './models.js';
+import { roundDownToYen } from './rounding.js';
+import { validateUsageKwh } from './utils.js';
 
+/**
+ * JAでんき公式試算表と同一の手順で月額電気料金を算出する。
+ *
+ * 元資料: ①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年4月適用.xlsx
+ *         シート「シミュレーション結果明細 VS従量Ａ」/「〜 VSシンプル」
+ *
+ * 段階制プラン (Excel 明細 VS従量Ａ):
+ *   (1) 最低料金                = 定額（最初の15kWh分を含む）
+ *   (2) 第1段階                 = 単価 × MAX(MIN(使用量,120)-15, 0)
+ *   (3) 第2段階                 = 単価 × MAX(MIN(使用量,300)-120, 0)
+ *   (4) 第3段階                 = 単価 × (使用量 - (2)kWh - (3)kWh - 15)
+ *   (9) 燃料費調整額            = 15kWh分定額 + 単価 × MAX(使用量-15, 0)
+ *  (13) 再エネ賦課金            = ROUNDDOWN(単価 × MAX(使用量, 15))
+ *       電気料金                = ROUNDDOWN( (1)+(2)+(3)+(4)+(9)+(13) )
+ *
+ * 一律単価プラン (Excel 明細 VSシンプル):
+ *   (6) 従量料金                = 単価 × 使用量
+ *   (9) 燃料費調整額            = 単価 × 使用量
+ *  (12) 再エネ賦課金            = ROUNDDOWN(単価 × 使用量)
+ *       電気料金                = IF( (6)+(9) < 最低月額閾値, 最低月額請求額,
+ *                                     ROUNDDOWN( (6)+(9)+(12) ) )
+ */
 export class BillingCalculator {
-  calculateMonthlyBill(input: CalculationInput): MonthlyBill {
-    const {
-      usageKwh,
-      plan,
-      fuelAdjustment,
-      renewableLevy
-    } = input;
-
-    const usageDecimal = new Decimal(usageKwh);
-
-    // 基本料金または最低料金（どちらか大きい方）
-    let minimumCharge = new Decimal('0');
-    let baseChargeValue = new Decimal('0');
-
-    if (plan.baseCharge.value) {
-      baseChargeValue = plan.baseCharge.value;
+  calculate(input: CalculationInput): BillResult {
+    const validation = validateUsageKwh(input.usageKwh);
+    if (!validation.valid) {
+      return {
+        status: 'unsupported',
+        reason: validation.reason,
+        nextSteps: [
+          'ご使用量（kWh）を検針票のとおりに入力してください',
+          '0 以上の数値のみ計算できます'
+        ]
+      };
     }
 
-    if (plan.minimumCharge.value) {
-      minimumCharge = plan.minimumCharge.value;
+    const usage = new Decimal(input.usageKwh);
+    const bill =
+      input.plan.structure === 'tiered_minimum'
+        ? this.calculateTiered(usage, input.plan, input.fuelAdjustment, input.renewableLevy)
+        : this.calculateFlat(usage, input.plan, input.fuelAdjustment, input.renewableLevy);
+
+    return { status: 'ok', bill };
+  }
+
+  private calculateTiered(
+    usage: Decimal,
+    plan: TieredMinimumPlan,
+    fuel: FuelAdjustment,
+    levy: RenewableLevy
+  ): MonthlyBill {
+    const included = new Decimal(plan.minimumIncludedKwh);
+
+    const tiers: TierBreakdown[] = [];
+    let tierSubtotal = new Decimal('0');
+    let alreadyCharged = new Decimal('0');
+
+    for (const tier of plan.tiers) {
+      // Excel は最終段階だけ「使用量 - 下位段階kWh - 15」で残量を求める。
+      // 上限のない段階は endKwh が null なのでこの分岐で表現する。
+      const chargedKwh =
+        tier.endKwh === null
+          ? Decimal.max(usage.minus(alreadyCharged).minus(included), 0)
+          : Decimal.max(Decimal.min(usage, tier.endKwh).minus(tier.startKwh), 0);
+
+      alreadyCharged = alreadyCharged.plus(chargedKwh);
+      const charge = tier.unitPriceYenPerKwh.times(chargedKwh);
+      tierSubtotal = tierSubtotal.plus(charge);
+      tiers.push({
+        tierNumber: tier.tierNumber,
+        chargedKwh,
+        unitPriceYenPerKwh: tier.unitPriceYenPerKwh,
+        charge
+      });
     }
 
-    const effectiveBaseCharge = baseChargeValue.greaterThan(minimumCharge)
-      ? baseChargeValue
-      : minimumCharge;
+    const energyChargeTotal = plan.minimumCharge.plus(tierSubtotal);
 
-    // 段階別料金計算
-    const tierCalculations = calculateTieredCharge(usageKwh, plan);
-    const tierCharge = sumTierCharges(tierCalculations);
+    const meteredKwh = Decimal.max(usage.minus(included), 0);
+    const fuelCharge = fuel.minimumCharge.plus(fuel.unitPriceYenPerKwh.times(meteredKwh));
 
-    // 小計（基本料金 + 段階別料金）
-    const subtotal = effectiveBaseCharge.plus(tierCharge);
-
-    // 燃料費調整
-    const fuelAdjustmentCharge = calculateFuelAdjustment(
-      subtotal,
-      usageKwh,
-      fuelAdjustment
+    // 賦課金は 15kWh 分 + 超過分。合算すると単価 × MAX(使用量, 15) と等しい。
+    const levyCharge = roundDownToYen(
+      levy.unitPriceYenPerKwh.times(Decimal.max(usage, included))
     );
 
-    // 再エネ賦課金
-    const renewableLevyCharge = calculateRenewableLevy(usageKwh, renewableLevy);
-
-    // 小計（調整含む）
-    const beforeRounding = subtotal
-      .plus(fuelAdjustmentCharge)
-      .plus(renewableLevyCharge);
-
-    // 端数処理
-    const afterRounding = applyRounding(
-      beforeRounding,
-      plan.roundingRule.method,
-      plan.roundingRule.unit
-    );
-
-    // 計算式の自然言語表現
-    const tierDesc = describeTierCalculation(usageKwh, tierCalculations);
-    const fuelDesc = describeFuelAdjustment(fuelAdjustment, fuelAdjustmentCharge);
-    const levyDesc = describeRenewableLevy(renewableLevy, renewableLevyCharge);
-    const roundingDesc = getRoundingDescription(
-      plan.roundingRule.method,
-      plan.roundingRule.unit
-    );
-
-    const formula = [
-      `基本料金: ${effectiveBaseCharge.toFixed(2)}円`,
-      tierDesc,
-      fuelDesc,
-      levyDesc,
-      `小計: ${beforeRounding.toFixed(2)}円`,
-      roundingDesc,
-      `合計: ${afterRounding.toFixed(2)}円`
-    ].join(' → ');
+    const total = roundDownToYen(energyChargeTotal.plus(fuelCharge).plus(levyCharge));
 
     return {
-      minimumCharge: plan.minimumCharge.value || new Decimal('0'),
-      tier1: tierCalculations.find(t => t.tierNumber === 1)?.charge || new Decimal('0'),
-      tier2: tierCalculations.find(t => t.tierNumber === 2)?.charge || new Decimal('0'),
-      tier3: tierCalculations.find(t => t.tierNumber === 3)?.charge || new Decimal('0'),
-      tier4: tierCalculations.find(t => t.tierNumber === 4)?.charge || new Decimal('0'),
-      fuelAdjustment: fuelAdjustmentCharge,
-      renewableLevy: renewableLevyCharge,
-      subtotal,
-      beforeRounding,
-      afterRounding,
-      roundingMethod: plan.roundingRule.method,
-      formula,
-      rateReference: `${plan.planName} (${plan.effectiveFrom}〜)`,
-      sourceFile: plan.sources[0]?.document || 'Unknown',
-      verificationStatus: 'partial'
+      minimumCharge: plan.minimumCharge,
+      tiers,
+      tierSubtotal,
+      energyChargeTotal,
+      fuelAdjustment: fuelCharge,
+      renewableLevy: levyCharge,
+      minimumMonthlyApplied: false,
+      total,
+      formula: this.describeTiered(plan, tiers, energyChargeTotal, fuelCharge, levyCharge, total),
+      sources: plan.sources
     };
   }
 
-  calculateMonthlyAndAnnual(input: CalculationInput): {
-    monthly: MonthlyBill;
-    annual: Decimal;
-  } {
-    const monthly = this.calculateMonthlyBill(input);
-    const annual = monthly.afterRounding.times(new Decimal('12'));
+  private calculateFlat(
+    usage: Decimal,
+    plan: FlatRatePlan,
+    fuel: FuelAdjustment,
+    levy: RenewableLevy
+  ): MonthlyBill {
+    const energyChargeTotal = plan.unitPriceYenPerKwh.times(usage);
+    const fuelCharge = fuel.unitPriceYenPerKwh.times(usage);
+    const levyCharge = roundDownToYen(levy.unitPriceYenPerKwh.times(usage));
 
-    return { monthly, annual };
+    // Excel は賦課金を含めずに閾値判定し、下回ったら賦課金も含めず最低月額料金に置き換える。
+    const beforeLevy = energyChargeTotal.plus(fuelCharge);
+    const minimumMonthlyApplied = beforeLevy.lessThan(plan.minimumMonthlyThreshold);
+    const total = minimumMonthlyApplied
+      ? plan.minimumMonthlyBill
+      : roundDownToYen(beforeLevy.plus(levyCharge));
+
+    return {
+      minimumCharge: new Decimal('0'),
+      tiers: [
+        {
+          tierNumber: 1,
+          chargedKwh: usage,
+          unitPriceYenPerKwh: plan.unitPriceYenPerKwh,
+          charge: energyChargeTotal
+        }
+      ],
+      tierSubtotal: energyChargeTotal,
+      energyChargeTotal,
+      fuelAdjustment: fuelCharge,
+      renewableLevy: levyCharge,
+      minimumMonthlyApplied,
+      total,
+      formula: minimumMonthlyApplied
+        ? `従量料金 ${energyChargeTotal.toFixed(2)}円 + 燃料費調整額 ${fuelCharge.toFixed(2)}円 ` +
+          `= ${beforeLevy.toFixed(2)}円 が最低月額料金 ${plan.minimumMonthlyThreshold.toFixed(2)}円 に満たないため、` +
+          `最低月額料金 ${plan.minimumMonthlyBill.toFixed(0)}円 を適用 → 合計: ${total.toFixed(0)}円`
+        : `従量料金: ${plan.unitPriceYenPerKwh.toFixed(2)}円 × ${usage.toFixed(0)}kWh = ${energyChargeTotal.toFixed(2)}円 → ` +
+          `燃料費調整額: ${fuelCharge.toFixed(2)}円 → 再エネ賦課金: ${levyCharge.toFixed(0)}円（円未満切り捨て） → ` +
+          `合計: ${total.toFixed(0)}円（円未満切り捨て）`,
+      sources: plan.sources
+    };
+  }
+
+  private describeTiered(
+    plan: TieredMinimumPlan,
+    tiers: TierBreakdown[],
+    energyChargeTotal: Decimal,
+    fuelCharge: Decimal,
+    levyCharge: Decimal,
+    total: Decimal
+  ): string {
+    const tierDesc = tiers
+      .filter(t => t.chargedKwh.greaterThan(0))
+      .map(
+        t =>
+          `第${t.tierNumber}段階: ${t.unitPriceYenPerKwh.toFixed(2)}円 × ${t.chargedKwh.toFixed(0)}kWh = ${t.charge.toFixed(2)}円`
+      )
+      .join(' + ');
+
+    return [
+      `最低料金（${plan.minimumIncludedKwh}kWhまで含む）: ${plan.minimumCharge.toFixed(2)}円`,
+      tierDesc || '電力量料金: 0円（最低料金に含まれる範囲）',
+      `従量料金合計: ${energyChargeTotal.toFixed(2)}円`,
+      `燃料費調整額: ${fuelCharge.toFixed(2)}円`,
+      `再エネ賦課金: ${levyCharge.toFixed(0)}円（円未満切り捨て）`,
+      `合計: ${total.toFixed(0)}円（円未満切り捨て）`
+    ].join(' → ');
   }
 }
 

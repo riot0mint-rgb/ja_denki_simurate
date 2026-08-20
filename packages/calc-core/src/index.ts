@@ -1,24 +1,33 @@
-export { Decimal, configureDecimal } from './decimal-config';
+export { Decimal, configureDecimal } from './decimal-config.js';
 export {
-  MonthlyBill,
+  PlanStructure,
+  RateSource,
   Tier,
+  FuelAdjustment,
+  RenewableLevy,
+  TieredMinimumPlan,
+  FlatRatePlan,
   RatePlan,
-  FuelAdjustmentEntry,
-  RenewableLevyEntry,
   CalculationInput,
+  TierBreakdown,
+  MonthlyBill,
+  UnsupportedResult,
+  BillResult
+} from './models.js';
+export { BillingCalculator, calculator } from './calculator.js';
+export {
+  BillingComparator,
+  comparator,
+  DiscountTerms,
+  PlanComparison,
   ComparisonResult
-} from './models';
-export { BillingCalculator, calculator } from './calculator';
-export { BillingComparator, comparator } from './comparator';
-export { applyRounding, getRoundingDescription, RoundingMethod, RoundingUnit } from './rounding';
-export { calculateTieredCharge, sumTierCharges, describeTierCalculation, TierCalculation } from './tariff';
-export { calculateFuelAdjustment, describeFuelAdjustment } from './fuelAdjustment';
-export { calculateRenewableLevy, describeRenewableLevy } from './renewableLevy';
+} from './comparator.js';
+export { roundDownToYen, describeRounding } from './rounding.js';
 export {
   validateUsageKwh,
-  validateDecimal,
+  ValidationResult,
   formatCurrency,
   formatPercentage,
   describeMonthlyDifference,
   describeAnnualSavings
-} from './utils';
+} from './utils.js';

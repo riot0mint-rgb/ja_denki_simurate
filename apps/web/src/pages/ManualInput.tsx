@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CURRENT_PLAN_OPTIONS } from '../services/calculateService'
 
 interface ManualInputProps {
   onComplete: (usage: number, provider: string) => void;
@@ -7,7 +8,7 @@ interface ManualInputProps {
 
 export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [usage, setUsage] = useState('')
-  const [provider, setProvider] = useState('chugoku')
+  const [provider, setProvider] = useState(CURRENT_PLAN_OPTIONS[0].planId)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +29,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
             <label htmlFor="provider">
-              <strong>現在の電力会社:</strong>
+              <strong>現在のご契約プラン:</strong>
             </label>
             <select
               id="provider"
@@ -36,8 +37,13 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               onChange={(e) => setProvider(e.target.value)}
               style={{ marginTop: '8px' }}
             >
-              <option value="chugoku">中国電力</option>
+              {CURRENT_PLAN_OPTIONS.map(o => (
+                <option key={o.planId} value={o.planId}>{o.planName}</option>
+              ))}
             </select>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+              検針票の「ご契約種別」欄をご確認ください
+            </p>
           </div>
 
           <div style={{ marginBottom: '20px' }}>

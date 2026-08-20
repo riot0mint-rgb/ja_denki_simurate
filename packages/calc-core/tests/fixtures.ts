@@ -1,255 +1,88 @@
-import Decimal from 'decimal.js';
-import { RatePlan, FuelAdjustmentEntry, RenewableLevyEntry } from '../src/models';
+import { Decimal } from '../src/decimal-config';
+import { FlatRatePlan, FuelAdjustment, RateSource, RenewableLevy, TieredMinimumPlan } from '../src/models';
 
-const jadenRatenA: RatePlan = {
-  planId: 'ja_denki_raten_a',
-  planName: 'JAでんき（従量電灯A）',
-  contractType: 'household_standard',
-  applicableUsage: '> 217 kWh/month',
-  effectiveFrom: '2026-10-01',
-  effectiveTo: null,
-  baseCharge: {
-    value: new Decimal('1500.00'),
-    unit: 'per_month',
-    sourceFile: '【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf'
-  },
-  minimumCharge: {
-    value: new Decimal('1500.00'),
-    unit: 'per_month',
-    sourceFile: '【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf'
-  },
-  tiers: [
-    {
-      tierNumber: 1,
-      startKwh: 0,
-      endKwh: 15,
-      unitPriceYenPerKwh: new Decimal('28.50'),
-      sourceFile: '【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf',
-      sourcePage: '3'
-    },
-    {
-      tierNumber: 2,
-      startKwh: 15,
-      endKwh: 120,
-      unitPriceYenPerKwh: new Decimal('23.61'),
-      relativeToChugokuYenPerKwh: new Decimal('-1.39'),
-      sourceFile: '広島市　JAでんき案内資料 r3.pptx',
-      sourcePage: '17'
-    },
-    {
-      tierNumber: 3,
-      startKwh: 120,
-      endKwh: 300,
-      unitPriceYenPerKwh: new Decimal('25.00'),
-      relativeToChugokuYenPerKwh: new Decimal('-2.71'),
-      sourceFile: '広島市　JAでんき案内資料 r3.pptx',
-      sourcePage: '17'
-    },
-    {
-      tierNumber: 4,
-      startKwh: 300,
-      endKwh: null,
-      unitPriceYenPerKwh: new Decimal('27.50'),
-      sourceFile: '【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf',
-      sourcePage: '3'
-    }
-  ],
-  fuelAdjustment: {
-    status: 'unconfirmed'
-  },
-  renewableLevy: {
-    status: 'unconfirmed'
-  },
-  tax: {
-    status: 'unconfirmed'
-  },
-  roundingRule: {
-    method: 'round',
-    unit: 'yen',
-    sourceFile: '【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf',
-    sourcePage: '6'
-  },
-  sources: [
-    {
-      document: '【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf',
-      date: '2026-10-01',
-      pageRange: '1-10',
-      contains: ['base_charge', 'tier_prices', 'minimum_charge', 'rounding_rule']
-    }
-  ]
+/**
+ * テスト用の単価。すべて
+ * 「①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年4月適用.xlsx」からの転記であり、
+ * 本番データ (apps/web/src/data/rates.ts) と同一の値を使う。
+ */
+const SOURCE_FILE = '①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年4月適用.xlsx';
+
+function source(locator: string): RateSource {
+  return {
+    document: SOURCE_FILE,
+    locator,
+    effectiveFrom: '2026-04',
+    verificationStatus: 'verified',
+    verifiedAt: '2026-08-20'
+  };
+}
+
+function tiers(t1: string, t2: string, t3: string) {
+  return [
+    { tierNumber: 1, startKwh: 15, endKwh: 120, unitPriceYenPerKwh: new Decimal(t1) },
+    { tierNumber: 2, startKwh: 120, endKwh: 300, unitPriceYenPerKwh: new Decimal(t2) },
+    { tierNumber: 3, startKwh: 300, endKwh: null, unitPriceYenPerKwh: new Decimal(t3) }
+  ];
+}
+
+export const chugokuJuryoA: TieredMinimumPlan = {
+  structure: 'tiered_minimum',
+  planId: 'chugoku_juryo_a',
+  planName: '中国電力 従量電灯A',
+  minimumCharge: new Decimal('759.68'),
+  minimumIncludedKwh: 15,
+  tiers: tiers('32.75', '39.43', '41.55'),
+  sources: [source('基本項目!E8:E11')]
 };
 
-const jadenRatenS: RatePlan = {
-  planId: 'ja_denki_raten_s',
-  planName: 'JAでんき（従量電灯S）',
-  contractType: 'household_low_usage',
-  applicableUsage: '≤ 217 kWh/month',
-  effectiveFrom: '2026-10-01',
-  effectiveTo: null,
-  baseCharge: {
-    value: new Decimal('1410.24'),
-    unit: 'per_month',
-    relativeValue: new Decimal('-89.76'),
-    sourceFile: '広島市　JAでんき案内資料 r3.pptx',
-    sourcePage: '17'
-  },
-  minimumCharge: {
-    value: new Decimal('1410.24'),
-    unit: 'per_month'
-  },
-  tiers: [
-    {
-      tierNumber: 1,
-      startKwh: 0,
-      endKwh: null,
-      unitPriceYenPerKwh: new Decimal('28.00'),
-      sourceFile: '【中国】JAでんき従量電灯Ｓ料金メニュー定義書（低圧_家庭用）＜20261001＞.pdf',
-      sourcePage: '2'
-    }
-  ],
-  fuelAdjustment: {
-    status: 'unconfirmed'
-  },
-  renewableLevy: {
-    status: 'unconfirmed'
-  },
-  tax: {
-    status: 'unconfirmed'
-  },
-  roundingRule: {
-    method: 'round',
-    unit: 'yen'
-  },
-  sources: [
-    {
-      document: '広島市　JAでんき案内資料 r3.pptx',
-      date: '2026-06-23',
-      pageRange: '17',
-      contains: ['base_charge_relative', 'plan_description']
-    }
-  ]
+export const chugokuSmart: TieredMinimumPlan = {
+  structure: 'tiered_minimum',
+  planId: 'chugoku_smart',
+  planName: '中国電力 スマートコース',
+  minimumCharge: new Decimal('669.92'),
+  minimumIncludedKwh: 15,
+  tiers: tiers('32.01', '39.43', '41.55'),
+  sources: [source('基本項目!E46:E49')]
 };
 
-const chugokuRatenA: RatePlan = {
-  planId: 'chugoku_raten_a',
-  planName: '中国電力（従量電灯A）',
-  contractType: 'household_standard',
-  applicableUsage: '> 217 kWh/month',
-  effectiveFrom: '2026-10-01',
-  effectiveTo: null,
-  baseCharge: {
-    value: new Decimal('1500.00'),
-    unit: 'per_month'
-  },
-  minimumCharge: {
-    value: new Decimal('1500.00'),
-    unit: 'per_month'
-  },
-  tiers: [
-    {
-      tierNumber: 1,
-      startKwh: 0,
-      endKwh: 15,
-      unitPriceYenPerKwh: new Decimal('28.50'),
-      sourceFile: '中国電力料金メニュー定義書（参考値）'
-    },
-    {
-      tierNumber: 2,
-      startKwh: 15,
-      endKwh: 120,
-      unitPriceYenPerKwh: new Decimal('25.00'),
-      sourceFile: '中国電力料金メニュー定義書（参考値）'
-    },
-    {
-      tierNumber: 3,
-      startKwh: 120,
-      endKwh: 300,
-      unitPriceYenPerKwh: new Decimal('27.71'),
-      sourceFile: '中国電力料金メニュー定義書（参考値）'
-    },
-    {
-      tierNumber: 4,
-      startKwh: 300,
-      endKwh: null,
-      unitPriceYenPerKwh: new Decimal('30.00'),
-      sourceFile: '中国電力料金メニュー定義書（参考値）'
-    }
-  ],
-  fuelAdjustment: {
-    status: 'unconfirmed'
-  },
-  renewableLevy: {
-    status: 'unconfirmed'
-  },
-  tax: {
-    status: 'unconfirmed'
-  },
-  roundingRule: {
-    method: 'round',
-    unit: 'yen'
-  },
-  sources: [
-    {
-      document: '中国電力料金メニュー定義書（参考値）',
-      date: '2026-10-01',
-      pageRange: '1-5',
-      contains: ['tier_prices']
-    }
-  ]
+export const chugokuSimple: FlatRatePlan = {
+  structure: 'flat_rate',
+  planId: 'chugoku_simple',
+  planName: '中国電力 シンプルコース',
+  unitPriceYenPerKwh: new Decimal('38.21'),
+  minimumMonthlyThreshold: new Decimal('1844.7'),
+  minimumMonthlyBill: new Decimal('1845'),
+  sources: [source('基本項目!E52:E55')]
 };
 
-const chugokuRatenS: RatePlan = {
-  planId: 'chugoku_raten_s',
-  planName: '中国電力（従量電灯S）',
-  contractType: 'household_low_usage',
-  applicableUsage: '≤ 217 kWh/month',
-  effectiveFrom: '2026-10-01',
-  effectiveTo: null,
-  baseCharge: {
-    value: new Decimal('1500.00'),
-    unit: 'per_month'
-  },
-  minimumCharge: {
-    value: new Decimal('1500.00'),
-    unit: 'per_month'
-  },
-  tiers: [
-    {
-      tierNumber: 1,
-      startKwh: 0,
-      endKwh: null,
-      unitPriceYenPerKwh: new Decimal('28.00'),
-      sourceFile: '中国電力料金メニュー定義書（参考値）'
-    }
-  ],
-  fuelAdjustment: {
-    status: 'unconfirmed'
-  },
-  renewableLevy: {
-    status: 'unconfirmed'
-  },
-  tax: {
-    status: 'unconfirmed'
-  },
-  roundingRule: {
-    method: 'round',
-    unit: 'yen'
-  },
-  sources: [
-    {
-      document: '中国電力料金メニュー定義書（参考値）',
-      date: '2026-10-01',
-      pageRange: '1-5',
-      contains: ['tier_prices']
-    }
-  ]
+export const jaDenkiJuryoA: TieredMinimumPlan = {
+  structure: 'tiered_minimum',
+  planId: 'ja_denki_juryo_a',
+  planName: 'JAでんき 従量電灯A',
+  minimumCharge: new Decimal('759.68'),
+  minimumIncludedKwh: 15,
+  tiers: tiers('32.22', '38.04', '38.84'),
+  sources: [source('基本項目!E26:E29')]
 };
 
-export const fixtures = {
-  jadenRatenA,
-  jadenRatenS,
-  chugokuRatenA,
-  chugokuRatenS,
+export const jaDenkiJuryoS: TieredMinimumPlan = {
+  structure: 'tiered_minimum',
+  planId: 'ja_denki_juryo_s',
+  planName: 'JAでんき 従量電灯S',
+  minimumCharge: new Decimal('669.92'),
+  minimumIncludedKwh: 15,
+  tiers: tiers('31.79', '39.43', '41.44'),
+  sources: [source('基本項目!E58:E61')]
+};
 
-  boundaryValues: [0, 1, 14, 15, 16, 119, 120, 121, 299, 300, 301, 900]
+/** 2026年4月適用（基本項目!L7 / L21） */
+export const fuelAdjustment: FuelAdjustment = {
+  minimumCharge: new Decimal('-171.12'),
+  unitPriceYenPerKwh: new Decimal('-11.39')
+};
+
+/** 2026年4月適用（基本項目!L38） */
+export const renewableLevy: RenewableLevy = {
+  unitPriceYenPerKwh: new Decimal('3.98')
 };

@@ -1,101 +1,165 @@
-import { BillingCalculator, CalculationInput, Decimal } from '@ja-denki-simulator/calc-core'
-import { jadenRatenA, jadenRatenS, chugokuRatenA } from '../data/rates'
+import {
+  BillingCalculator,
+  BillingComparator,
+  Decimal,
+  DiscountTerms,
+  MonthlyBill,
+  RatePlan,
+  formatCurrency as formatDecimalCurrency,
+  formatPercentage as formatDecimalPercentage
+} from '@ja-denki-simulator/calc-core'
+import {
+  CURRENT_PLANS,
+  JA_DENKI_PLANS,
+  RATE_PERIOD,
+  fuelAdjustment2026_04,
+  renewableLevy2026_04
+} from '../data/rates'
 
 const calculator = new BillingCalculator()
+const comparator = new BillingComparator()
 
-export interface ComparisonData {
-  usageKwh: number
-  currentProviderPlan: string
-  currentProviderCharge: number
-  jadenRatenACharge: number
-  jadenRatenSCharge: number
-  recommendedPlan: 'raten_a' | 'raten_s'
-  monthlySavings: number
-  annualSavings: number
-  monthlySavingsPercent: number
-  campaignBonus: number
-  estimatedNetSavings: number
+/**
+ * 割引条件。公式試算表 シート「シミュレーション結果」の I20 / I25。
+ * セット割はガス契約がある世帯のみが対象のため、既定では適用しない。
+ */
+const FIRST_YEAR_SPECIAL_DISCOUNT = new Decimal('3000')
+const GAS_SET_DISCOUNT_MONTHLY = new Decimal('110')
+
+export interface PlanResult {
+  planId: string
+  planName: string
+  monthlyChargeYen: number
+  /** 現行プランに対する月額削減額。正なら安くなる。 */
+  monthlySavingsYen: number
+  /** 計算過程 */
+  formula: string
 }
 
-const PLAN_BREAKPOINT_KWH = 217
-const CAMPAIGN_DISCOUNT_MONTHLY = 1000
-const CAMPAIGN_MONTHS = 3
+export interface ComparisonView {
+  usageKwh: number
+  ratePeriod: string
+  current: PlanResult
+  candidates: PlanResult[]
+  recommended: PlanResult
+  savingsPercent: number
+  annualSavingsYen: number
+  firstYearSavingsYen: number
+  gasSetDiscountApplied: boolean
+  firstYearSpecialDiscountYen: number
+  /** 単価の出典（画面に表示して監査可能にする） */
+  sources: string[]
+}
 
-export function calculateComparison(usageKwh: number, currentProvider: string): ComparisonData {
-  const usageDecimal = new Decimal(usageKwh)
+export type CalculationOutcome =
+  | { status: 'ok'; view: ComparisonView }
+  | { status: 'unsupported'; reason: string; nextSteps: string[] }
 
-  // 中国電力との比較
-  let currentProviderCharge: Decimal
-  if (currentProvider === 'chugoku') {
-    const currentInput: CalculationInput = {
-      usageKwh,
-      plan: chugokuRatenA
+export const CURRENT_PLAN_OPTIONS = CURRENT_PLANS.map(p => ({
+  planId: p.planId,
+  planName: p.planName
+}))
+
+function billOf(plan: RatePlan, usageKwh: number): MonthlyBill | { reason: string; nextSteps: string[] } {
+  const result = calculator.calculate({
+    usageKwh,
+    plan,
+    fuelAdjustment: fuelAdjustment2026_04,
+    renewableLevy: renewableLevy2026_04
+  })
+  return result.status === 'ok' ? result.bill : { reason: result.reason, nextSteps: result.nextSteps }
+}
+
+function isBill(v: MonthlyBill | { reason: string }): v is MonthlyBill {
+  return (v as MonthlyBill).total !== undefined
+}
+
+export function calculateComparison(
+  usageKwh: number,
+  currentPlanId: string,
+  options: { gasSetDiscount?: boolean } = {}
+): CalculationOutcome {
+  const currentPlan = CURRENT_PLANS.find(p => p.planId === currentPlanId)
+  if (!currentPlan) {
+    // CLAUDE.md ルール8: 未対応プランを推測計算しない
+    return {
+      status: 'unsupported',
+      reason: `「${currentPlanId}」は現在自動計算に対応していません`,
+      nextSteps: [
+        '検針票に記載の契約種別をご確認ください',
+        '対応プラン: ' + CURRENT_PLANS.map(p => p.planName).join(' / '),
+        'それ以外のプランはお手数ですが営業担当にお問い合わせください'
+      ]
     }
-    const currentBill = calculator.calculateMonthlyBill(currentInput)
-    currentProviderCharge = currentBill.afterRounding
-  } else {
-    currentProviderCharge = new Decimal('0')
   }
 
-  // JAでんき 従量電灯A での計算
-  const inputA: CalculationInput = {
-    usageKwh,
-    plan: jadenRatenA
+  const currentBill = billOf(currentPlan, usageKwh)
+  if (!isBill(currentBill)) {
+    return { status: 'unsupported', reason: currentBill.reason, nextSteps: currentBill.nextSteps }
   }
-  const billA = calculator.calculateMonthlyBill(inputA)
 
-  // JAでんき 従量電灯S での計算
-  const inputS: CalculationInput = {
-    usageKwh,
-    plan: jadenRatenS
+  const candidateBills: Array<{ planId: string; planName: string; bill: MonthlyBill }> = []
+  for (const plan of JA_DENKI_PLANS) {
+    const bill = billOf(plan, usageKwh)
+    if (!isBill(bill)) {
+      return { status: 'unsupported', reason: bill.reason, nextSteps: bill.nextSteps }
+    }
+    candidateBills.push({ planId: plan.planId, planName: plan.planName, bill })
   }
-  const billS = calculator.calculateMonthlyBill(inputS)
 
-  // プラン選択: 分岐点で比較
-  const recommendedPlan = usageDecimal.lessThanOrEqualTo(PLAN_BREAKPOINT_KWH) ? 'raten_s' : 'raten_a'
-  const recommendedCharge = recommendedPlan === 'raten_a' ? billA.afterRounding : billS.afterRounding
+  const gasSetDiscountApplied = options.gasSetDiscount === true
+  const discounts: DiscountTerms = {
+    gasSetDiscountMonthly: gasSetDiscountApplied ? GAS_SET_DISCOUNT_MONTHLY : new Decimal('0'),
+    firstYearSpecialDiscount: FIRST_YEAR_SPECIAL_DISCOUNT
+  }
 
-  // 月額削減額
-  const monthlySavings = currentProviderCharge.minus(recommendedCharge)
+  const result = comparator.compare(
+    { planId: currentPlan.planId, planName: currentPlan.planName, bill: currentBill },
+    candidateBills,
+    discounts
+  )
 
-  // 年額削減額
-  const annualSavings = monthlySavings.times(12)
+  const byId = new Map(candidateBills.map(c => [c.planId, c.bill]))
+  const toPlanResult = (c: (typeof result.candidates)[number]): PlanResult => ({
+    planId: c.planId,
+    planName: c.planName,
+    monthlyChargeYen: c.monthlyCharge.toNumber(),
+    monthlySavingsYen: c.monthlySavings.toNumber(),
+    formula: byId.get(c.planId)?.formula ?? ''
+  })
 
-  // 削減率
-  const monthlySavingsPercent = currentProviderCharge.isZero()
-    ? new Decimal('0')
-    : monthlySavings.dividedBy(currentProviderCharge).times(100)
-
-  // キャンペーン割引（初期3か月×1000円）
-  const campaignBonus = new Decimal(CAMPAIGN_DISCOUNT_MONTHLY).times(CAMPAIGN_MONTHS)
-
-  // ネット削減額（キャンペーン含む）
-  const estimatedNetSavings = annualSavings.plus(campaignBonus)
+  const sources = [currentPlan, ...JA_DENKI_PLANS]
+    .flatMap(p => p.sources)
+    .map(s => `${s.document} ${s.locator}`)
 
   return {
-    usageKwh,
-    currentProviderPlan: `${currentProvider === 'chugoku' ? '中国電力' : currentProvider} 従量電灯A`,
-    currentProviderCharge: Number(currentProviderCharge.toFixed(0)),
-    jadenRatenACharge: Number(billA.afterRounding.toFixed(0)),
-    jadenRatenSCharge: Number(billS.afterRounding.toFixed(0)),
-    recommendedPlan,
-    monthlySavings: Number(monthlySavings.toFixed(0)),
-    annualSavings: Number(annualSavings.toFixed(0)),
-    monthlySavingsPercent: Number(monthlySavingsPercent.toFixed(2)),
-    campaignBonus: Number(campaignBonus.toFixed(0)),
-    estimatedNetSavings: Number(estimatedNetSavings.toFixed(0))
+    status: 'ok',
+    view: {
+      usageKwh,
+      ratePeriod: `${RATE_PERIOD.year}年${RATE_PERIOD.month}月適用`,
+      current: {
+        planId: currentPlan.planId,
+        planName: currentPlan.planName,
+        monthlyChargeYen: currentBill.total.toNumber(),
+        monthlySavingsYen: 0,
+        formula: currentBill.formula
+      },
+      candidates: result.candidates.map(toPlanResult),
+      recommended: toPlanResult(result.recommended),
+      savingsPercent: result.savingsPercent.toDecimalPlaces(1).toNumber(),
+      annualSavingsYen: result.annualSavings.toNumber(),
+      firstYearSavingsYen: result.firstYearSavings.toNumber(),
+      gasSetDiscountApplied,
+      firstYearSpecialDiscountYen: FIRST_YEAR_SPECIAL_DISCOUNT.toNumber(),
+      sources: Array.from(new Set(sources))
+    }
   }
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('ja-JP', {
-    style: 'currency',
-    currency: 'JPY',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount)
+export function formatCurrency(amountYen: number): string {
+  return formatDecimalCurrency(new Decimal(amountYen))
 }
 
 export function formatPercentage(percent: number, decimalPlaces: number = 1): string {
-  return `${percent.toFixed(decimalPlaces)}%`
+  return formatDecimalPercentage(new Decimal(percent), decimalPlaces)
 }

@@ -1,43 +1,48 @@
-import Decimal from 'decimal.js';
+import { Decimal } from './decimal-config.js';
 
-export function validateUsageKwh(usage: number): boolean {
-  return typeof usage === 'number' && usage >= 0 && isFinite(usage);
+export interface ValidationResult {
+  valid: boolean;
+  reason: string;
 }
 
-export function validateDecimal(value: Decimal | null): boolean {
-  if (value === null) return true;
-  return value instanceof Decimal && value.greaterThanOrEqualTo('0');
+export function validateUsageKwh(usage: number): ValidationResult {
+  if (typeof usage !== 'number' || Number.isNaN(usage)) {
+    return { valid: false, reason: 'ご使用量が数値として認識できません' };
+  }
+  if (!Number.isFinite(usage)) {
+    return { valid: false, reason: 'ご使用量が有効な数値ではありません' };
+  }
+  if (usage < 0) {
+    return { valid: false, reason: 'ご使用量に負の値は指定できません' };
+  }
+  return { valid: true, reason: '' };
 }
 
-export function formatCurrency(amount: Decimal, locale: string = 'ja-JP'): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'JPY',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(Number(amount.toString()));
+/**
+ * 金額の桁を落とさずに表示する。
+ * Number への変換を挟むと 2^53 超で下位桁が壊れ、Intl 側で独自に丸められるため、
+ * Decimal のまま整数化してから 3 桁区切りを付ける。
+ */
+export function formatCurrency(amount: Decimal): string {
+  const rounded = amount.toDecimalPlaces(0, Decimal.ROUND_DOWN);
+  const negative = rounded.isNegative();
+  const digits = rounded.abs().toFixed(0);
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${negative ? '-' : ''}￥${grouped}`;
 }
 
-export function formatPercentage(percent: Decimal, decimalPlaces: number = 2): string {
+export function formatPercentage(percent: Decimal, decimalPlaces: number = 1): string {
   return `${percent.toDecimalPlaces(decimalPlaces).toFixed(decimalPlaces)}%`;
 }
 
-export function describeMonthlyDifference(difference: Decimal): string {
-  if (difference.isZero()) {
-    return '同額';
-  } else if (difference.greaterThan(0)) {
-    return `${formatCurrency(difference)}お得`;
-  } else {
-    return `${formatCurrency(difference.abs())}高い`;
-  }
+export function describeMonthlyDifference(savings: Decimal): string {
+  if (savings.isZero()) return '同額';
+  if (savings.greaterThan(0)) return `${formatCurrency(savings)}お得`;
+  return `${formatCurrency(savings.abs())}高い`;
 }
 
 export function describeAnnualSavings(annual: Decimal): string {
-  if (annual.isZero()) {
-    return '年間削減額: 0円';
-  } else if (annual.greaterThan(0)) {
-    return `年間削減額: ${formatCurrency(annual)}`;
-  } else {
-    return `年間追加費用: ${formatCurrency(annual.abs())}`;
-  }
+  if (annual.isZero()) return '年間削減額: 0円';
+  if (annual.greaterThan(0)) return `年間削減額: ${formatCurrency(annual)}`;
+  return `年間追加費用: ${formatCurrency(annual.abs())}`;
 }

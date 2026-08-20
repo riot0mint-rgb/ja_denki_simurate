@@ -40,3 +40,8 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache/
+
+# 元資料のローカルコピー（CLAUDE.md ルール3: 読み取り専用で分析するための作業用）
+# 正本は Google Drive 側。リポジトリには回帰テスト用に抽出した
+# packages/calc-core/tests/excel-lookup.fixture.json のみを置く。
+archive/
