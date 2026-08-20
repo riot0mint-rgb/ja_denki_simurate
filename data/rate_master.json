@@ -1,0 +1,319 @@
+{
+  "metadata": {
+    "version": "0.1.0-phase2",
+    "created_at": "2026-08-20",
+    "effective_from": "2026-10-01",
+    "effective_to": null,
+    "data_status": "partial-extraction",
+    "notes": "Phase 2進行中。相対値のみ抽出。中国電力の絶対値参照値確定待機。"
+  },
+  "providers": {
+    "ja_denki": {
+      "provider_id": "ja_denki",
+      "provider_name": "JAでんき",
+      "region": "中国電力ネットワークエリア（中国）",
+      "plans": [
+        {
+          "plan_id": "ja_denki_raten_a",
+          "plan_name": "JAでんき（従量電灯A）",
+          "contract_type": "household_standard",
+          "applicable_usage": "> 217 kWh/month",
+          "effective_from": "2026-10-01",
+          "effective_to": null,
+          "base_charge": {
+            "value": null,
+            "currency": "JPY",
+            "unit": "per_month",
+            "relative_to_chugoku": "同額",
+            "note": "中国電力従量電灯Aと同額。中国電力の基本料金値を参照値として使用。"
+          },
+          "minimum_charge": {
+            "value": null,
+            "currency": "JPY",
+            "unit": "per_month",
+            "note": "未確認。料金定義書で確認予定。"
+          },
+          "tiers": [
+            {
+              "tier_number": 1,
+              "start_kwh": 0,
+              "end_kwh": 15,
+              "unit_price_yen_per_kwh": null,
+              "relative_to_chugoku": null,
+              "note": "未確認。料金定義書で確認予定。"
+            },
+            {
+              "tier_number": 2,
+              "start_kwh": 15,
+              "end_kwh": 120,
+              "unit_price_yen_per_kwh": null,
+              "relative_to_chugoku_yen_per_kwh": -1.39,
+              "note": "中国電力より▲1.39円/kWh。出典：広島市JAでんき案内資料 r3.pptx p.17",
+              "source_file": "広島市　JAでんき案内資料 r3.pptx",
+              "source_page": "17",
+              "source_effective_date": "2026-07"
+            },
+            {
+              "tier_number": 3,
+              "start_kwh": 120,
+              "end_kwh": 300,
+              "unit_price_yen_per_kwh": null,
+              "relative_to_chugoku_yen_per_kwh": -2.71,
+              "note": "中国電力より▲2.71円/kWh。出典：広島市JAでんき案内資料 r3.pptx p.17",
+              "source_file": "広島市　JAでんき案内資料 r3.pptx",
+              "source_page": "17",
+              "source_effective_date": "2026-07"
+            },
+            {
+              "tier_number": 4,
+              "start_kwh": 300,
+              "end_kwh": null,
+              "unit_price_yen_per_kwh": null,
+              "relative_to_chugoku": null,
+              "note": "未確認。料金定義書で確認予定。"
+            }
+          ],
+          "fuel_adjustment": {
+            "status": "unconfirmed",
+            "note": "料金メニュー定義書で確認予定。"
+          },
+          "renewable_levy": {
+            "status": "unconfirmed",
+            "note": "料金メニュー定義書で確認予定。"
+          },
+          "tax": {
+            "status": "unconfirmed",
+            "note": "消費税率の適用時期を確認予定。"
+          },
+          "rounding_rule": {
+            "status": "unconfirmed",
+            "note": "端数処理ルール（切り捨て・四捨五入・切り上げ）を料金定義書で確認予定。"
+          },
+          "sources": [
+            {
+              "document": "広島市　JAでんき案内資料 r3.pptx",
+              "date": "2026-06-23",
+              "size_kb": "8,348",
+              "page_range": "15-18",
+              "contains": [
+                "tier2_relative_price",
+                "tier3_relative_price",
+                "deletion_merit_estimates"
+              ]
+            },
+            {
+              "document": "JAでんき_QA_統合版.docx",
+              "date": "2026-06-23",
+              "size_kb": "50",
+              "contains": ["savings_percentage", "plan_selection_criteria"]
+            }
+          ]
+        },
+        {
+          "plan_id": "ja_denki_raten_s",
+          "plan_name": "JAでんき 従量電灯S",
+          "contract_type": "household_low_usage",
+          "applicable_usage": "≤ 217 kWh/month",
+          "effective_from": "2026-10-01",
+          "effective_to": null,
+          "base_charge": {
+            "value": null,
+            "currency": "JPY",
+            "unit": "per_month",
+            "relative_to_chugoku_yen": -89.76,
+            "relative_calculation": "中国電力従量電灯Sより▲89.76円/月（安い）",
+            "note": "相対値のみ確認。中国電力のS基本料金が必要。",
+            "source_file": "広島市　JAでんき案内資料 r3.pptx",
+            "source_page": "17",
+            "source_effective_date": "2026-07"
+          },
+          "minimum_charge": {
+            "value": null,
+            "currency": "JPY",
+            "unit": "per_month",
+            "note": "未確認。料金定義書で確認予定。"
+          },
+          "tiers": [
+            {
+              "tier_number": 1,
+              "start_kwh": 0,
+              "end_kwh": null,
+              "unit_price_yen_per_kwh": null,
+              "note": "未確認。従量電灯S の段階が不明。料金定義書で確認予定。"
+            }
+          ],
+          "fuel_adjustment": {
+            "status": "unconfirmed"
+          },
+          "renewable_levy": {
+            "status": "unconfirmed"
+          },
+          "rounding_rule": {
+            "status": "unconfirmed"
+          },
+          "sources": [
+            {
+              "document": "広島市　JAでんき案内資料 r3.pptx",
+              "date": "2026-06-23",
+              "page_range": "6, 17",
+              "contains": ["base_charge_relative", "plan_description"]
+            }
+          ]
+        },
+        {
+          "plan_id": "ja_denki_night_toku",
+          "plan_name": "JAでんき 夜トクプラン",
+          "contract_type": "all_electric",
+          "applicable_usage": "オール電化住宅向け",
+          "effective_from": "2026-10-01",
+          "effective_to": null,
+          "notes": [
+            "昼間・夜間の時間帯別料金制",
+            "料金メニュー定義書で詳細確認予定"
+          ],
+          "status": "under_discovery",
+          "sources": [
+            {
+              "document": "広島市　JAでんき案内資料 r3.pptx",
+              "date": "2026-06-23",
+              "page_range": "6-7",
+              "contains": ["plan_description"]
+            }
+          ]
+        },
+        {
+          "plan_id": "ja_denki_low_voltage_power",
+          "plan_name": "JAでんき 低圧電力",
+          "contract_type": "commercial_agricultural",
+          "applicable_usage": "農業用・商用（倉庫等）",
+          "effective_from": "2026-10-01",
+          "effective_to": null,
+          "base_charge": {
+            "value": null,
+            "currency": "JPY",
+            "unit": "per_month",
+            "relative_to_chugoku": "同額（推測）",
+            "note": "料金定義書で確認予定。"
+          },
+          "tiers": [
+            {
+              "tier_number": 2,
+              "unit_price_yen_per_kwh": null,
+              "relative_to_chugoku_yen_per_kwh": -0.74,
+              "note": "中国電力より▲0.74円/kWh",
+              "source_file": "広島市　JAでんき案内資料 r3.pptx",
+              "source_page": "18",
+              "source_effective_date": "2026-07"
+            },
+            {
+              "tier_number": 3,
+              "unit_price_yen_per_kwh": null,
+              "relative_to_chugoku_yen_per_kwh": -1.31,
+              "note": "中国電力より▲1.31円/kWh",
+              "source_file": "広島市　JAでんき案内資料 r3.pptx",
+              "source_page": "18",
+              "source_effective_date": "2026-07"
+            }
+          ],
+          "sources": [
+            {
+              "document": "広島市　JAでんき案内資料 r3.pptx",
+              "date": "2026-06-23",
+              "page_range": "16, 18",
+              "contains": ["tier2_relative", "tier3_relative"]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "reference_data": {
+    "chugoku_electric": {
+      "provider_id": "chugoku_electric",
+      "provider_name": "中国電力",
+      "status": "reference_values_needed",
+      "required_for": [
+        "Converting JAでんき relative prices to absolute prices",
+        "Validation and reconciliation of rate differences"
+      ],
+      "missing_items": [
+        "従量電灯A: 基本料金, 各段階単価",
+        "従量電灯S: 基本料金, 各段階単価",
+        "スマートコース: 各段階単価",
+        "シンプルコース: 各段階単価",
+        "低圧電力: 基本料金, 各段階単価",
+        "燃料費調整: 単価と計算方式",
+        "再エネ賦課金: 単価"
+      ]
+    }
+  },
+  "business_rules": {
+    "plan_selection": {
+      "breakpoint_kwh": 217,
+      "below_breakpoint": "従量電灯S が有利",
+      "above_breakpoint": "従量電灯A が有利",
+      "source": "JAでんき_QA_統合版.docx Q16 + 広島市JAでんき案内資料 r3.pptx p.17"
+    },
+    "savings_estimate": {
+      "value_percent": "3-5%",
+      "against": "中国電力従量電灯A",
+      "varies_by": "使用量（多いほど削減額が大きい）",
+      "source": "JAでんき_QA_統合版.docx Q15"
+    },
+    "campaign": {
+      "name": "新規契約割引キャンペーン",
+      "discount_total_yen": 3000,
+      "distribution": "初期3か月×月1,000円",
+      "cap_if_below_thousand": "その月の料金を上限",
+      "no_carryover": true,
+      "source": "JAでんき_QA_統合版.docx Q22"
+    },
+    "paper_invoice_fee": {
+      "value_yen_per_month": 150,
+      "tax_status": "税別",
+      "note": "メール登録できない場合の選択肢",
+      "source": "JAでんき_QA_統合版.docx Q9"
+    },
+    "payment_method": {
+      "only_supported": "JA貯金口座からの自動引落",
+      "not_supported": [
+        "クレジットカード",
+        "他行口座",
+        "現金払い"
+      ],
+      "new_mandate_number_required": true,
+      "note": "既に購買で口座振替利用者も新規依頼書が必要",
+      "source": "JAでんき_QA_統合版.docx Q11"
+    },
+    "supply_start_time": {
+      "duration_months": "1-2",
+      "measured_from": "申込書提出後",
+      "source": "JAでんき_QA_統合版.docx Q12"
+    },
+    "cancellation": {
+      "penalty_yen": 0,
+      "note": "違約金なし。ただし短期反復契約でのポイント狙いは不適切",
+      "source": "JAでんき_QA_統合版.docx Q13"
+    }
+  },
+  "data_quality": {
+    "status": "phase2_extraction",
+    "completeness": "partial",
+    "absolute_values_available": false,
+    "relative_values_available": true,
+    "validated_against_source": false,
+    "missing_critical_documents": [
+      "【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf",
+      "【中国】JAでんき従量電灯Ｓ料金メニュー定義書（低圧_家庭用）＜20261001＞.pdf",
+      "【中国】JAでんき夜トクプラン料金メニュー定義書（低圧）＜20240401＞.pdf"
+    ],
+    "next_steps": [
+      "料金メニュー定義書PDFの発見（Google Drive詳細検索）",
+      "中国電力料金定義書の入手",
+      "相対値を絶対値に変換",
+      "燃料費調整・再エネ賦課金の詳細確認",
+      "端数処理ルールの確認",
+      "テストケース（150kWh, 300kWh, 400kWh, 900kWh）での検証"
+    ]
+  }
+}
