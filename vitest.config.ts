@@ -11,7 +11,9 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       provider: 'v8',
-      include: ['scripts/rateMasterDiff.ts', 'scripts/rateIntake.ts'],
+      // CLI（*-*.ts）は実ファイル読み込みと process.exit を伴うので対象外。
+      // 中身のロジックは純粋関数側（下記）に寄せてあり、そちらは 100% を要求する。
+      include: ['scripts/rateMasterDiff.ts', 'scripts/rateIntake.ts', 'scripts/cliArgs.ts'],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 }
     }
   }

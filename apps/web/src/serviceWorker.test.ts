@@ -127,6 +127,51 @@ describe('更新の検知', () => {
 })
 
 describe('更新の適用', () => {
+  // waiting に入る前に押されると無反応になり、古い単価のまま試算が続く
+  it('待機中がまだ無ければ installed を待って切り替える', async () => {
+    const registration = new FakeRegistration()
+    installFakeContainer(registration, {})
+    let apply: (() => void) | null = null
+    registerServiceWorker(fn => {
+      apply = fn
+    })
+    await flush()
+
+    const worker = new FakeWorker()
+    registration.installing = worker
+    registration.fireUpdateFound()
+    worker.transitionTo('installed')
+    expect(apply).not.toBeNull()
+
+    // 押した時点ではまだ waiting が空
+    apply!()
+    // installed に入った時点で waiting に移り、そこで切り替わる
+    registration.waiting = { postMessage: vi.fn() }
+    worker.transitionTo('installed')
+    expect(registration.waiting.postMessage).toHaveBeenCalledWith('SKIP_WAITING')
+  })
+
+  it('待機中も導入中も無ければ読み込み直して取りに行く', async () => {
+    const registration = new FakeRegistration()
+    registration.waiting = { postMessage: vi.fn() }
+    installFakeContainer(registration, {})
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload },
+      configurable: true
+    })
+    let apply: (() => void) | null = null
+    registerServiceWorker(fn => {
+      apply = fn
+    })
+    await flush()
+
+    // 通知後に待機中が消えたケース
+    registration.waiting = null
+    apply!()
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
   it('利用者が押すまで切り替えない。押したら SKIP_WAITING を送って再読み込みする', async () => {
     const registration = new FakeRegistration()
     registration.waiting = { postMessage: vi.fn() }

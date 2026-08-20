@@ -34,16 +34,24 @@ function bill(plan: RatePlan, usage: UsageInput, period: RatePeriod = JULY) {
   return r.bill
 }
 
-/** プランが持つ金額をすべて拾う。構造ごとにネストの深さが違うので再帰で集める */
-function money(plan: object): string[] {
-  const out: string[] = []
-  const walk = (v: unknown) => {
-    if (v instanceof Decimal) out.push(v.toString())
-    else if (Array.isArray(v)) v.forEach(walk)
-    else if (v && typeof v === 'object') Object.values(v).forEach(walk)
+/**
+ * Decimal を文字列にしたうえで構造ごと比較できる形にする。
+ *
+ * 金額の集合として比べると**入れ替わりを見逃す**。実際、ファミリータイムⅠの
+ * デイタイム夏季とその他季の単価を入れ替えても全テストが通っていた。
+ * 項目の位置まで含めて突き合わせる。
+ */
+function shape(value: unknown): unknown {
+  if (value instanceof Decimal) return value.toString()
+  if (Array.isArray(value)) return value.map(shape)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => [k, shape(v)])
+    )
   }
-  walk(plan)
-  return out.sort()
+  return value
 }
 
 const fixtureById = new Map(
@@ -60,7 +68,7 @@ describe('出荷される料金表とテスト用フィクスチャが一致す�
       expect(fixture, `fixtures.ts に ${plan.planId} が無い`).toBeDefined()
       const { sources: _s, ...shipped } = plan
       const { sources: _f, ...copied } = fixture!
-      expect(money(shipped)).toEqual(money(copied))
+      expect(shape(shipped)).toEqual(shape(copied))
     }
   )
 

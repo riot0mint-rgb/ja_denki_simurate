@@ -44,9 +44,25 @@ export function registerServiceWorker(onUpdateAvailable: UpdateHandler): void {
 }
 
 function applyUpdate(registration: ServiceWorkerRegistration): void {
-  registration.waiting?.postMessage('SKIP_WAITING')
   // 新しい Service Worker が制御を取ったら読み込み直す
   navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), {
     once: true
   })
+
+  const waiting = registration.waiting
+  if (waiting) {
+    waiting.postMessage('SKIP_WAITING')
+    return
+  }
+  // installed の直後はまだ waiting に入っていないことがある。
+  // ここで何もしないと「更新する」が無反応になり、古い単価のまま試算が続く
+  const installing = registration.installing
+  if (installing) {
+    installing.addEventListener('statechange', () => {
+      if (installing.state === 'installed') registration.waiting?.postMessage('SKIP_WAITING')
+    })
+    return
+  }
+  // 待機中も導入中も無い＝取りこぼし。読み込み直せば新版を取りに行く
+  window.location.reload()
 }

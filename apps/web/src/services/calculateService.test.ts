@@ -274,6 +274,21 @@ describe('按分が負の値になる入力', () => {
     expect(ok.status).toBe('ok')
   })
 
+  // Decimal の NaN は isNegative() も greaterThan() も false を返すので、
+  // 有限かどうかを先に見ないと ￥NaN のまま画面に出る
+  it('日数0の検針期間でも ￥NaN を出さない', () => {
+    const r = calculateComparison(
+      'chugoku_family_2',
+      {
+        contractKva: 10,
+        familyTime: { dayOther: 100, family: 80, night: 220 },
+        calendar: { ...calendar, days: 0, weekendDays: 0, holidayDays: 0 }
+      },
+      { period: JULY }
+    )
+    expect(r.status).toBe('unsupported')
+  })
+
   it('通常の使用量では従来どおり計算できる', () => {
     const r = calculateComparison(
       'chugoku_family_2',

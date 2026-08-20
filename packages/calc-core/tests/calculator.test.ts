@@ -51,6 +51,15 @@ describe('契約容量型（従量電灯B）', () => {
     expect(zero.notes.some(n => n.includes('半額'))).toBe(true);
   });
 
+  it('契約容量のエラーは画面の項目名と揃っている', () => {
+    const r = run(F.chugokuJuryoB, { totalKwh: 300 });
+    expect(r.status).toBe('unsupported');
+    if (r.status === 'unsupported') {
+      expect(r.reason).toContain('ご契約容量');
+      expect(r.reason).not.toContain('ご契約電力');
+    }
+  });
+
   it('契約容量が未入力なら unsupported', () => {
     const r = run(F.chugokuJuryoB, { totalKwh: 100 });
     expect(r.status).toBe('unsupported');

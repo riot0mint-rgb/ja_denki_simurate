@@ -10,18 +10,14 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseArgs } from './cliArgs.js'
 import { diffRateMaster, renderDiffReport, RateMasterLike } from './rateMasterDiff.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CURRENT = resolve(ROOT, 'data/rate_master.json')
 
-const args = process.argv.slice(2)
-const outIndex = args.indexOf('--out')
-const outPath = outIndex >= 0 ? args[outIndex + 1] : null
-// --out の値は位置引数ではない。--out が無いとき outIndex は -1 なので、
-// そのまま outIndex + 1 で除外すると添字0（＝本来の位置引数）を捨ててしまう
-const outValueIndex = outIndex >= 0 ? outIndex + 1 : -1
-const baselinePath = args.filter((a, i) => !a.startsWith('--') && i !== outValueIndex)[0]
+const { outPath, positional } = parseArgs(process.argv.slice(2))
+const baselinePath = positional[0]
 
 function loadBaseline(): RateMasterLike {
   if (baselinePath) return JSON.parse(readFileSync(resolve(baselinePath), 'utf-8'))

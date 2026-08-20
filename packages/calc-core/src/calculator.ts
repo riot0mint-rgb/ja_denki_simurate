@@ -587,7 +587,7 @@ export class BillingCalculator {
    *       電気料金 = 切り捨て((3)+(8)+(9)+(10)+(11))
    */
   private familyTime(input: CalculationInput, plan: FamilyTimePlan): BillResult {
-    const kva = this.requireContract(input.usage.contractKva, 'ご契約電力', 'kVA');
+    const kva = this.requireContract(input.usage.contractKva, 'ご契約容量', 'kVA');
     if (!kva.ok) return kva.result;
 
     const raw = input.usage.familyTime;
@@ -670,7 +670,7 @@ export class BillingCalculator {
    *   昼間時間だけが 0kWh 起点の 3 段階、夜間は一律単価。
    */
   private economyNight(input: CalculationInput, plan: EconomyNightPlan): BillResult {
-    const kva = this.requireContract(input.usage.contractKva, 'ご契約電力', 'kVA');
+    const kva = this.requireContract(input.usage.contractKva, 'ご契約容量', 'kVA');
     if (!kva.ok) return kva.result;
 
     const raw = input.usage.economyNight;

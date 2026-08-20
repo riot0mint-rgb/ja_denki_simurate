@@ -42,6 +42,11 @@ jobs:
       - name: Verify rate master is in sync
         run: npm run rate-master:check
 
+      # 試算表そのものはリポジトリに入れていないため、archive/ がある環境でのみ動く。
+      # 改定の取り込み時は手元で必ず実行すること（DEPLOY.md「5-1」参照）。
+      - name: Reconcile with source spreadsheets (if present)
+        run: '[ -d archive ] && npm run rate-intake || echo "archive/ が無いため省略"'
+
       - name: Build web application
         run: npm run build -w @ja-denki-simulator/web
 

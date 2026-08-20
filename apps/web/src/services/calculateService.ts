@@ -224,8 +224,10 @@ function checkAllocation(
   bands: { daySummer: Decimal; dayOther: Decimal; night: Decimal; holiday: Decimal },
   expectedTotal: Decimal
 ): { ok: true } | { ok: false; reason: string; nextSteps: string[] } {
+  // NaN は isNegative() も greaterThan() も false を返すため、
+  // 有限かどうかを先に見ないと ￥NaN のまま画面に出る
   const unusable =
-    Object.values(bands).some(v => v.isNegative()) ||
+    Object.values(bands).some(v => !v.isFinite() || v.isNegative()) ||
     Object.values(bands)
       .reduce((a, b) => a.plus(b), new Decimal('0'))
       .minus(expectedTotal)

@@ -13,17 +13,12 @@ import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Decimal } from '@ja-denki-simulator/calc-core'
 import { ALL_PLANS } from '../apps/web/src/data/rates.js'
+import { parseArgs } from './cliArgs.js'
 import { CellRange, PlanUnderCheck, renderIntakeReport, runIntake } from './rateIntake.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-const args = process.argv.slice(2)
-const outIndex = args.indexOf('--out')
-const outPath = outIndex >= 0 ? args[outIndex + 1] : null
-// --out の値は位置引数ではない。--out が無いとき outIndex は -1 なので、
-// そのまま outIndex + 1 で除外すると添字0（＝本来の位置引数）を捨ててしまう
-const outValueIndex = outIndex >= 0 ? outIndex + 1 : -1
-const positional = args.filter((a, i) => !a.startsWith('--') && i !== outValueIndex)
+const { outPath, positional } = parseArgs(process.argv.slice(2))
 const dir = resolve(positional[0] ?? join(ROOT, 'archive'))
 
 if (!existsSync(dir)) {
