@@ -9,12 +9,16 @@
 
 ## 1. 現在地
 
-JAでんき料金比較シミュレータ（Web版）。**11シナリオの「JAでんき VS 他社」比較が実装済み**で、
-公式試算表 Excel の計算式・単価をすべて写し取り、回帰テストで固定してある。
+JAでんき料金比較シミュレータ（Web版）。**Phase A（フェーズ0〜5）は完了**。
+12シナリオの「JAでんき VS 他社」比較が実装済みで、公式試算表 Excel の計算式・単価を
+すべて写し取り、回帰テストで固定してある。
 
-- テスト **152件全通過 / calc-core カバレッジ 100%**
+- テスト **258件全通過**（calc-core 156 / web 80 / scripts 22）
+- カバレッジ: calc-core **100%** / Web UI **98.7%** / scripts **100%**（CIが閾値を強制）
+- PDF保存・印刷、Service Worker によるオフライン動作を実装済み
+- 料金マスターの正本は TypeScript。`data/rate_master.json` はそこからの生成物
+- **フェーズ6（料金改定レビュー）は設計変更のうえ一部実装済み** → `docs/PHASE_6_DESIGN.md`
 - CI グリーン、PR #2（draft・mergeable）
-- 最新コミット: `test: 営業資料に明記された中国電力との差額をテストで固定`
 
 ## 2. 次にやること（最優先）
 
@@ -53,6 +57,12 @@ WebFetch https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html
 
 **代替手段**: Google Drive は問題なく読める。ユーザーにPDFをDriveへ置いてもらえば
 ネットワークなしで進められる（試算表もこの方法で入手した）。
+
+### フェーズ6の残り（資料の入手を待たずに進められる）
+
+`scripts/rate-intake.ts` — 新しい試算表 xlsx を読み `rates.ts` の改定案を出す。
+現状は Excel の解読を対話的にやっている。これを再実行可能にする。
+設計と受け入れ条件は `docs/PHASE_6_DESIGN.md` の「3. 実装状況 / ⏳ 未実装」。
 
 ### 資料が取れたらやること
 
@@ -94,11 +104,31 @@ packages/calc-core/src/
   touAllocation.ts     ファミリー/時間帯別 → 夜トク の時間帯振替（推定を含む）
   japaneseHolidays.ts  検針期間から日数・土日・祝日を算出
   rounding.ts          円未満の切り捨て/切り上げ（Excel ROUNDDOWN/ROUNDUP 準拠）
-apps/web/src/
-  data/rates.ts        全プランの単価＋出典＋シナリオ定義
-  services/calculateService.ts  シナリオ解決・使用量の振替・表示用整形
-  pages/ManualInput.tsx         入力フォーム（構造ごとに切替）
-  pages/ComparisonResult.tsx    結果表示
+apps/web/
+  public/sw.js         Service Worker（雛形。ビルド時に一覧とキャッシュ名を埋める）
+  vite.config.ts       sw-manifest プラグインを含む
+  src/data/rates.ts    ★正本: 全プランの単価＋出典＋シナリオ定義
+  src/serviceWorker.ts SW登録と更新検知
+  src/components/UpdateBanner.tsx  「新しい料金データがあります」
+  src/services/calculateService.ts シナリオ解決・使用量の振替・表示用整形
+  src/pages/ManualInput.tsx        入力フォーム（構造ごとに切替）
+  src/pages/ComparisonResult.tsx   結果表示・PDF保存
+scripts/
+  generate-rate-master.ts  正本 → data/rate_master.json
+  rateMasterDiff.ts        改定差分（純粋関数・テスト済み）
+  rate-master-diff.ts      差分レポートのCLI
+```
+
+### よく使うコマンド
+
+```bash
+npm test                     # 全ワークスペースのテスト
+npm run test:coverage        # 閾値つき（CIと同じ）
+npm run build                # calc-core → web
+npm run type-check
+npm run rate-master:generate # 正本から料金マスターJSONを書き出す
+npm run rate-master:check    # 正本とズレていないか（CIで実行）
+npm run rate-master:diff     # 改定差分レポート（PR本文用）
 ```
 
 ### 設計上の判断（変更する前に理由を確認すること）
@@ -112,6 +142,13 @@ apps/web/src/
 - **端数は円未満切り捨て**（四捨五入ではない）。賦課金を先に切り捨ててから
   合計し、合計でもう一度切り捨てる二段構成。auでんきのみ従量料金と燃調を切り上げ。
 - **入力検証は必ず通す**。NaN・負値は `unsupported` を返す（ルール8）。
+- **料金マスターの正本は TypeScript**。JSON にすると出典の欠落を型で防げない（ルール4）。
+  `data/rate_master.json` は生成物で、手で編集しても計算には反映されない。
+- **Service Worker は画面遷移を network-first**。料金アプリで最悪なのは古い単価で
+  試算し続けること。新版は自動で当てず、バナーで利用者に選ばせる（入力途中の消失を防ぐ）。
+- **`caches.match` には `ignoreVary` が必要**。配信サーバーの `Vary: Origin` と
+  Vite の `crossorigin` 属性が食い違い、JS だけキャッシュに当たらず白画面になる。
+- **PDF は印刷CSSのみ**。ライブラリを足していない。`.print-hide` / `.print-only` で出し分ける。
 
 ---
 

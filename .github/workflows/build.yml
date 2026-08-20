@@ -30,9 +30,9 @@ jobs:
       - name: Build calc-core
         run: npm run build -w @ja-denki-simulator/calc-core
 
-      # calc-core は 100%、Web UI は 80% を閾値に設定してある。
+      # calc-core 100% / Web UI 80% / scripts 100% を閾値に設定してある。
       # npm test だけでは閾値未達を検知できず、実際に 88% まで落ちていた。
-      - name: Run tests with coverage (calc-core 100% / web 80%)
+      - name: Run tests with coverage (calc-core 100% / web 80% / scripts 100%)
         run: npm run test:coverage
 
       - name: Type check

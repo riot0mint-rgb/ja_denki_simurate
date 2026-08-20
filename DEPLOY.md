@@ -289,96 +289,123 @@ PDF にするには印刷ダイアログで送信先に「PDFに保存」を選�
 
 **重要**: 料金更新後、CLAUDE.md ルール #10に従い必ず人間が確認・承認を行ってください。
 
-**5-1. JSON ファイル差し替えによる更新**
+**5-1. 料金改定の反映手順**
 
-1. 新しい料金定義書を入手
-   ```
-   例: 【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf
+設計の全体像は [PHASE_6_DESIGN.md](./docs/PHASE_6_DESIGN.md) を参照してください。
+承認は Pull Request のレビューで行い、監査証跡は Git の履歴になります。
+
+1. **新しい試算表を入手**
+
+   適用月ごとに Google Drive の `シミュレーション【YY年M月適用】/` に置かれます。
+   **元資料は読むだけ**です。移動・改名・削除は禁止（CLAUDE.md ルール3）。
+
+2. **ブランチを切る**
+
+   ```bash
+   git checkout -b rate-update-202610
    ```
 
-2. 料金データを抽出し、`apps/web/src/data/rates.ts` を更新
+3. **正本を更新**
+
+   単価: `apps/web/src/data/rates.ts`
+   燃料費調整額・再エネ賦課金: `packages/calc-core/src/monthlyRates.ts`
+
    ```typescript
-   export const jadenRatenA: RatePlan = {
-     // ... 新しい料金を反映
-     tiers: [
-       {
-         tierNumber: 1,
-         unitPriceYenPerKwh: new Decimal('29.50'), // 新値
-         sourceFile: '【新版PDF】...',
-         sourcePage: '3'
-       }
-       // ...
-     ]
+   export const jaDenkiJuryoA: TieredMinimumPlan = {
+     // ...
+     tiers: tiers15('33.00', '38.04', '38.84'),   // 新しい単価
+     sources: [src(DOC.juryoA, '基本項目!E26:E29（規制料金）')]  // ★出典も必ず更新
    }
    ```
 
-3. バージョンを更新（git でトラッキング）
+   **出典を据え置いたまま単価だけ変えないでください。** 手順7の差分レポートが
+   これを転記ミスとして警告します（ルール4）。
+
+4. **料金マスターを再生成**
+
    ```bash
-   git checkout -b feature/rate-update-202610
-   # rates.ts を編集
-   git add apps/web/src/data/rates.ts
+   npm run rate-master:generate
    ```
 
-4. ローカルテスト実行
+5. **テストを走らせる**
+
    ```bash
    npm test
    ```
-   期待値: `Tests: 84 passed, 84 total`
 
-5. 計算結果の事前検算（代表値確認）
-   ```
-   使用量 300kWh での料金計算結果をExcelと比較
-   許容誤差: ±100円（端数処理の違い）
-   ```
+   期待値: calc-core 156件 / web 80件 / scripts 13件がすべて通過。
 
-6. コミット・プッシュ
+   単価を変えると早見表1201点の回帰や分岐点のテストが落ちます。
+   **これは正常です。** 新しい単価に対する期待値へテストを更新し、
+   なぜその値になるのかをコミットメッセージに書いてください（ルール6）。
+
+6. **検算**
+
    ```bash
-   git commit -m "rate-update: JAでんき 2026年10月版料金改定"
-   git push origin feature/rate-update-202610
+   npm run test:coverage
    ```
 
-7. プルリクエスト作成
-   ```
-   タイトル: Rate Update: October 2026
-   説明: 新版料金定義書からの抽出内容を記載
-   変更ファイル: apps/web/src/data/rates.ts
+   `excelReference.test.ts` が新しい試算表の早見表と **差異0円**であることを確認します。
+   ±100円といった許容誤差は設けていません。差が出るなら理由を特定してください。
+
+7. **差分レポートを作る**
+
+   ```bash
+   npm run rate-master:diff -- --out /tmp/rate-diff.md
    ```
 
-8. **人間レビュー・承認**（必須ステップ）
-   - PR レビュアーが料金を定義書と照合確認
-   - テスト結果を確認
-   - OK なら Approve
+   「どの値が、いくらから、いくらに、どの出典で変わったか」が Markdown で出ます。
+   これをそのまま PR の本文に貼ります。
 
-9. マージ・自動デプロイ
-   ```
-   GitHub Actions が自動実行:
-   - npm install
-   - npm run build
-   - Azure Static Web Apps へ自動デプロイ
+8. **コミット・プッシュ**
+
+   ```bash
+   git add -A
+   git commit -m "rate-update: JAでんき 2026年10月適用の単価改定"
+   git push -u origin rate-update-202610
    ```
 
-10. 本番環境で動作確認
-    ```
-    https://[domain]/ja-denki/
-    
-    確認項目:
-    - 月額料金が更新されている
-    - 削減額計算が正しい
-    - エラーコンソール出力なし
-    ```
+9. **Pull Request を作成** — 本文に手順7の差分レポートを貼る
+
+10. **人によるレビュー・承認**（必須。CLAUDE.md ルール10）
+
+    確認すること:
+    - 差分レポートの各値が、示された出典のセルと一致しているか
+    - 「出典が据え置き」の警告が出ていないか
+    - テストがすべて通っているか（CI が緑か）
+    - 落ちたテストの期待値変更に根拠が書かれているか
+
+    **merge しない限り本番には出ません。** merge が承認です。
+
+11. **マージ・自動デプロイ**
+
+    GitHub Actions がビルドとテストを実行し、成果物を配信します。
+
+12. **本番環境で動作確認**
+
+    - 代表的な使用量で月額が更新されているか
+    - 利用者の画面に「新しい料金データがあります」のバナーが出るか
+      （Service Worker の更新導線。詳細は「4. PWA」参照）
+    - コンソールエラーが出ていないか
 
 **5-2. ロールバック手順**（問題発生時）
 
 ```bash
-# 前版に戻す
-git revert HEAD
-git push origin main
-
-# または前バージョンのコミットを指定
-git checkout [commit-hash] -- apps/web/src/data/rates.ts
-git commit -m "Revert rate update due to issues"
+# 前版に戻す（履歴を残す。強制プッシュは厳禁）
+git revert <改定のマージコミット>
+npm run rate-master:generate   # 生成物を正本に合わせ直す
+npm test
+git add -A && git commit --amend --no-edit
 git push origin main
 ```
+
+`git revert` を使うのは、ログを残すためです。CLAUDE.md の
+「**削除・強制プッシュは厳禁**（ログ消失で対応不可に）」に従ってください。
+
+利用者の端末には Service Worker のキャッシュが残っています。
+戻した版をデプロイすれば「新しい料金データがあります」のバナーが出ますが、
+**利用者が「更新する」を押すまで古い版のまま**です。
+誤った単価を配ってしまった場合は、営業経由でも更新を案内してください。
 
 ### 6. トラブルシューティング
 
