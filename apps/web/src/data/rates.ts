@@ -229,6 +229,7 @@ export const chugokuDenkaStyle: TimeOfUsePlan = {
   side: 'other',
   baseChargeUpTo10Kw: new Decimal('2018.72'),
   baseChargePerKwOver10: new Decimal('480.37'),
+  minimumMonthly: null,
   unitPrices: touPrices('44.40', '46.46', '30.35', '30.35'),
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
@@ -237,11 +238,10 @@ export const chugokuDenkaStyle: TimeOfUsePlan = {
 }
 
 /**
- * ナイトホリデーは元資料の明細シートで中国電力側の基本料金が空欄になっており
- * （'シミュレーション結果明細 VSナイトホリデー'!J8:J10 に数式なし）、
- * 基本料金の金額を確認できない。推測で埋めると請求額を過小に見積もり、
- * JAでんきの削減額を誤って表示するため、null のままとして計算不可を返す。
- * CLAUDE.md ルール8。
+ * ナイトホリデーコースには契約電力ベースの基本料金が存在しない。
+ * ③明細の 'シミュレーション結果明細 VSナイトホリデー'!J8:J10 が空欄なのは
+ * Excel の作り漏れではなく、そこに入るべき数字が無いため（中国電力サービス約款）。
+ * 代わりに最低月額料金 1,844.70 円/契約 が下限として働く。シンプルコースと同型。
  */
 export const chugokuNightHoliday: TimeOfUsePlan = {
   structure: 'time_of_use',
@@ -250,11 +250,18 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
   side: 'other',
   baseChargeUpTo10Kw: null,
   baseChargePerKwOver10: null,
+  // 請求額 1,845 円は元資料に直接の記載がなく、シンプルコースの判定式
+  // （①明細 VSシンプル I20: IF(I13+I16<1844.7, 1845, ...)）から同型と判断した推定。
+  // ASSUMPTIONS.md「ナイトホリデーの最低月額料金」に記録。
+  minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1845') },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.tou, '基本項目!S62:S65（単価のみ。基本料金は元資料に記載なし）')]
+  sources: [
+    src(DOC.tou, '基本項目!S62:S65（単価）'),
+    src(DOC.juryoA, "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式を同型適用）")
+  ]
 }
 
 export const jaDenkiYotoku: TimeOfUsePlan = {
@@ -264,6 +271,7 @@ export const jaDenkiYotoku: TimeOfUsePlan = {
   side: 'ja',
   baseChargeUpTo10Kw: new Decimal('1897.72'),
   baseChargePerKwOver10: new Decimal('458.37'),
+  minimumMonthly: null,
   unitPrices: touPrices('44.40', '46.46', '30.35', '30.35'),
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,

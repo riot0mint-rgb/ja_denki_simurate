@@ -126,10 +126,19 @@ export type TouBand = 'dayOther' | 'daySummer' | 'night' | 'holiday';
  */
 export interface TimeOfUsePlan extends PlanBase {
   structure: 'time_of_use';
-  /** 10kW までの基本料金。null は元資料に記載がなく計算できないことを示す。 */
+  /**
+   * 10kW までの基本料金。null は基本料金を持たないプランを表す。
+   * その場合は minimumMonthly が下限として働く（ナイトホリデーコース）。
+   */
   baseChargeUpTo10Kw: Decimal | null;
   /** 10kW 超過分の 1kW あたり基本料金 */
   baseChargePerKwOver10: Decimal | null;
+  /**
+   * 最低月額料金。基本料金を持たない自由料金メニューが使う。
+   * (電力量料金 + 燃料費調整額) が threshold を下回ったとき bill を請求額とする。
+   * シンプルコースと同じ扱い（①明細 VSシンプル I20）。
+   */
+  minimumMonthly: { threshold: Decimal; bill: Decimal } | null;
   unitPrices: Record<TouBand, Decimal>;
   halveBaseWhenNoUsage: boolean;
   /** 電化住宅割。基本料金+従量料金に対する割引率と上限額。 */

@@ -123,6 +123,7 @@ export const jaDenkiLowVoltage: DemandSeasonalPlan = {
 export const chugokuDenkaStyle: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'chugoku_denka_style', planName: '中国電力 電化Style', side: 'other',
   baseChargeUpTo10Kw: new Decimal('2018.72'), baseChargePerKwOver10: new Decimal('480.37'),
+  minimumMonthly: null,
   unitPrices: touPrices('44.40', '46.46', '30.35', '30.35'),
   halveBaseWhenNoUsage: true, allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING, sources: [src(D3, '基本項目!E46:E51')]
@@ -130,6 +131,7 @@ export const chugokuDenkaStyle: TimeOfUsePlan = {
 export const chugokuNightHoliday: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'chugoku_night_holiday', planName: '中国電力 ナイトホリデー', side: 'other',
   baseChargeUpTo10Kw: null, baseChargePerKwOver10: null,
+  minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1845') },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true, allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING, sources: [src(D3, '基本項目!S62:S65')]
@@ -137,6 +139,7 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
 export const jaDenkiYotoku: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'ja_denki_yotoku', planName: 'JAでんき 夜トクプラン', side: 'ja',
   baseChargeUpTo10Kw: new Decimal('1897.72'), baseChargePerKwOver10: new Decimal('458.37'),
+  minimumMonthly: null,
   unitPrices: touPrices('44.40', '46.46', '30.35', '30.35'),
   halveBaseWhenNoUsage: true, allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING, sources: [src(D3, '基本項目!L46:L51')]
