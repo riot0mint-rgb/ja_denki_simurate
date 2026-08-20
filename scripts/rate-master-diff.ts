@@ -19,17 +19,35 @@ const CURRENT = resolve(ROOT, 'data/rate_master.json')
 const { outPath, positional } = parseArgs(process.argv.slice(2))
 const baselinePath = positional[0]
 
+/** 料金マスターの形になっていることを確かめる。違えば読める文言で落とす */
+function asRateMaster(parsed: unknown, where: string): RateMasterLike {
+  const m = parsed as Partial<RateMasterLike>
+  if (!m || !Array.isArray(m.plans) || !Array.isArray(m.monthly_rates)) {
+    console.error(
+      `${where} は料金マスターの形ではありません（plans と monthly_rates の配列が必要）。\n` +
+        'npm run rate-master:generate で生成したファイルを指定してください。'
+    )
+    process.exit(1)
+  }
+  return m as RateMasterLike
+}
+
 function loadBaseline(): RateMasterLike {
-  if (baselinePath) return JSON.parse(readFileSync(resolve(baselinePath), 'utf-8'))
+  if (baselinePath) {
+    const path = resolve(baselinePath)
+    return asRateMaster(JSON.parse(readFileSync(path, 'utf-8')), path)
+  }
   // 基準を指定しなければ、コミット済みの版と比べる。改定PRの差分がそのまま出る
   const committed = execFileSync('git', ['show', 'HEAD:data/rate_master.json'], {
     cwd: ROOT,
     encoding: 'utf-8'
   })
-  return JSON.parse(committed)
+  return asRateMaster(JSON.parse(committed), 'HEAD:data/rate_master.json')
 }
 
-const report = renderDiffReport(diffRateMaster(loadBaseline(), JSON.parse(readFileSync(CURRENT, 'utf-8'))))
+const report = renderDiffReport(
+  diffRateMaster(loadBaseline(), asRateMaster(JSON.parse(readFileSync(CURRENT, 'utf-8')), CURRENT))
+)
 
 if (outPath) {
   writeFileSync(resolve(outPath), report)

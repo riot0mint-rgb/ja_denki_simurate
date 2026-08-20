@@ -40,6 +40,15 @@ describe('結果画面', () => {
     expect(within(table).queryByText('+￥0')).not.toBeInTheDocument()
   })
 
+  // 表は「同額」と出しているのに、見出しだけ「切り替えても安くなりません」に
+  // なっていた。スマートコースは 1〜16kWh で最低料金が同額
+  it('同額のときは見出しも「同額」と揃える', () => {
+    show('chugoku_smart', { totalKwh: 10 })
+    expect(screen.getByText('毎月の料金は同額です')).toBeInTheDocument()
+    expect(screen.queryByText(/切り替えても$/)).not.toBeInTheDocument()
+    expect(screen.getByText(/同額です。ご使用量が変わると差が出ます/)).toBeInTheDocument()
+  })
+
   it('内訳を開くと計算式と出典が見える（CLAUDE.md ルール4）', async () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
     await userEvent.click(screen.getByText('計算の内訳を表示'))

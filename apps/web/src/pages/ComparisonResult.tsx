@@ -66,6 +66,9 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
   const v = outcome.view
   const savings = v.recommended.monthlySavingsYen
   const isSaving = savings > 0
+  // 同額を「現在の方が安い」に入れると、下の比較表が「同額」と出しているのに
+  // 見出しだけ「切り替えても安くなりません」になる
+  const isSame = savings === 0
   // 年額はガスセット割を含むため、月額と符号が食い違うことがある
   // （月 -50円 でもセット割 +110円/月 で年間は +720円）。年額の符号は年額で判断する
   const isSavingAnnually = v.annualSavingsYen > 0
@@ -77,7 +80,9 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
         <div style={{
           background: isSaving
             ? 'linear-gradient(135deg, #2d9d78 0%, #247a5f 100%)'
-            : 'linear-gradient(135deg, #9d5b2d 0%, #7a4724 100%)',
+            : isSame
+              ? 'linear-gradient(135deg, #4b5563 0%, #374151 100%)'
+              : 'linear-gradient(135deg, #9d5b2d 0%, #7a4724 100%)',
           color: 'white',
           padding: '30px',
           borderRadius: '12px',
@@ -85,7 +90,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           textAlign: 'center'
         }}>
           <p style={{ fontSize: '14px', opacity: 0.9 }}>
-            {isSaving ? '毎月のお得額' : '毎月の差額（現在の方が安い）'}
+            {isSaving ? '毎月のお得額' : isSame ? '毎月の料金は同額です' : '毎月の差額（現在の方が安い）'}
           </p>
           <h2 style={{ fontSize: '32px', margin: '10px 0' }}>{formatCurrency(Math.abs(savings))}</h2>
           <p style={{ fontSize: '14px', opacity: 0.9 }}>
@@ -157,6 +162,11 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
               <>
                 推奨: <strong>{v.recommended.planName}</strong>（削減率{' '}
                 {formatPercentage(v.savingsPercent)}）
+              </>
+            ) : isSame ? (
+              <>
+                このご使用量では <strong>{v.recommended.planName}</strong> と現在のご契約が
+                同額です。ご使用量が変わると差が出ます。
               </>
             ) : (
               <>

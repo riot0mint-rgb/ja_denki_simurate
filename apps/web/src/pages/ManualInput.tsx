@@ -190,14 +190,12 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   // どちらが正しいかは決められないので、ずれていることを利用者に見せる
   const spanDays = autoCounts?.days ?? null
   const daysEdited = periodDays !== null && spanDays !== null && periodDays.days !== spanDays
-  const calendar = calendarValid
-    ? {
-        ...periodDays!,
-        holidayUsageRatio: holidayRatio,
-        julyDays: countMonthDays(startDate, endDate, 7) ?? 0,
-        octoberDays: countMonthDays(startDate, endDate, 10) ?? 0
-      }
-    : undefined
+  const julyDays = countMonthDays(startDate, endDate, 7)
+  const octoberDays = countMonthDays(startDate, endDate, 10)
+  const calendar =
+    calendarValid && julyDays !== null && octoberDays !== null
+      ? { ...periodDays!, holidayUsageRatio: holidayRatio, julyDays, octoberDays }
+      : undefined
 
   // ファミリータイムの検針票は検針期間が季節をまたぐ月だけ夏季／その他季が併記される
   const mixedSeason = period.month === 7 || period.month === 10

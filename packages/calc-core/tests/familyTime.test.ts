@@ -28,7 +28,10 @@ const CASE_CALENDAR: CalendarInput = {
   days: 28,
   weekendDays: 8,
   holidayDays: 1,
-  holidayUsageRatio: 'same'
+  holidayUsageRatio: 'same',
+  // ④の実データは1月検針。7月・10月にかからないので 0
+  julyDays: 0,
+  octoberDays: 0
 };
 const CASE_FAMILY = { daySummer: 0, dayOther: 23, family: 152, night: 376 };
 
@@ -274,7 +277,11 @@ describe('時間帯別電灯の夜トク振替', () => {
     expect(a.bands.daySummer.dividedBy(dayTotal).toNumber()).toBeCloseTo(1 - 11 / 28, 8);
   });
 
-  it('7月・10月の日数が未指定なら夏季0として扱う', () => {
+  // 以前は julyDays/octoberDays を省略でき、省略時に 0 とみなしていた。
+  // 7月検針でデイタイムが全量その他季単価（44.40円）になり、夏季単価（46.46円）
+  // より安く出る — JAでんき側だけ安くなるので削減額が過大に見えた。
+  // 型で必須にしたので、0 は「その月にかからない」を表す明示的な値になった
+  it('7月・10月の日数が0なら夏季分も0（明示された0として扱う）', () => {
     expect(allocateFromEconomyNight(usage, CASE_CALENDAR, 7).bands.daySummer.toNumber()).toBe(0);
     const oct = allocateFromEconomyNight(usage, CASE_CALENDAR, 10);
     expect(oct.bands.dayOther.toNumber()).toBeCloseTo(0, 6);

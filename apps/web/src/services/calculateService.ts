@@ -345,7 +345,12 @@ function deriveCandidateUsage(
 
   // ⑥は深夜電力Bの使用量をすべて夜トクのナイトタイムとして扱う
   if (scenario.candidateUsage === 'all_night') {
-    return { ok: true, usage: { ...usage, tou: { night: usage.totalKwh ?? 0 } } }
+    return {
+      ok: true,
+      usage: candidateUsageOf(usage, usage.contractKw, {
+        night: new Decimal(usage.totalKwh ?? 0)
+      })
+    }
   }
 
   const calendar = usage.calendar
@@ -418,9 +423,7 @@ function deriveCandidateUsage(
   ).bands
   const check = checkAllocation(bands, new Decimal(e.dayKwh).plus(e.nightKwh))
   if (!check.ok) return check
-  // 使用量以外の条件（電化住宅割など）は乗り換え先にも引き継ぐ。
-    // 組み立て直すと、候補が新しい割引を持った瞬間に黙って落ちる
-    return { ok: true, usage: { ...usage, contractKw, tou: bands } }
+  return { ok: true, usage: candidateUsageOf(usage, contractKw, bands) }
 }
 
 export function formatCurrency(amountYen: number): string {

@@ -33,10 +33,17 @@ export interface CalendarInput {
   /** 国民の祝日・そのほかの日数 */
   holidayDays: number;
   holidayUsageRatio: HolidayUsageRatio;
-  /** 7月検針時の 7 月日数（時間帯別電灯の夏季按分） */
-  julyDays?: number;
-  /** 10月検針時の 10 月日数（同上） */
-  octoberDays?: number;
+  /**
+   * 検針期間に含まれる 7 月の日数（時間帯別電灯の夏季按分に使う）。
+   *
+   * **省略できない。** 省略時に 0 とみなすと、7月検針でデイタイムが全量
+   * その他季単価（44.40円）になり、夏季単価（46.46円）より安く出る。
+   * JAでんき側だけが安くなるので削減額が過大に見える（ルール8）。
+   * 「7月にかからない期間」は 0 を明示的に渡す。
+   */
+  julyDays: number;
+  /** 検針期間に含まれる 10 月の日数（同上）。同じ理由で省略できない */
+  octoberDays: number;
 }
 
 export type TouAllocation = Record<TouBand, Decimal>;
@@ -234,11 +241,11 @@ function summerPortion(
 ): Decimal {
   if (month === 8 || month === 9) return dayTotal;
   if (month === 7) {
-    const julyDays = new Decimal(calendar.julyDays ?? 0);
+    const julyDays = new Decimal(calendar.julyDays);
     return dayTotal.times(julyDays.dividedBy(days));
   }
   if (month === 10) {
-    const octoberDays = new Decimal(calendar.octoberDays ?? 0);
+    const octoberDays = new Decimal(calendar.octoberDays);
     return dayTotal.times(new Decimal('1').minus(octoberDays.dividedBy(days)));
   }
   return new Decimal('0');

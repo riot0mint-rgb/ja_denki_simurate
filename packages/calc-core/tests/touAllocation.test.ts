@@ -154,6 +154,16 @@ describe('④時間帯別電灯 → 夜トクの按分（元資料の式を固�
     expect(much.night.lessThan(same.night)).toBe(true);
   });
 
+  // julyDays を省略できると、7月検針でデイタイムが全量その他季単価になり
+  // JAでんき側だけ安く出る。型で必須にしてある（ルール8）
+  it('7月の夏季分は julyDays で決まり、0 なら夏季なし', () => {
+    const u = { dayKwh: new Decimal('200'), nightKwh: new Decimal('400') };
+    const none = allocateFromEconomyNight(u, calendar({ julyDays: 0 }), 7).bands;
+    const half = allocateFromEconomyNight(u, calendar({ julyDays: 15 }), 7).bands;
+    expect(none.daySummer.isZero()).toBe(true);
+    expect(half.daySummer.greaterThan(0)).toBe(true);
+  });
+
   it('デイタイムの夏季分は対象月で決まる', () => {
     const cal = calendar({ julyDays: 15, octoberDays: 0 });
     const u = { dayKwh: new Decimal('200'), nightKwh: new Decimal('400') };
