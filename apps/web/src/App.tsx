@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import Home from './pages/Home'
 import ManualInput from './pages/ManualInput'
 import ComparisonResult from './pages/ComparisonResult'
+import UpdateBanner from './components/UpdateBanner'
+import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
 
@@ -21,6 +23,12 @@ export default function App() {
     usage: {},
     period: DEFAULT_RATE_PERIOD
   })
+  const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null)
+
+  useEffect(() => {
+    // setState に関数を渡すと更新関数と解釈されるため、包んで保持する
+    registerServiceWorker(apply => setApplyUpdate(() => apply))
+  }, [])
 
   const handleInputComplete = (
     scenarioId: string,
@@ -33,6 +41,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {applyUpdate && <UpdateBanner onApply={applyUpdate} />}
       {currentPage === 'home' && <Home onStartInput={() => setCurrentPage('input')} />}
       {currentPage === 'input' && (
         <ManualInput onComplete={handleInputComplete} onBack={() => setCurrentPage('home')} />

@@ -30,13 +30,17 @@ jobs:
       - name: Build calc-core
         run: npm run build -w @ja-denki-simulator/calc-core
 
-      # カバレッジ閾値（100%）まで含めて検証する。npm test だけでは
-      # 閾値未達を検知できず、実際に 88% まで落ちていた。
-      - name: Run calc-core tests with coverage
+      # calc-core 100% / Web UI 80% / scripts 100% を閾値に設定してある。
+      # npm test だけでは閾値未達を検知できず、実際に 88% まで落ちていた。
+      - name: Run tests with coverage (calc-core 100% / web 80% / scripts 100%)
         run: npm run test:coverage
 
       - name: Type check
         run: npm run type-check
+
+      # 料金マスターJSONは rates.ts からの生成物。手編集や更新漏れをここで落とす。
+      - name: Verify rate master is in sync
+        run: npm run rate-master:check
 
       - name: Build web application
         run: npm run build -w @ja-denki-simulator/web

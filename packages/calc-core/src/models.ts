@@ -141,11 +141,20 @@ export interface MinimumMonthly {
  */
 export interface TimeOfUsePlan extends PlanBase {
   structure: 'time_of_use';
-  /** 10kW までの基本料金。最低月額料金型では null。 */
+  /**
+   * 10kW までの基本料金。null は基本料金を持たないプランを表す。
+   * その場合は minimumMonthly が下限として働く（ナイトホリデーコース）。
+   */
   baseChargeUpTo10Kw: Decimal | null;
   /** 10kW 超過分の 1kW あたり基本料金。最低月額料金型では null。 */
   baseChargePerKwOver10: Decimal | null;
-  /** 最低月額料金。基本料金型では null。 */
+  /**
+   * 最低月額料金。基本料金を持たないメニューが使う。
+   * (電力量料金 + 燃料費調整額) が threshold を下回ったとき bill を請求額とする。
+   *
+   * 中国電力の公式単価表では、ナイトホリデーコースがシンプルコースと同じ
+   * 最低月額料金型として定義されている（1,844.70円/契約）。
+   */
   minimumMonthly: MinimumMonthly | null;
   unitPrices: Record<TouBand, Decimal>;
   halveBaseWhenNoUsage: boolean;

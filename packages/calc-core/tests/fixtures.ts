@@ -138,13 +138,6 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
   rounding: CHUGOKU_ROUNDING, sources: [src(D3, '基本項目!S62:S65')]
 };
 
-/** 基本料金も最低月額料金も無い＝元資料から金額が確認できない状態。unsupported の検証用。 */
-export const touWithoutAnyBaseCharge: TimeOfUsePlan = {
-  ...chugokuNightHoliday,
-  planId: 'tou_without_base',
-  planName: 'テスト用 基本料金不明プラン',
-  minimumMonthly: null
-};
 export const jaDenkiYotoku: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'ja_denki_yotoku', planName: 'JAでんき 夜トクプラン', side: 'ja',
   baseChargeUpTo10Kw: new Decimal('1897.72'), baseChargePerKwOver10: new Decimal('458.37'),
@@ -158,7 +151,6 @@ export const chugokuMidnightB: DemandFlatPlan = {
   baseChargePerKw: new Decimal('375.92'), unitPriceYenPerKwh: new Decimal('30.34'),
   halveTotalWhenNoUsage: true, rounding: CHUGOKU_ROUNDING, sources: [src(D6, "'深夜電力B'!F7:F8")]
 };
-
 
 const D4 = '④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx';
 

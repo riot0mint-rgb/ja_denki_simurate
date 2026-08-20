@@ -314,15 +314,13 @@ export const chugokuDenkaStyle: TimeOfUsePlan = {
 }
 
 /**
- * ナイトホリデーコースは**基本料金を持たない**。中国電力の公式単価表で、
- * このコースだけシンプルコースと同じ最低月額料金型として定義されている。
+ * ナイトホリデーコースには契約電力ベースの基本料金が存在しない。
+ * ③明細の 'シミュレーション結果明細 VSナイトホリデー'!J8:J10 が空欄なのは
+ * Excel の作り漏れではなく、そこに入るべき数字が無いため。
+ * 代わりに最低月額料金 1,844.70 円/契約 が下限として働く。シンプルコースと同型。
  *
- * 元資料の明細シートで中国電力側の基本料金欄が空欄なのは
- * （'シミュレーション結果明細 VSナイトホリデー'!J8:J10 に数式なし）、
- * 記載漏れではなく**そこに入る金額が存在しないため**だった。
- * 公式単価表で確認できたので計算不可を解除する。
+ * 中国電力の公式単価表（電灯・電力 サービス約款）で確認済み。
  *
- * 電化Styleコースとの対比:
  *   電化Style     基本料金 2,018.72円/契約（10kWまで）+ 480.37円/kW（10kW超）
  *   ナイトホリデー 最低月額料金 1,844.70円/契約のみ（契約電力に依らない）
  */
@@ -333,16 +331,18 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
   side: 'other',
   baseChargeUpTo10Kw: null,
   baseChargePerKwOver10: null,
-  minimumMonthly: {
-    threshold: new Decimal('1844.7'),
-    bill: new Decimal('1845')
-  },
+  // threshold 1,844.70 は公式単価表に明記されている最低月額料金そのもの。
+  // 一方 bill の 1,845 円（円未満切り上げ後の請求額）は元資料に直接の記載がなく、
+  // シンプルコースの判定式（①明細 VSシンプル I20: IF(I13+I16<1844.7, 1845, ...)）
+  // から同型と判断した推定。ASSUMPTIONS.md に記録。
+  minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1845') },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING,
   sources: [
     src(DOC.tou, '基本項目!S62:S65（時間帯別単価）'),
+    src(DOC.juryoA, "'シミュレーション結果明細 VSシンプル'!I20（請求額の丸めを同型適用）"),
     OFFICIAL_TARIFF_CHUGOKU_SERVICE
   ]
 }
@@ -626,3 +626,14 @@ export function needsCalendar(scenario: ComparisonScenario): boolean {
 export function findScenario(scenarioId: string): ComparisonScenario | undefined {
   return SCENARIOS.find(s => s.scenarioId === scenarioId)
 }
+
+/**
+ * 全プランの一覧。重複を排除して plan_id 順に並べる。
+ * data/rate_master.json はこの配列から生成されるため、
+ * ここに載っていないプランは監査用の料金マスターにも現れない。
+ */
+export const ALL_PLANS: RatePlan[] = Array.from(
+  new Map(
+    SCENARIOS.flatMap(s => [s.current, ...s.candidates]).map(p => [p.planId, p])
+  ).values()
+).sort((a, b) => a.planId.localeCompare(b.planId))

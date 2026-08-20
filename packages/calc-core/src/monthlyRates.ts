@@ -148,11 +148,10 @@ export function availablePeriods(provider: FuelAdjustmentProvider = 'chugoku'): 
 }
 
 /**
- * 既定の対象月。
+ * 既定の対象月。元資料が「26年7月適用」として配布している月に合わせてある。
  *
- * 中国電力系は 2026-09 まで収録しているが、auでんきの燃調は 2026-07 までしかない。
- * 既定を先に進めると auでんきのシナリオだけ計算不可になるため、
- * **全事業者がそろっている最新月**に合わせている。
- * auでんきの単価を追加したら、ここも進めること。
+ * 収録自体は中国電力系が 2026-09、auでんきが 2026-08 まであるが、既定は動かさない。
+ * 単価そのものは 26年7月適用のままで、月を進めても変わるのは燃調と賦課金だけ。
+ * 画面の検針月セレクタから選べる。
  */
-export const DEFAULT_PERIOD: RatePeriod = { year: 2026, month: 8 };
+export const DEFAULT_PERIOD: RatePeriod = { year: 2026, month: 7 };
