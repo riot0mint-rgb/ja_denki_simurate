@@ -11,8 +11,15 @@ describe('ホーム画面', () => {
     expect(onStartInput).toHaveBeenCalledTimes(1)
   })
 
-  it('ブラウザ内処理であることを明示する（CLAUDE.md ルール9）', () => {
+  // 「端末」「送信」ではお客様に伝わらない。何を聞かないか・何が起きないかを書く
+  it('個人情報を扱わないことを、お客様に伝わる言葉で明示する（CLAUDE.md ルール9）', () => {
     render(<Home onStartInput={() => {}} />)
-    expect(screen.getByText(/この端末の中だけで行い、入力内容を送信しません/)).toBeInTheDocument()
+    expect(screen.getByText(/お名前やご住所はうかがいません/)).toBeInTheDocument()
+    expect(screen.getByText(/外に送られることもありません/)).toBeInTheDocument()
+  })
+
+  it('ロゴが無い環境でも見出しが出る', () => {
+    render(<Home onStartInput={() => {}} />)
+    expect(screen.getByRole('heading', { name: /1年でいくら変わるか/ })).toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 /**
@@ -10,8 +10,27 @@ import { resolve } from 'node:path'
  * アセット名はハッシュ付きなので、プリキャッシュ一覧はビルド後にしか分からない。
  * キャッシュ名も成果物のハッシュから作り、内容が変わったときだけ更新が走るようにする。
  */
+/**
+ * 置かれているロゴファイル。無ければ null。
+ *
+ * 実行時に読みに行って 404 を握りつぶす作りにすると、毎回コンソールに
+ * エラーが2件出る。営業や職員が開発者ツールを開いたときに不安を与えるので、
+ * ビルド時に決めてしまう。
+ */
+function findLogo(): string | null {
+  for (const logo of ['/logo.svg', '/logo.png']) {
+    if (existsSync(resolve(__dirname, 'public' + logo))) return logo
+  }
+  return null
+}
+
+const LOGO_SRC = findLogo()
+
 function serviceWorkerManifest(): Plugin {
   const ALWAYS = ['/', '/index.html', '/manifest.json', '/icon-192x192.png', '/icon-512x512.png']
+  // 存在しないURLを入れると cache.addAll が 404 で落ち、Service Worker が
+  // 黙って入らなくなる（オフライン動作と更新バナーが死ぬ）
+  if (LOGO_SRC) ALWAYS.push(LOGO_SRC)
   // ビルドごとに作り直す。使い回すと watch や連続ビルドで前回のハッシュ付き
   // ファイル名が残り、cache.addAll がその404で失敗して SW が入らなくなる。
   // 登録エラーは握りつぶしているので、オフライン動作と更新バナーが黙って死ぬ
@@ -41,6 +60,9 @@ function serviceWorkerManifest(): Plugin {
 
 export default defineConfig({
   plugins: [react(), serviceWorkerManifest()],
+  define: {
+    __LOGO_SRC__: JSON.stringify(LOGO_SRC)
+  },
   publicDir: 'public',
   server: {
     port: 5173,

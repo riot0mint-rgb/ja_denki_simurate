@@ -30,7 +30,7 @@ describe('画面遷移', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: /年間いくら変わるか/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /1年でいくら変わるか/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '検針票から試算する' }))
 
     expect(screen.getByRole('heading', { name: '料金を試算' })).toBeInTheDocument()
@@ -42,6 +42,6 @@ describe('画面遷移', () => {
 
     expect(screen.getByRole('heading', { name: '料金を試算' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '戻る' }))
-    expect(screen.getByRole('heading', { name: /年間いくら変わるか/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /1年でいくら変わるか/ })).toBeInTheDocument()
   })
 })

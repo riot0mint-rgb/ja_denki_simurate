@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import ManualInput from './pages/ManualInput'
 import ComparisonResult from './pages/ComparisonResult'
 import UpdateBanner from './components/UpdateBanner'
+import Logo from './components/Logo'
 import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
@@ -44,7 +45,7 @@ export default function App() {
       {applyUpdate && <UpdateBanner onApply={applyUpdate} />}
       <header className="topbar">
         <div className="topbar-inner">
-          <span className="wordmark">JAでんき料金比較</span>
+          <Logo />
           <span className="topbar-sub">中国電力エリア・低圧</span>
         </div>
       </header>

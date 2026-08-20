@@ -791,3 +791,25 @@ details.card[open] > summary::before {
 .btn-gold:hover:not(:disabled) {
   background: var(--green);
 }
+
+/* ── ロゴ ─────────────────────────────────────────────────── */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.logo {
+  height: 26px;
+  width: auto;
+  max-width: 160px;
+  display: block;
+}
+
+@media print {
+  .logo {
+    height: 20px;
+  }
+}
