@@ -920,8 +920,8 @@
       "fuel_unit_price_yen_per_kwh": "-12.93",
       "renewable_levy_yen_per_kwh": "4.18",
       "source": {
-        "document": "①〜⑥JAでんき試算表 26年7月適用",
-        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-09",
+        "document": "全農エネルギー「燃料費調整単価（低圧）のお知らせ」",
+        "locator": "https://zennoh-energy.co.jp/ja-denki/（中国エリア・低圧） 2026-09",
         "effectiveFrom": "2026-09",
         "verificationStatus": "verified",
         "verifiedAt": "2026-08-20"
@@ -934,8 +934,8 @@
       "fuel_unit_price_yen_per_kwh": "-12.56",
       "renewable_levy_yen_per_kwh": "4.18",
       "source": {
-        "document": "①〜⑥JAでんき試算表 26年7月適用",
-        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-08",
+        "document": "全農エネルギー「燃料費調整単価（低圧）のお知らせ」",
+        "locator": "https://zennoh-energy.co.jp/ja-denki/（中国エリア・低圧） 2026-08",
         "effectiveFrom": "2026-08",
         "verificationStatus": "verified",
         "verifiedAt": "2026-08-20"
@@ -1214,8 +1214,8 @@
       "fuel_unit_price_yen_per_kwh": "-13.58",
       "renewable_levy_yen_per_kwh": "4.18",
       "source": {
-        "document": "①〜⑥JAでんき試算表 26年7月適用",
-        "locator": "☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx「基本項目」燃料費調整額 2026-08",
+        "document": "auでんき公式「燃料費調整単価」",
+        "locator": "https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア） 2026-08",
         "effectiveFrom": "2026-08",
         "verificationStatus": "verified",
         "verifiedAt": "2026-08-20"

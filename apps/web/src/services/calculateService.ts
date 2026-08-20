@@ -333,6 +333,19 @@ function deriveCandidateUsage(
     }
   }
 
+  /**
+   * 乗り換え先の契約電力。ファミリー系・時間帯別電灯は契約容量(kVA)で入力するが、
+   * **元資料は同じ数値をそのまま夜トク側の契約電力(kW)に使っている。**
+   *
+   *   ④入力シート B12「契約電力」= 6      ← 片方しか入力欄が無い
+   *   ④'ファミリーⅡ結果' E6 = 入力シート!I12
+   *                      G8 = IF(E6>10, E6-10, 0)
+   *                      K24 = G8            ← 夜トク側の10kW超過分
+   *
+   * kVA と kW を等価とみなす根拠は元資料に書かれていないが、換算せずに
+   * そのまま渡すのが試算表の挙動。ここで独自に換算すると請求額が元資料とずれる。
+   * ASSUMPTIONS.md「契約容量(kVA)をそのまま契約電力(kW)として渡している」参照。
+   */
   const contractKw = usage.contractKva ?? usage.contractKw
 
   if (scenario.candidateUsage === 'from_family') {

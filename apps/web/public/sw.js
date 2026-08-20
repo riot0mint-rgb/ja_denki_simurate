@@ -50,7 +50,9 @@ self.addEventListener('fetch', event => {
           // 503 や 404 の画面をオフライン時の代替にしてしまわないよう、成功応答だけ残す
           if (response.ok && response.type === 'basic') {
             const copy = response.clone()
-            caches.open(CACHE).then(cache => cache.put('/index.html', copy)).catch(() => {})
+            event.waitUntil(
+              caches.open(CACHE).then(cache => cache.put('/index.html', copy)).catch(() => {})
+            )
           }
           return response
         })
@@ -68,8 +70,11 @@ self.addEventListener('fetch', event => {
       return fetch(request).then(response => {
         if (response.ok && response.type === 'basic') {
           const copy = response.clone()
+          // waitUntil に載せないと、応答を返した直後に SW が止められて保存を取りこぼす。
           // 保存に失敗してもページの表示は続ける（容量超過などで put は落ちうる）
-          caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => {})
+          event.waitUntil(
+            caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => {})
+          )
         }
         return response
       })

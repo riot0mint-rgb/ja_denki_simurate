@@ -1,6 +1,11 @@
 import { BillingCalculator } from '../src/calculator';
 import { Decimal } from '../src/decimal-config';
-import { lookupFuelAdjustment, lookupRenewableLevy, RatePeriod } from '../src/monthlyRates';
+import {
+  availablePeriods,
+  lookupFuelAdjustment,
+  lookupRenewableLevy,
+  RatePeriod
+} from '../src/monthlyRates';
 import { RatePlan, UsageInput } from '../src/models';
 import * as F from './fixtures';
 import lookup from './excel-lookup.fixture.json';
@@ -184,5 +189,39 @@ describe('26年7月適用の燃料費調整額・再エネ賦課金', () => {
     const july = bill(F.jaDenkiJuryoA, { totalKwh: 348 }, JULY).total;
     expect(july.greaterThan(april)).toBe(true);
     expect(new Decimal(july).minus(april).toNumber()).toBeGreaterThan(0);
+  });
+});
+
+// 値の載っていない文書を出典として verified で記録すると、改定時に追跡が切れる。
+// 月によって出所が違う（試算表 / 全農エネルギー / auでんき公式）
+describe('燃料費調整額の出典は行ごとの出所を指す（CLAUDE.md ルール4）', () => {
+  it('試算表に載っている月は試算表を指す', () => {
+    const s = lookupFuelAdjustment(JULY)!.source;
+    expect(s.document).toContain('試算表');
+    expect(s.locator).toContain('2026-07');
+  });
+
+  it('試算表より後の中国電力エリアは全農エネルギーを指す', () => {
+    const s = lookupFuelAdjustment({ year: 2026, month: 9 })!.source;
+    expect(s.document).toContain('全農エネルギー');
+    expect(s.document).not.toContain('試算表');
+  });
+
+  it('auでんきの試算表に無い月は auでんき公式を指す', () => {
+    const s = lookupFuelAdjustment({ year: 2026, month: 8 }, 'au')!.source;
+    expect(s.document).toContain('auでんき公式');
+    // 26年6月のブックは 2026-08 を持っていない
+    expect(s.locator).not.toContain('26年6月.xlsx');
+  });
+
+  it('どの月でも出典は空でない', () => {
+    for (const provider of ['chugoku', 'au'] as const) {
+      for (const period of availablePeriods(provider)) {
+        const s = lookupFuelAdjustment(period, provider)!.source;
+        expect(s.document.trim()).not.toBe('');
+        expect(s.locator.trim()).not.toBe('');
+        expect(s.effectiveFrom).toBe(`${period.year}-${String(period.month).padStart(2, '0')}`);
+      }
+    }
   });
 });

@@ -133,7 +133,8 @@ export interface MeterPeriodDays {
 export function countMeterPeriodDays(startDate: string, endDate: string): MeterPeriodDays | null {
   const start = parseDate(startDate);
   const end = parseDate(endDate);
-  if (!start || !end || start > end) return null;
+  // 0（1970-01-01）を偽値として弾かないよう null で判定する。countMonthDays と揃える
+  if (start === null || end === null || start > end) return null;
 
   // 検針期間は通常1か月程度。異常に長い入力は誤りとみなす。
   const spanDays = Math.round((end - start) / 86400000) + 1;

@@ -209,6 +209,25 @@ describe('夜トクプランへの使用量の振替', () => {
     expect(v.totalKwh).toBe(300)
   })
 
+  // ④は入力欄が「契約電力」1つで、同じ数値を夜トク側の契約電力にも使う
+  // （'ファミリーⅡ結果' K24 = G8 = IF(E6>10, E6-10, 0)）。
+  // ここで kVA→kW の換算を挟むと元資料とずれる
+  it('契約容量(kVA)はそのまま乗り換え先の契約電力(kW)になる', () => {
+    const at10 = ok('chugoku_family_2', {
+      contractKva: 10,
+      familyTime: { dayOther: 120, family: 80, night: 250 },
+      calendar
+    })
+    const at12 = ok('chugoku_family_2', {
+      contractKva: 12,
+      familyTime: { dayOther: 120, family: 80, night: 250 },
+      calendar
+    })
+    // 夜トクの10kW超過分は 458.37円/kW。12kVA なら 2kW ぶん増える
+    const diff = at12.candidates[0].monthlyChargeYen - at10.candidates[0].monthlyChargeYen
+    expect(diff).toBeCloseTo(458.37 * 2, 0)
+  })
+
   it('時間帯別電灯も按分される', () => {
     const v = ok('chugoku_economy_night', {
       contractKva: 10,

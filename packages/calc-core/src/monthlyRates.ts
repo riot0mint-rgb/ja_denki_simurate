@@ -18,11 +18,32 @@ export function periodKey(p: RatePeriod): string {
 }
 
 /** 燃料費調整額。段階制プランは 15kWh 分の定額と超過分の単価に分かれる。 */
+/**
+ * 単価の出所。月によって出所が違うため行ごとに持つ。
+ * 全部まとめて「試算表」と書くと、値の載っていない文書を出典として
+ * verified で記録することになる（CLAUDE.md ルール4）。
+ */
+type SourceKey = 'spreadsheet' | 'zennoh' | 'au-site';
+
+const SOURCE_DOCUMENTS: Record<SourceKey, string> = {
+  spreadsheet: '①〜⑥JAでんき試算表 26年7月適用',
+  zennoh: '全農エネルギー「燃料費調整単価（低圧）のお知らせ」',
+  'au-site': 'auでんき公式「燃料費調整単価」'
+};
+
+const SOURCE_LOCATORS: Record<SourceKey, string> = {
+  spreadsheet: '公式試算表「基本項目」燃料費調整額',
+  zennoh: 'https://zennoh-energy.co.jp/ja-denki/（中国エリア・低圧）',
+  'au-site': 'https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア）'
+};
+
 interface FuelRow {
   /** 15kWh までの定額（円/契約） */
   minimumCharge: string;
   /** 15kWh を超える分（円/kWh）。時間帯別・低圧電力など段階を持たないプランは全量にこの単価を掛ける。 */
   unitPriceYenPerKwh: string;
+  /** その値の出所。省略時は試算表由来 */
+  from?: SourceKey;
 }
 
 /**
@@ -53,8 +74,8 @@ const CHUGOKU_FUEL: Record<string, FuelRow> = {
   '2026-07': { minimumCharge: '-143.77', unitPriceYenPerKwh: '-9.57' },
   // ここから全農エネルギーの「燃料費調整単価（低圧）のお知らせ」より。
   // 中国電力の公表値とも一致する（二重に裏付けあり）。
-  '2026-08': { minimumCharge: '-188.70', unitPriceYenPerKwh: '-12.56' },
-  '2026-09': { minimumCharge: '-194.01', unitPriceYenPerKwh: '-12.93' }
+  '2026-08': { minimumCharge: '-188.70', unitPriceYenPerKwh: '-12.56', from: 'zennoh' },
+  '2026-09': { minimumCharge: '-194.01', unitPriceYenPerKwh: '-12.93', from: 'zennoh' }
 };
 
 /**
@@ -69,7 +90,7 @@ const AU_FUEL: Record<string, FuelRow> = {
   '2026-07': { minimumCharge: '-196.24', unitPriceYenPerKwh: '-13.09' },
   // auでんき公式「燃料費調整単価」より（税込）。中国電力エリアの でんきMプラン。
   // https://www.au.com/energy/denki/other/adjust/detail/
-  '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58' }
+  '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58', from: 'au-site' }
 };
 
 /** 再エネ賦課金（円/kWh）。全事業者共通。 */
@@ -95,6 +116,25 @@ const FUEL_SOURCE: Record<FuelAdjustmentProvider, string> = {
   au: '☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx「基本項目」燃料費調整額'
 };
 
+/** その行が実際にどこから来たかを出典にする */
+function fuelSource(
+  row: FuelRow,
+  provider: FuelAdjustmentProvider,
+  period: RatePeriod
+): RateSource {
+  const key = row.from ?? 'spreadsheet';
+  return {
+    document: SOURCE_DOCUMENTS[key],
+    locator:
+      key === 'spreadsheet'
+        ? `${FUEL_SOURCE[provider]} ${periodKey(period)}`
+        : `${SOURCE_LOCATORS[key]} ${periodKey(period)}`,
+    effectiveFrom: periodKey(period),
+    verificationStatus: 'verified',
+    verifiedAt: '2026-08-20'
+  };
+}
+
 /** 対象年月の燃料費調整額。未収録の月は null を返す（推測しない）。 */
 export function lookupFuelAdjustment(
   period: RatePeriod,
@@ -107,13 +147,7 @@ export function lookupFuelAdjustment(
       minimumCharge: new Decimal(row.minimumCharge),
       unitPriceYenPerKwh: new Decimal(row.unitPriceYenPerKwh)
     },
-    source: {
-      document: '①〜⑥JAでんき試算表 26年7月適用',
-      locator: `${FUEL_SOURCE[provider]} ${periodKey(period)}`,
-      effectiveFrom: periodKey(period),
-      verificationStatus: 'verified',
-      verifiedAt: '2026-08-20'
-    }
+    source: fuelSource(row, provider, period)
   };
 }
 
