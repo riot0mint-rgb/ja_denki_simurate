@@ -114,6 +114,16 @@ describe('時間帯別型（電化Style / 夜トク）', () => {
     expect(at12.baseCharge.minus(at10.baseCharge).toNumber()).toBeCloseTo(458.37 * 2, 6);
   });
 
+  // ③明細では半額の IF が「10kWまで」と「10kW超過分の単価」の両方に掛かっている。
+  //   J9  = IF(D4=0, 早見表!E5/2, 早見表!E5)
+  //   E10 = IF(D4=0, 早見表!E6/2, 早見表!E6)   ← 超過分の単価も半額
+  // 0kWh のテストが 6kW ばかりだと overKw が 0 になりこの経路を通らない
+  it('使用量0のとき10kW超過分の単価も半額になる', () => {
+    const b = bill(F.chugokuDenkaStyle, { contractKw: 12, tou: { night: 0 } });
+    expect(b.baseCharge.toNumber()).toBeCloseTo(2018.72 / 2 + (480.37 / 2) * 2, 6);
+    expect(b.notes.some(n => n.includes('半額'))).toBe(true);
+  });
+
   it('夜トクは電化Styleと同じ単価で基本料金だけが安い', () => {
     const u = usage({ dayOther: 100, night: 200, holiday: 50 });
     const style = bill(F.chugokuDenkaStyle, u);

@@ -47,8 +47,11 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          const copy = response.clone()
-          caches.open(CACHE).then(cache => cache.put('/index.html', copy))
+          // 503 や 404 の画面をオフライン時の代替にしてしまわないよう、成功応答だけ残す
+          if (response.ok && response.type === 'basic') {
+            const copy = response.clone()
+            caches.open(CACHE).then(cache => cache.put('/index.html', copy)).catch(() => {})
+          }
           return response
         })
         .catch(() =>
@@ -65,7 +68,8 @@ self.addEventListener('fetch', event => {
       return fetch(request).then(response => {
         if (response.ok && response.type === 'basic') {
           const copy = response.clone()
-          caches.open(CACHE).then(cache => cache.put(request, copy))
+          // 保存に失敗してもページの表示は続ける（容量超過などで put は落ちうる）
+          caches.open(CACHE).then(cache => cache.put(request, copy)).catch(() => {})
         }
         return response
       })

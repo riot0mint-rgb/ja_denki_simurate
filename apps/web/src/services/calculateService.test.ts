@@ -217,6 +217,51 @@ describe('夜トクプランへの使用量の振替', () => {
   })
 })
 
+// ④の按分式には MAX(...,0) が無く、元資料の Excel 自体が負の値を出す。
+// 0 に丸めると4区分の合計が総使用量とずれるので、丸めずに計算不可を返す（ルール8）。
+describe('按分が負の値になる入力', () => {
+  const calendar = {
+    days: 30,
+    weekendDays: 8,
+    holidayDays: 1,
+    holidayUsageRatio: 'much_more' as const,
+    julyDays: 0,
+    octoberDays: 0
+  }
+
+  it('昼夜の偏りが極端なら、入力者に分かる理由で計算不可を返す', () => {
+    const r = calculateComparison(
+      'chugoku_family_2',
+      {
+        contractKva: 10,
+        familyTime: { daySummer: 0, dayOther: 5, family: 0, night: 600 },
+        calendar
+      },
+      { period: JULY }
+    )
+    expect(r.status).toBe('unsupported')
+    if (r.status === 'unsupported') {
+      expect(r.reason).toContain('時間帯の偏り')
+      // 入力者は負の値を入れていない。engine の生の文言をそのまま出さない
+      expect(r.reason).not.toContain('負の値')
+      expect(r.nextSteps.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('通常の使用量では従来どおり計算できる', () => {
+    const r = calculateComparison(
+      'chugoku_family_2',
+      {
+        contractKva: 10,
+        familyTime: { daySummer: 0, dayOther: 100, family: 80, night: 220 },
+        calendar
+      },
+      { period: JULY }
+    )
+    expect(r.status).toBe('ok')
+  })
+})
+
 describe('ナイトホリデー（最低月額料金型）', () => {
   it('73kWh は最低月額料金 1,845円', () => {
     const v = ok('chugoku_night_holiday', { contractKw: 6, tou: { night: 73 } })

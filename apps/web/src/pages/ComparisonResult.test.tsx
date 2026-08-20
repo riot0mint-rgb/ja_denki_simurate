@@ -59,6 +59,22 @@ describe('結果画面', () => {
   })
 })
 
+// 年額はガスセット割を含むため、月額と符号が食い違うことがある。
+// 月額の符号で年額のラベルを決めると「増加額 ￥720」のような表示になる
+describe('年額のラベルは年額の符号で決める', () => {
+  it('ガスセット割で年額が黒字に転じたら「削減額」と出す', async () => {
+    // ナイトホリデー 442kWh 付近は月額がわずかにマイナス。
+    // セット割 110円/月 を入れると年額は黒字になる
+    show('chugoku_night_holiday', { contractKw: 6, tou: { night: 430 } })
+    expect(screen.getByText(/年間増加額/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /ガスとでんきのセット割/ }))
+    expect(screen.getByText(/年間削減額/)).toBeInTheDocument()
+    // 月額の見出しは月額のまま（現在の方が安い）
+    expect(screen.getByText('毎月の差額（現在の方が安い）')).toBeInTheDocument()
+  })
+})
+
 describe('PDF保存・印刷', () => {
   it('印刷ボタンで window.print が呼ばれる', async () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => {})

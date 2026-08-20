@@ -20,7 +20,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const outIndex = args.indexOf('--out')
 const outPath = outIndex >= 0 ? args[outIndex + 1] : null
-const dir = resolve(args.find((a, i) => !a.startsWith('--') && i !== outIndex + 1) ?? join(ROOT, 'archive'))
+// --out の値は位置引数ではない。--out が無いとき outIndex は -1 なので、
+// そのまま outIndex + 1 で除外すると添字0（＝本来の位置引数）を捨ててしまう
+const outValueIndex = outIndex >= 0 ? outIndex + 1 : -1
+const positional = args.filter((a, i) => !a.startsWith('--') && i !== outValueIndex)
+const dir = resolve(positional[0] ?? join(ROOT, 'archive'))
 
 if (!existsSync(dir)) {
   console.error(`試算表のディレクトリが見つかりません: ${dir}`)

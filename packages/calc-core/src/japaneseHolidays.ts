@@ -26,10 +26,42 @@ function nthMonday(year: number, month: number, nth: number): number {
   return firstMonday + (nth - 1) * 7;
 }
 
+/**
+ * 祝日が日曜と重なったとき、その後の最初の平日を振替休日にする（祝日法第3条第2項）。
+ *
+ * これが無いと、たとえば 2026年5月3日（憲法記念日）が日曜のため
+ * 5月6日が休日でありながら平日として数えられ、ホリデータイムの按分がずれる。
+ * ゴールデンウィークのように祝日が続く並びでは、連続する祝日を飛ばした先が振替になる。
+ *
+ * 振替を作るのは**国民の祝日だけ**。入力シートの注記にある「そのほか」
+ * （1/2〜1/4・5/1・5/2・12/30・12/31）は年末年始の慣行であって祝日法の対象ではない。
+ * ここから振替を作ると、元資料に無い休日を勝手に生やすことになる（ルール8）。
+ * ただし振替先を送る判定には「そのほか」も含めた集合を使う —
+ * 実際に休みの日を飛ばさないと振替先が休日と重なってしまうため。
+ */
+function substituteHolidays(year: number, statutory: Set<string>, allClosed: Set<string>): string[] {
+  const key = (m: number, d: number) => `${m}-${d}`;
+  const out: string[] = [];
+  for (const k of statutory) {
+    const [m, d] = k.split('-').map(Number);
+    // 祝日の日付は必ずその月に収まる（春分20〜21日・秋分22〜23日・第n月曜は最大21日）
+    // ため、実在しない日付の判定は置いていない
+    const date = new Date(Date.UTC(year, m - 1, d));
+    if (date.getUTCDay() !== 0) continue;
+    // 祝日が続く場合はその先の最初の非祝日まで送る
+    const next = new Date(date);
+    do {
+      next.setUTCDate(next.getUTCDate() + 1);
+    } while (allClosed.has(key(next.getUTCMonth() + 1, next.getUTCDate())));
+    out.push(key(next.getUTCMonth() + 1, next.getUTCDate()));
+  }
+  return out;
+}
+
 /** その年の国民の祝日・そのほかの日（月日の集合） */
 export function holidaysOf(year: number): Set<string> {
   const key = (m: number, d: number) => `${m}-${d}`;
-  return new Set([
+  const statutory = new Set([
     key(1, 1),                              // 元日
     key(1, nthMonday(year, 1, 2)),          // 成人の日
     key(2, 11),                             // 建国記念の日
@@ -45,10 +77,12 @@ export function holidaysOf(year: number): Set<string> {
     key(9, autumnalEquinoxDay(year)),       // 秋分の日
     key(10, nthMonday(year, 10, 2)),        // スポーツの日
     key(11, 3),                             // 文化の日
-    key(11, 23),                            // 勤労感謝の日
-    // 入力シートの注記にある「そのほか」
-    key(1, 2), key(1, 3), key(1, 4), key(5, 1), key(5, 2), key(12, 30), key(12, 31)
+    key(11, 23)                             // 勤労感謝の日
   ]);
+  // 入力シートの注記にある「そのほか」。祝日法の対象ではないが休みとして数える
+  const others = [key(1, 2), key(1, 3), key(1, 4), key(5, 1), key(5, 2), key(12, 30), key(12, 31)];
+  const allClosed = new Set([...statutory, ...others]);
+  return new Set([...allClosed, ...substituteHolidays(year, statutory, allClosed)]);
 }
 
 export interface MeterPeriodDays {

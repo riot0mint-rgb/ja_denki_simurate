@@ -61,6 +61,9 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
   const v = outcome.view
   const savings = v.recommended.monthlySavingsYen
   const isSaving = savings > 0
+  // 年額はガスセット割を含むため、月額と符号が食い違うことがある
+  // （月 -50円 でもセット割 +110円/月 で年間は +720円）。年額の符号は年額で判断する
+  const isSavingAnnually = v.annualSavingsYen > 0
 
   return (
     <div className="container">
@@ -81,7 +84,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
           </p>
           <h2 style={{ fontSize: '32px', margin: '10px 0' }}>{formatCurrency(Math.abs(savings))}</h2>
           <p style={{ fontSize: '14px', opacity: 0.9 }}>
-            年間{isSaving ? '削減額' : '増加額'}: {formatCurrency(Math.abs(v.annualSavingsYen))}
+            年間{isSavingAnnually ? '削減額' : '増加額'}: {formatCurrency(Math.abs(v.annualSavingsYen))}
           </p>
           <p style={{ fontSize: '12px', opacity: 0.85, marginTop: '10px' }}>
             初年度合計（新規契約割引 {formatCurrency(v.firstYearSpecialDiscountYen)} 含む）:{' '}

@@ -37,19 +37,5 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "shortcuts": [
-    {
-      "name": "料金比較を開始",
-      "short_name": "比較開始",
-      "description": "JAでんきとの料金比較を開始します",
-      "url": "/?mode=input",
-      "icons": [
-        {
-          "src": "/shortcut-icon.png",
-          "sizes": "192x192"
-        }
-      ]
-    }
   ]
 }

@@ -66,13 +66,26 @@ export interface IntakeReport {
   skipped: number
 }
 
-/** `基本項目!E8:E11` / `'シミュレーション結果明細 VSシンプル'!I20` を分解する */
-export function parseLocator(locator: string): { sheet: string; range: string } | null {
+/**
+ * 出典の番地を分解する。
+ *
+ *   基本項目!E8:E11
+ *   'シミュレーション結果明細 VSシンプル'!I20
+ *   'ファミリーⅠ結果'!H7, E8, E10:E13, H15     ← 飛び地の複数範囲
+ *
+ * 単価がシート上で連続していないプランがあるため、カンマ区切りの複数範囲を扱う。
+ * これを取りこぼすとファミリー系3プランが黙って突合の対象外になる。
+ */
+export function parseLocator(locator: string): { sheet: string; ranges: string[] } | null {
   // 補足（括弧書き）は番地ではないので落とす
   const head = locator.split(/[（(]/)[0].trim()
-  const m = head.match(/^'([^']+)'!([A-Z]+\d+(?::[A-Z]+\d+)?)$/) ?? head.match(/^([^!']+)!([A-Z]+\d+(?::[A-Z]+\d+)?)$/)
+  const m = head.match(/^'([^']+)'!(.+)$/) ?? head.match(/^([^!']+)!(.+)$/)
   if (!m) return null
-  return { sheet: m[1].trim(), range: m[2] }
+  const ranges = m[2]
+    .split(',')
+    .map(r => r.trim())
+    .filter(r => /^[A-Z]+\d+(?::[A-Z]+\d+)?$/.test(r))
+  return ranges.length > 0 ? { sheet: m[1].trim(), ranges } : null
 }
 
 /** 1円未満の桁で無用な不一致を出さないため、小数2桁までで比べる */
@@ -93,19 +106,18 @@ export function checkPlan(plan: PlanUnderCheck, read: RangeReader): PlanIntakeRe
       locators.push({ ...source, status: 'not-a-spreadsheet', sheetValues: [], formulaLiterals: [] })
       continue
     }
-    const cells = read(source.document, parsed.sheet, parsed.range)
-    if (!cells) {
+    // 飛び地の範囲は 1 つでも読めれば読めたものとして扱い、読めた分だけを突合に使う
+    const read_ = parsed.ranges.map(range => read(source.document, parsed.sheet, range))
+    const cells = read_.filter((c): c is CellRange => c !== null)
+    if (cells.length === 0) {
       locators.push({ ...source, status: 'unresolvable', sheetValues: [], formulaLiterals: [] })
       continue
     }
-    locators.push({
-      ...source,
-      status: 'read',
-      sheetValues: cells.values,
-      formulaLiterals: cells.formulaLiterals
-    })
-    sheetValues.push(...cells.values)
-    formulaLiterals.push(...cells.formulaLiterals)
+    const values = cells.flatMap(c => c.values)
+    const literals = cells.flatMap(c => c.formulaLiterals)
+    locators.push({ ...source, status: 'read', sheetValues: values, formulaLiterals: literals })
+    sheetValues.push(...values)
+    formulaLiterals.push(...literals)
   }
 
   const readable = locators.filter(l => l.status === 'read')

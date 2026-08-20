@@ -199,6 +199,35 @@ export function calculateComparison(
 }
 
 /**
+ * 按分の結果に負の使用量が出ていないか確かめる。
+ *
+ * ④の按分式には MAX(...,0) が無く、元資料の Excel 自体が負の値を出す
+ * （'ファミリーⅡ結果' W10 = U10 - U12、U12 は補正項の半分。補正が大きいと負になる）。
+ * 昼夜の偏りが極端な検針票で起きる。
+ *
+ * 0 に丸めると4区分の合計が総使用量と合わなくなり、請求額が静かにずれる。
+ * 元資料に無い処理を足すことにもなる。だから丸めずに計算不可として返す（ルール8）。
+ * 計算エンジンに渡すと「ご使用量に負の値は指定できません」と出て、
+ * 入力した本人には身に覚えのない理由になってしまう。
+ */
+function checkAllocation(
+  bands: { daySummer: Decimal; dayOther: Decimal; night: Decimal; holiday: Decimal }
+): { ok: true } | { ok: false; reason: string; nextSteps: string[] } {
+  const negative = Object.entries(bands).filter(([, v]) => v.isNegative())
+  if (negative.length === 0) return { ok: true }
+  return {
+    ok: false,
+    reason:
+      'ご入力の時間帯の偏りが大きく、夜トクプランの時間帯への振り替えを試算できません',
+    nextSteps: [
+      '各時間帯のご使用量が検針票どおりか確認してください',
+      '「休日の電気の使い方」の選択を変えると試算できる場合があります',
+      'それでも試算できない場合は、お手数ですが営業担当にお問い合わせください'
+    ]
+  }
+}
+
+/**
  * 乗り換え先に渡す使用量を作る。旧プランと夜トクプランでは時間帯の区分が
  * 違うため、④の各結果シートと同じ式で振り替える。
  */
@@ -246,6 +275,8 @@ function deriveCandidateUsage(
       },
       calendar
     ).bands
+    const check = checkAllocation(bands)
+    if (!check.ok) return check
     return {
       ok: true,
       usage: {
@@ -273,6 +304,8 @@ function deriveCandidateUsage(
     calendar,
     month
   ).bands
+  const check = checkAllocation(bands)
+  if (!check.ok) return check
   return {
     ok: true,
     usage: {

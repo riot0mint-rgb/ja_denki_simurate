@@ -34,29 +34,49 @@ const E26 = { '基本項目!E26:E29': { values: [759.68, 32.22, 38.04, 38.84] } 
 
 describe('出典の番地の解釈', () => {
   it('シート名と範囲に分解する', () => {
-    expect(parseLocator('基本項目!E26:E29')).toEqual({ sheet: '基本項目', range: 'E26:E29' })
+    expect(parseLocator('基本項目!E26:E29')).toEqual({ sheet: '基本項目', ranges: ['E26:E29'] })
+  })
+
+  // ファミリー系は単価がシート上で連続しておらず、飛び地の範囲で書かれている。
+  // これを取りこぼすと3プランが黙って突合の対象外になる
+  it('カンマ区切りの飛び地をすべて拾う', () => {
+    expect(parseLocator("'ファミリーⅠ結果'!H7, E8, E10:E13, H15")).toEqual({
+      sheet: 'ファミリーⅠ結果',
+      ranges: ['H7', 'E8', 'E10:E13', 'H15']
+    })
+  })
+
+  it('番地として読めない断片は落とす', () => {
+    expect(parseLocator('基本項目!E8, 備考, E10')).toEqual({
+      sheet: '基本項目',
+      ranges: ['E8', 'E10']
+    })
+  })
+
+  it('番地が1つも取れなければ null', () => {
+    expect(parseLocator('基本項目!備考欄')).toBeNull()
   })
 
   it('シート名に空白があればクォートつきで書かれる', () => {
     expect(parseLocator("'シミュレーション結果明細 VSシンプル'!I20")).toEqual({
       sheet: 'シミュレーション結果明細 VSシンプル',
-      range: 'I20'
+      ranges: ['I20']
     })
   })
 
   it('括弧書きの補足は番地の一部ではない', () => {
     expect(parseLocator('基本項目!E26:E29（規制料金）')).toEqual({
       sheet: '基本項目',
-      range: 'E26:E29'
+      ranges: ['E26:E29']
     })
     expect(parseLocator('基本項目!S62:S65(時間帯別単価)')).toEqual({
       sheet: '基本項目',
-      range: 'S62:S65'
+      ranges: ['S62:S65']
     })
   })
 
   it('単一セルも範囲として扱う', () => {
-    expect(parseLocator('基本項目!E20')).toEqual({ sheet: '基本項目', range: 'E20' })
+    expect(parseLocator('基本項目!E20')).toEqual({ sheet: '基本項目', ranges: ['E20'] })
   })
 
   it('URL や書名は番地ではない', () => {
@@ -118,6 +138,35 @@ describe('突合', () => {
     )
     expect(r.status).toBe('match')
     expect(r.extraInSheet).toEqual([41])
+  })
+})
+
+describe('飛び地の範囲', () => {
+  const family = plan({
+    planId: 'chugoku_family_2',
+    planName: '中国電力 ファミリータイムⅡ',
+    values: ['1578.72', '46.46', '30.35'],
+    sources: [{ document: XLSX, locator: "'ファミリーⅡ結果'!E8, E10:E11" }]
+  })
+
+  it('複数の範囲を合わせて突合する', () => {
+    const r = checkPlan(
+      family,
+      reader({ 'ファミリーⅡ結果!E8': { values: [1578.72] }, 'ファミリーⅡ結果!E10:E11': { values: [46.46, 30.35] } })
+    )
+    expect(r.status).toBe('match')
+  })
+
+  it('一部の範囲しか読めなくても、読めた分で突合する', () => {
+    const r = checkPlan(family, reader({ 'ファミリーⅡ結果!E8': { values: [1578.72] } }))
+    expect(r.status).toBe('mismatch')
+    expect(r.locators[0].status).toBe('read')
+    expect(r.missingInSheet).toEqual(['46.46', '30.35'])
+  })
+
+  it('どの範囲も読めなければ解決不能', () => {
+    const r = checkPlan(family, reader({}))
+    expect(r.status).toBe('unresolvable')
   })
 })
 
