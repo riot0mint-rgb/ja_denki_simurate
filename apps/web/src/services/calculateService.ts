@@ -1,4 +1,4 @@
-import { BillingCalculator, CalculationInput, RatePlan, Decimal } from '@ja-denki-simulator/calc-core'
+import { BillingCalculator, CalculationInput, Decimal } from '@ja-denki-simulator/calc-core'
 import { jadenRatenA, jadenRatenS, chugokuRatenA } from '../data/rates'
 
 const calculator = new BillingCalculator()

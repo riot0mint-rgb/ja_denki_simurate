@@ -1,0 +1,23 @@
+{
+  "name": "ja-denki-simulator",
+  "version": "0.1.0",
+  "description": "JAでんき vs 中国電力 料金比較シミュレーター",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @ja-denki-simulator/web",
+    "build": "npm run build -w @ja-denki-simulator/calc-core && npm run build -w @ja-denki-simulator/web",
+    "test": "npm test -w @ja-denki-simulator/calc-core",
+    "test:coverage": "npm run test:coverage -w @ja-denki-simulator/calc-core",
+    "preview": "npm run preview -w @ja-denki-simulator/web",
+    "type-check": "npm run type-check -w @ja-denki-simulator/web"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

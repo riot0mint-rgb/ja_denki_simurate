@@ -11,12 +11,14 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@ja-denki-simulator/calc-core": "workspace:*"
+    "decimal.js": "^10.4.3",
+    "@ja-denki-simulator/calc-core": "file:../../packages/calc-core"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.0.0",
+    "terser": "^5.27.0",
     "typescript": "^5.1.3",
     "vite": "^4.3.0"
   }

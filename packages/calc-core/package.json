@@ -2,6 +2,7 @@
   "name": "@ja-denki-simulator/calc-core",
   "version": "0.1.0",
   "description": "Deterministic electricity billing calculation engine using Decimal.js",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
