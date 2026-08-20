@@ -163,6 +163,24 @@ describe('時間帯別型（電化Style / 夜トク）', () => {
         expect(r.nextSteps.length).toBeGreaterThan(0);
       }
     });
+
+    // 単価そのものの性質。乗り換え提案の前提になる。
+    it('電化Styleより昼間も夜間も単価が高い', () => {
+      expect(F.chugokuNightHoliday.unitPrices.dayOther.toNumber()).toBeGreaterThan(
+        F.chugokuDenkaStyle.unitPrices.dayOther.toNumber()
+      );
+      expect(F.chugokuNightHoliday.unitPrices.night.toNumber()).toBeGreaterThan(
+        F.chugokuDenkaStyle.unitPrices.night.toNumber()
+      );
+    });
+
+    it('使用量が多ければ JAでんき夜トクへの切替で削減になる', () => {
+      const u = usage({ dayOther: 150, daySummer: 0, night: 300, holiday: 80 });
+      const now = bill(F.chugokuNightHoliday, { ...u, contractKw: 6 });
+      const ja = bill(F.jaDenkiYotoku, { ...u, contractKw: 6 });
+      expect(ja.total.lessThan(now.total)).toBe(true);
+    });
+
   });
 
   it('時間帯別使用量が未入力なら unsupported', () => {

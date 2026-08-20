@@ -27,7 +27,9 @@ interface FuelRow {
 
 /**
  * 中国電力エリア（中国電力・JAでんき共通）の燃料費調整額。
- * 出典: 公式試算表「基本項目」燃料費調整額の表。
+ * 出典: 公式試算表「基本項目」燃料費調整額の表（2026-07 まで）。
+ * 2026-08 以降は全農エネルギーが公表する「燃料費調整単価（低圧）のお知らせ」から。
+ * 中国電力の公表値（燃料費等調整制度のご案内）とも一致することを確認済み。
  */
 const CHUGOKU_FUEL: Record<string, FuelRow> = {
   '2025-01': { minimumCharge: '-130.31', unitPriceYenPerKwh: '-8.67' },
@@ -48,15 +50,26 @@ const CHUGOKU_FUEL: Record<string, FuelRow> = {
   '2026-04': { minimumCharge: '-171.12', unitPriceYenPerKwh: '-11.39' },
   '2026-05': { minimumCharge: '-147.69', unitPriceYenPerKwh: '-9.83' },
   '2026-06': { minimumCharge: '-146.74', unitPriceYenPerKwh: '-9.76' },
-  '2026-07': { minimumCharge: '-143.77', unitPriceYenPerKwh: '-9.57' }
+  '2026-07': { minimumCharge: '-143.77', unitPriceYenPerKwh: '-9.57' },
+  // ここから全農エネルギーの「燃料費調整単価（低圧）のお知らせ」より。
+  // 中国電力の公表値とも一致する（二重に裏付けあり）。
+  '2026-08': { minimumCharge: '-188.70', unitPriceYenPerKwh: '-12.56' },
+  '2026-09': { minimumCharge: '-194.01', unitPriceYenPerKwh: '-12.93' }
 };
 
 /**
  * auでんきは独自の燃料費調整単価を持つ。
  * 出典: ☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx「基本項目」。
+ *
+ * **中国電力系より収録が遅れている。** auでんきは自社サイトで単価を公表しており、
+ * 全農エネルギーのお知らせには載らないため。DEFAULT_PERIOD はこの表が
+ * カバーする最新月に合わせてある（下記）。
  */
 const AU_FUEL: Record<string, FuelRow> = {
-  '2026-07': { minimumCharge: '-196.24', unitPriceYenPerKwh: '-13.09' }
+  '2026-07': { minimumCharge: '-196.24', unitPriceYenPerKwh: '-13.09' },
+  // auでんき公式「燃料費調整単価」より（税込）。中国電力エリアの でんきMプラン。
+  // https://www.au.com/energy/denki/other/adjust/detail/
+  '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58' }
 };
 
 /** 再エネ賦課金（円/kWh）。全事業者共通。 */
@@ -134,5 +147,11 @@ export function availablePeriods(provider: FuelAdjustmentProvider = 'chugoku'): 
     });
 }
 
-/** 元資料が「7月適用」として配布している対象月。 */
+/**
+ * 既定の対象月。元資料が「26年7月適用」として配布している月に合わせてある。
+ *
+ * 収録自体は中国電力系が 2026-09、auでんきが 2026-08 まであるが、既定は動かさない。
+ * 単価そのものは 26年7月適用のままで、月を進めても変わるのは燃調と賦課金だけ。
+ * 画面の検針月セレクタから選べる。
+ */
 export const DEFAULT_PERIOD: RatePeriod = { year: 2026, month: 7 };

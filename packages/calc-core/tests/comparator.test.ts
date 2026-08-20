@@ -144,14 +144,114 @@ describe('月次レート表', () => {
   it('収録月は新しい順に並び、賦課金も揃っている', () => {
     const periods = availablePeriods();
     expect(periods.length).toBeGreaterThan(0);
-    expect(periodKey(periods[0])).toBe('2026-07');
+    // 中国電力系は全農エネルギーのお知らせから 2026-09 まで収録している。
+    expect(periodKey(periods[0])).toBe('2026-09');
     for (const p of periods) {
       expect(lookupFuelAdjustment(p)).not.toBeNull();
       expect(lookupRenewableLevy(p)).not.toBeNull();
     }
   });
 
+  it('既定の対象月は全事業者がそろう最新月', () => {
+    // 中国電力系だけ先に進めると auでんきのシナリオが計算不可になるため、
+    // 既定は両方そろっている月に合わせてある。
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'chugoku')).not.toBeNull();
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'au')).not.toBeNull();
+  });
+
+  it('中国電力系のほうが auでんきより先の月まで収録している', () => {
+    const chugoku = availablePeriods('chugoku');
+    const au = availablePeriods('au');
+    expect(periodKey(chugoku[0]) > periodKey(au[0])).toBe(true);
+  });
+
   it('auでんきの収録月も引ける', () => {
     expect(availablePeriods('au').map(periodKey)).toContain('2026-07');
+  });
+});
+
+describe('ナイトホリデー → JAでんき夜トクプラン', () => {
+  // ナイトホリデーは基本料金を持たず、夜トクプランは持つ。単価もすべて夜トクのほうが
+  // 安いため、使用量が増えるほど削減額が開く。電化Style→夜トク（単価が同じで基本料金
+  // の差だけ）とは性質が違う。
+  const tou = (dayOther: number, night: number, holiday: number) => ({
+    contractKw: 6,
+    tou: { dayOther, daySummer: 0, night, holiday }
+  });
+
+  const compareNightHoliday = (dayOther: number, night: number, holiday: number) =>
+    comparator.compare(
+      bill(F.chugokuNightHoliday, tou(dayOther, night, holiday), JULY),
+      [bill(F.jaDenkiYotoku, tou(dayOther, night, holiday), JULY)],
+      NONE
+    );
+
+  it('削減になる', () => {
+    const r = compareNightHoliday(150, 300, 80);
+    expect(r.recommended.monthlySavings.greaterThan(0)).toBe(true);
+  });
+
+  it('使用量が増えるほど削減額が大きくなる', () => {
+    const light = compareNightHoliday(50, 100, 20);
+    const heavy = compareNightHoliday(300, 600, 150);
+    expect(
+      heavy.recommended.monthlySavings.greaterThan(light.recommended.monthlySavings)
+    ).toBe(true);
+  });
+
+  it('最低月額料金が効く低使用量でも計算できる', () => {
+    const current = bill(F.chugokuNightHoliday, tou(0, 5, 0), JULY);
+    expect(current.total.toNumber()).toBe(1845);
+  });
+
+  /**
+   * ナイトホリデーは基本料金を取らず、夜トクプランは 1,897.72円/契約 を取る。
+   * 単価は夜トクのほうが安い（デイ ▲2.52〜2.98円、ナイト ▲4.30円）ので、
+   * 使用量が少ないうちは基本料金の差を取り返せず**切り替えると高くなる**。
+   *
+   * 電化Style → 夜トク が「単価は同じで基本料金だけ安い＝常に削減」なのとは
+   * 性質が真逆。営業現場で取り違えると、安くならないお客様に切替を勧めてしまう。
+   */
+  it('使用量が少ないと切り替えで高くなる', () => {
+    const r = compareNightHoliday(30, 60, 10);
+    expect(r.recommended.monthlySavings.lessThan(0)).toBe(true);
+  });
+
+  it('損益が反転する使用量が存在する（400〜600kWhの間）', () => {
+    const at400 = compareNightHoliday(110, 230, 60).recommended.monthlySavings;
+    const at600 = compareNightHoliday(170, 340, 90).recommended.monthlySavings;
+    expect(at400.lessThan(0)).toBe(true);
+    expect(at600.greaterThan(0)).toBe(true);
+  });
+});
+
+describe('事業者ごとの収録月のずれ', () => {
+  /**
+   * 燃料費調整額は事業者ごとに公表時期がずれる。中国電力系が 2026-09 まで
+   * 出ていても auでんき は 2026-08 までしかない、といったことが起きる。
+   *
+   * 画面の検針月セレクタは `periodOptionsFor(scenario)` でシナリオごとに
+   * 絞る必要がある。全社共通の一覧を出すと、選べるのに計算できない月が混ざる。
+   */
+  it('収録済みの月はどちらの系統も必ず計算できる', () => {
+    for (const provider of ['chugoku', 'au'] as const) {
+      for (const p of availablePeriods(provider)) {
+        expect(lookupFuelAdjustment(p, provider)).not.toBeNull();
+        expect(lookupRenewableLevy(p)).not.toBeNull();
+      }
+    }
+  });
+
+  it('中国電力系にあって auでんき に無い月が存在する', () => {
+    const au = new Set(availablePeriods('au').map(periodKey));
+    const onlyChugoku = availablePeriods('chugoku')
+      .map(periodKey)
+      .filter(k => !au.has(k));
+    expect(onlyChugoku.length).toBeGreaterThan(0);
+  });
+
+  it('既定の対象月は両系統にある', () => {
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'chugoku')).not.toBeNull();
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'au')).not.toBeNull();
   });
 });
