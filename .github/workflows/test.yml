@@ -1,0 +1,32 @@
+name: test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      # 単価マスタと Excel の対応表 1,687 点の突合。
+      # 単価を触ったときにここが落ちれば、意図しない改定漏れに気づける。
+      - name: pytest
+        run: python -m pytest
+
+      - name: 単価マスタの検証スクリプト
+        run: python scripts/verify_rates.py
