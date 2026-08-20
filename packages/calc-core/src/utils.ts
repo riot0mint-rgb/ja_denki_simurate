@@ -10,7 +10,9 @@ export function validateUsageKwh(usage: number | Decimal): ValidationResult {
     if (!usage.isFinite()) {
       return { valid: false, reason: 'ご使用量が有効な数値ではありません' };
     }
-    if (usage.isNegative()) {
+    // isNegative() は負のゼロでも true を返す。振替後の使用量は引き算で
+    // -0 になることがあり、number 側（usage < 0）と判定が食い違ってしまう
+    if (usage.lessThan(0)) {
       return { valid: false, reason: 'ご使用量に負の値は指定できません' };
     }
     return { valid: true, reason: '' };

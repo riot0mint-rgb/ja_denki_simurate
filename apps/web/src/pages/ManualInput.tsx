@@ -177,9 +177,13 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         holidayDays: num(dayCounts.holidayDays)
       }
     : null
+  // min="0" は入力を止めないので、負の日数がそのまま按分に入りうる。
+  // 祝日 -20 で JAでんきの試算額が 3,000円 以上動いてしまう
   const calendarValid =
     periodDays !== null &&
     periodDays.days > 0 &&
+    periodDays.weekendDays >= 0 &&
+    periodDays.holidayDays >= 0 &&
     periodDays.days - periodDays.weekendDays - periodDays.holidayDays >= 0
   // 夏季／その他季の按分だけは日付から数える（月をまたぐ日数が要るため）。
   // 日数は手で直せるので、直した値と日付の期間がずれることがある。
@@ -370,7 +374,10 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
                 <p style={{ fontSize: '12px', color: calendarValid ? 'var(--text-secondary)' : '#dc2626', marginTop: '8px' }}>
                   {calendarValid
                     ? `平日 ${periodDays!.days - periodDays!.weekendDays - periodDays!.holidayDays}日。検針票と違う場合は直接直してください`
-                    : '日数の内訳が合いません。土日と祝日の合計が日数を超えています'}
+                    : periodDays !== null &&
+                        (periodDays.weekendDays < 0 || periodDays.holidayDays < 0)
+                      ? '土日・祝日の日数に負の値は入れられません'
+                      : '日数の内訳が合いません。土日と祝日の合計が日数を超えています'}
                 </p>
                 {daysEdited && mixedSeason && (
                   <p style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>

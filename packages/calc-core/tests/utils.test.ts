@@ -132,6 +132,15 @@ describe('使用量の検証（Decimal で渡された場合）', () => {
     expect(r.reason).toContain('負の値');
   });
 
+  // isNegative() は負のゼロでも true を返す。number 側（usage < 0）と
+  // 判定が食い違うと、同じ値が渡し方によって通ったり弾かれたりする
+  it('負のゼロは 0 として受け入れる（number 側と揃える）', () => {
+    const negativeZero = new Decimal('0').minus(0).negated();
+    expect(negativeZero.isNegative()).toBe(true);
+    expect(validateUsageKwh(negativeZero).valid).toBe(true);
+    expect(validateUsageKwh(-0).valid).toBe(true);
+  });
+
   it('NaN・無限大を弾く', () => {
     for (const v of [new Decimal(NaN), new Decimal(Infinity), new Decimal(-Infinity)]) {
       const r = validateUsageKwh(v);

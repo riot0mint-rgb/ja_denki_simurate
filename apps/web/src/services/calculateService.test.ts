@@ -357,6 +357,21 @@ describe('按分が負の値になる入力', () => {
     expect(r.status).toBe('unsupported')
   })
 
+  // Decimal の isNegative() は**負のゼロでも true** を返す。端数の引き算で
+  // -0 になるだけの正当な検針票を弾いてしまう
+  it('負のゼロになる区分があっても計算できる', () => {
+    const r = calculateComparison(
+      'chugoku_economy_night',
+      {
+        contractKva: 10,
+        economyNight: { dayKwh: 50, nightKwh: 0 },
+        calendar: { ...calendar, days: 28, weekendDays: 8, holidayDays: 0 }
+      },
+      { period: JULY }
+    )
+    expect(r.status).toBe('ok')
+  })
+
   it('通常の使用量では従来どおり計算できる', () => {
     const r = calculateComparison(
       'chugoku_family_2',

@@ -216,6 +216,20 @@ describe('検針期間から日数を自動で数える', () => {
     expect(screen.getByLabelText('土日')).toHaveValue(9)
   })
 
+  // min="0" は入力を止めない。祝日 -20 で試算額が 3,000円 以上動く
+  it('土日・祝日に負の値を入れたら止める', async () => {
+    const { user } = setup()
+    await pickPlan('中国電力 時間帯別電灯（エコノミーナイト）')
+    await user.type(screen.getByLabelText('昼間時間 kWh'), '200')
+    await user.type(screen.getByLabelText('夜間時間 kWh'), '300')
+    expect(screen.getByRole('button', { name: '詳しい結果を見る' })).toBeEnabled()
+
+    await user.clear(screen.getByLabelText('祝日'))
+    await user.type(screen.getByLabelText('祝日'), '-20')
+    expect(screen.getByText('土日・祝日の日数に負の値は入れられません')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '詳しい結果を見る' })).toBeDisabled()
+  })
+
   it('内訳が矛盾したら警告し、先へ進ませない', async () => {
     const { user } = setup()
     await pickPlan('中国電力 時間帯別電灯（エコノミーナイト）')
