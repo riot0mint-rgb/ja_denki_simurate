@@ -541,3 +541,14 @@ export function needsCalendar(scenario: ComparisonScenario): boolean {
 export function findScenario(scenarioId: string): ComparisonScenario | undefined {
   return SCENARIOS.find(s => s.scenarioId === scenarioId)
 }
+
+/**
+ * 全プランの一覧。重複を排除して plan_id 順に並べる。
+ * data/rate_master.json はこの配列から生成されるため、
+ * ここに載っていないプランは監査用の料金マスターにも現れない。
+ */
+export const ALL_PLANS: RatePlan[] = Array.from(
+  new Map(
+    SCENARIOS.flatMap(s => [s.current, ...s.candidates]).map(p => [p.planId, p])
+  ).values()
+).sort((a, b) => a.planId.localeCompare(b.planId))

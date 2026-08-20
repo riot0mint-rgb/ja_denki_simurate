@@ -1,319 +1,1078 @@
 {
   "metadata": {
-    "version": "0.1.0-phase2",
-    "created_at": "2026-08-20",
-    "effective_from": "2026-10-01",
-    "effective_to": null,
-    "data_status": "partial-extraction",
-    "notes": "Phase 2進行中。相対値のみ抽出。中国電力の絶対値参照値確定待機。"
+    "version": "1.0.0",
+    "generated_from": "apps/web/src/data/rates.ts + packages/calc-core/src/monthlyRates.ts",
+    "generator": "scripts/generate-rate-master.ts",
+    "warning": "このファイルは生成物です。編集しても計算には反映されません。単価を直すには正本の TypeScript を変更してください。",
+    "plan_count": 17,
+    "scenario_count": 12
   },
-  "providers": {
-    "ja_denki": {
-      "provider_id": "ja_denki",
-      "provider_name": "JAでんき",
-      "region": "中国電力ネットワークエリア（中国）",
-      "plans": [
+  "plans": [
+    {
+      "structure": "tiered_minimum",
+      "planId": "au_m_plan",
+      "planName": "auでんき Mプラン",
+      "side": "other",
+      "minimumCharge": "759.67",
+      "minimumIncludedKwh": 15,
+      "tiers": [
         {
-          "plan_id": "ja_denki_raten_a",
-          "plan_name": "JAでんき（従量電灯A）",
-          "contract_type": "household_standard",
-          "applicable_usage": "> 217 kWh/month",
-          "effective_from": "2026-10-01",
-          "effective_to": null,
-          "base_charge": {
-            "value": null,
-            "currency": "JPY",
-            "unit": "per_month",
-            "relative_to_chugoku": "同額",
-            "note": "中国電力従量電灯Aと同額。中国電力の基本料金値を参照値として使用。"
-          },
-          "minimum_charge": {
-            "value": null,
-            "currency": "JPY",
-            "unit": "per_month",
-            "note": "未確認。料金定義書で確認予定。"
-          },
-          "tiers": [
-            {
-              "tier_number": 1,
-              "start_kwh": 0,
-              "end_kwh": 15,
-              "unit_price_yen_per_kwh": null,
-              "relative_to_chugoku": null,
-              "note": "未確認。料金定義書で確認予定。"
-            },
-            {
-              "tier_number": 2,
-              "start_kwh": 15,
-              "end_kwh": 120,
-              "unit_price_yen_per_kwh": null,
-              "relative_to_chugoku_yen_per_kwh": -1.39,
-              "note": "中国電力より▲1.39円/kWh。出典：広島市JAでんき案内資料 r3.pptx p.17",
-              "source_file": "広島市　JAでんき案内資料 r3.pptx",
-              "source_page": "17",
-              "source_effective_date": "2026-07"
-            },
-            {
-              "tier_number": 3,
-              "start_kwh": 120,
-              "end_kwh": 300,
-              "unit_price_yen_per_kwh": null,
-              "relative_to_chugoku_yen_per_kwh": -2.71,
-              "note": "中国電力より▲2.71円/kWh。出典：広島市JAでんき案内資料 r3.pptx p.17",
-              "source_file": "広島市　JAでんき案内資料 r3.pptx",
-              "source_page": "17",
-              "source_effective_date": "2026-07"
-            },
-            {
-              "tier_number": 4,
-              "start_kwh": 300,
-              "end_kwh": null,
-              "unit_price_yen_per_kwh": null,
-              "relative_to_chugoku": null,
-              "note": "未確認。料金定義書で確認予定。"
-            }
-          ],
-          "fuel_adjustment": {
-            "status": "unconfirmed",
-            "note": "料金メニュー定義書で確認予定。"
-          },
-          "renewable_levy": {
-            "status": "unconfirmed",
-            "note": "料金メニュー定義書で確認予定。"
-          },
-          "tax": {
-            "status": "unconfirmed",
-            "note": "消費税率の適用時期を確認予定。"
-          },
-          "rounding_rule": {
-            "status": "unconfirmed",
-            "note": "端数処理ルール（切り捨て・四捨五入・切り上げ）を料金定義書で確認予定。"
-          },
-          "sources": [
-            {
-              "document": "広島市　JAでんき案内資料 r3.pptx",
-              "date": "2026-06-23",
-              "size_kb": "8,348",
-              "page_range": "15-18",
-              "contains": [
-                "tier2_relative_price",
-                "tier3_relative_price",
-                "deletion_merit_estimates"
-              ]
-            },
-            {
-              "document": "JAでんき_QA_統合版.docx",
-              "date": "2026-06-23",
-              "size_kb": "50",
-              "contains": ["savings_percentage", "plan_selection_criteria"]
-            }
-          ]
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "32.74"
         },
         {
-          "plan_id": "ja_denki_raten_s",
-          "plan_name": "JAでんき 従量電灯S",
-          "contract_type": "household_low_usage",
-          "applicable_usage": "≤ 217 kWh/month",
-          "effective_from": "2026-10-01",
-          "effective_to": null,
-          "base_charge": {
-            "value": null,
-            "currency": "JPY",
-            "unit": "per_month",
-            "relative_to_chugoku_yen": -89.76,
-            "relative_calculation": "中国電力従量電灯Sより▲89.76円/月（安い）",
-            "note": "相対値のみ確認。中国電力のS基本料金が必要。",
-            "source_file": "広島市　JAでんき案内資料 r3.pptx",
-            "source_page": "17",
-            "source_effective_date": "2026-07"
-          },
-          "minimum_charge": {
-            "value": null,
-            "currency": "JPY",
-            "unit": "per_month",
-            "note": "未確認。料金定義書で確認予定。"
-          },
-          "tiers": [
-            {
-              "tier_number": 1,
-              "start_kwh": 0,
-              "end_kwh": null,
-              "unit_price_yen_per_kwh": null,
-              "note": "未確認。従量電灯S の段階が不明。料金定義書で確認予定。"
-            }
-          ],
-          "fuel_adjustment": {
-            "status": "unconfirmed"
-          },
-          "renewable_levy": {
-            "status": "unconfirmed"
-          },
-          "rounding_rule": {
-            "status": "unconfirmed"
-          },
-          "sources": [
-            {
-              "document": "広島市　JAでんき案内資料 r3.pptx",
-              "date": "2026-06-23",
-              "page_range": "6, 17",
-              "contains": ["base_charge_relative", "plan_description"]
-            }
-          ]
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "39.42"
         },
         {
-          "plan_id": "ja_denki_night_toku",
-          "plan_name": "JAでんき 夜トクプラン",
-          "contract_type": "all_electric",
-          "applicable_usage": "オール電化住宅向け",
-          "effective_from": "2026-10-01",
-          "effective_to": null,
-          "notes": [
-            "昼間・夜間の時間帯別料金制",
-            "料金メニュー定義書で詳細確認予定"
-          ],
-          "status": "under_discovery",
-          "sources": [
-            {
-              "document": "広島市　JAでんき案内資料 r3.pptx",
-              "date": "2026-06-23",
-              "page_range": "6-7",
-              "contains": ["plan_description"]
-            }
-          ]
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "41.54"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "up",
+        "fuelSubtotal": "up",
+        "levySubtotal": "down",
+        "finalTotal": "none"
+      },
+      "sources": [
+        {
+          "document": "☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx",
+          "locator": "'ａｕ＿Ｍプラン料金早見表'!E5:E8",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "time_of_use",
+      "planId": "chugoku_denka_style",
+      "planName": "中国電力 電化Style",
+      "side": "other",
+      "baseChargeUpTo10Kw": "2018.72",
+      "baseChargePerKwOver10": "480.37",
+      "minimumMonthly": null,
+      "unitPrices": {
+        "dayOther": "44.4",
+        "daySummer": "46.46",
+        "night": "30.35",
+        "holiday": "30.35"
+      },
+      "halveBaseWhenNoUsage": true,
+      "allElectricDiscount": null,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx",
+          "locator": "基本項目!E46:E51",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "economy_night",
+      "planId": "chugoku_economy_night",
+      "planName": "中国電力 時間帯別電灯（エコノミーナイト）",
+      "side": "other",
+      "baseChargeUpTo10Kva": "1578.72",
+      "baseChargePerKvaOver10": "480.37",
+      "dayTiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 90,
+          "unitPriceYenPerKwh": "38.22"
         },
         {
-          "plan_id": "ja_denki_low_voltage_power",
-          "plan_name": "JAでんき 低圧電力",
-          "contract_type": "commercial_agricultural",
-          "applicable_usage": "農業用・商用（倉庫等）",
-          "effective_from": "2026-10-01",
-          "effective_to": null,
-          "base_charge": {
-            "value": null,
-            "currency": "JPY",
-            "unit": "per_month",
-            "relative_to_chugoku": "同額（推測）",
-            "note": "料金定義書で確認予定。"
-          },
-          "tiers": [
-            {
-              "tier_number": 2,
-              "unit_price_yen_per_kwh": null,
-              "relative_to_chugoku_yen_per_kwh": -0.74,
-              "note": "中国電力より▲0.74円/kWh",
-              "source_file": "広島市　JAでんき案内資料 r3.pptx",
-              "source_page": "18",
-              "source_effective_date": "2026-07"
-            },
-            {
-              "tier_number": 3,
-              "unit_price_yen_per_kwh": null,
-              "relative_to_chugoku_yen_per_kwh": -1.31,
-              "note": "中国電力より▲1.31円/kWh",
-              "source_file": "広島市　JAでんき案内資料 r3.pptx",
-              "source_page": "18",
-              "source_effective_date": "2026-07"
-            }
-          ],
-          "sources": [
-            {
-              "document": "広島市　JAでんき案内資料 r3.pptx",
-              "date": "2026-06-23",
-              "page_range": "16, 18",
-              "contains": ["tier2_relative", "tier3_relative"]
-            }
-          ]
+          "tierNumber": 2,
+          "startKwh": 90,
+          "endKwh": 220,
+          "unitPriceYenPerKwh": "43.82"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 220,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "44.86"
+        }
+      ],
+      "nightUnitPriceYenPerKwh": "30.34",
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx",
+          "locator": "'時間帯別結果'!I7, F8, F11:F14",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "family_time",
+      "planId": "chugoku_family_1",
+      "planName": "中国電力 ファミリータイムⅠ",
+      "side": "other",
+      "baseChargeUpTo10Kva": "2577.1",
+      "baseChargePerKvaOver10": "481.77",
+      "unitPrices": {
+        "daySummer": "47.38",
+        "dayOther": "42.57",
+        "family": "42.33",
+        "night": "30.34"
+      },
+      "allElectricDiscount": {
+        "rate": "0.08",
+        "capYen": "3300"
+      },
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx",
+          "locator": "'ファミリーⅠ結果'!H7, E8, E10:E13, H15",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "family_time",
+      "planId": "chugoku_family_2",
+      "planName": "中国電力 ファミリータイムⅡ",
+      "side": "other",
+      "baseChargeUpTo10Kva": "1587.1",
+      "baseChargePerKvaOver10": "481.77",
+      "unitPrices": {
+        "daySummer": "50.71",
+        "dayOther": "45.58",
+        "family": "45.34",
+        "night": "30.34"
+      },
+      "allElectricDiscount": {
+        "rate": "0.08",
+        "capYen": "3300"
+      },
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx",
+          "locator": "'ファミリーⅡ結果'!H7, E8, E10:E13, H15",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "chugoku_juryo_a",
+      "planName": "中国電力 従量電灯A",
+      "side": "other",
+      "minimumCharge": "759.68",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "32.75"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "39.43"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "41.55"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "基本項目!E8:E11（規制料金）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "capacity_tiered",
+      "planId": "chugoku_juryo_b",
+      "planName": "中国電力 従量電灯B",
+      "side": "other",
+      "baseChargePerKva": "447.97",
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "30.06"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "36.15"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "38.02"
+        }
+      ],
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "none",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "②JAでんき試算表(VS中電_従量B)26年7月適用.xlsx",
+          "locator": "基本項目!E14:E17",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "demand_seasonal",
+      "planId": "chugoku_low_voltage",
+      "planName": "中国電力 低圧電力",
+      "side": "other",
+      "baseChargePerKw": "1163.92",
+      "summerUnitPriceYenPerKwh": "26.8",
+      "otherUnitPriceYenPerKwh": "25.51",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "⑤JAでんき試算表(VS中電_低圧電力)26年7月適用.xlsx",
+          "locator": "基本項目!E20:E22",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "demand_flat",
+      "planId": "chugoku_midnight_b",
+      "planName": "中国電力 深夜電力B",
+      "side": "other",
+      "baseChargePerKw": "375.92",
+      "unitPriceYenPerKwh": "30.34",
+      "halveTotalWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "⑥JAでんき試算表(VS深夜電力B)26年7月適用.xlsx",
+          "locator": "'深夜電力B'!F7:F8",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "time_of_use",
+      "planId": "chugoku_night_holiday",
+      "planName": "中国電力 ナイトホリデー",
+      "side": "other",
+      "baseChargeUpTo10Kw": null,
+      "baseChargePerKwOver10": null,
+      "minimumMonthly": {
+        "threshold": "1844.7",
+        "bill": "1845"
+      },
+      "unitPrices": {
+        "dayOther": "46.98",
+        "daySummer": "49.44",
+        "night": "34.65",
+        "holiday": "34.65"
+      },
+      "halveBaseWhenNoUsage": true,
+      "allElectricDiscount": null,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx",
+          "locator": "基本項目!S62:S65（単価）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式を同型適用）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "flat_rate",
+      "planId": "chugoku_simple",
+      "planName": "中国電力 シンプルコース",
+      "side": "other",
+      "unitPriceYenPerKwh": "38.21",
+      "minimumMonthlyThreshold": "1844.7",
+      "minimumMonthlyBill": "1845",
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "基本項目!E52:E55（自由料金）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "'シミュレーション結果明細 VSシンプル'!I20（最低月額料金の判定式）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "chugoku_smart",
+      "planName": "中国電力 スマートコース",
+      "side": "other",
+      "minimumCharge": "669.92",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "32.01"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "39.43"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "41.55"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "基本項目!E46:E49（自由料金）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "ja_denki_juryo_a",
+      "planName": "JAでんき 従量電灯A",
+      "side": "ja",
+      "minimumCharge": "759.68",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "32.22"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "38.04"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "38.84"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "基本項目!E26:E29（規制料金）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "capacity_tiered",
+      "planId": "ja_denki_juryo_b",
+      "planName": "JAでんき 従量電灯B",
+      "side": "ja",
+      "baseChargePerKva": "447.97",
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "30.06"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "35.41"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "36.71"
+        }
+      ],
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "none",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "②JAでんき試算表(VS中電_従量B)26年7月適用.xlsx",
+          "locator": "基本項目!E32:E35",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "ja_denki_juryo_s",
+      "planName": "JAでんき 従量電灯S",
+      "side": "ja",
+      "minimumCharge": "669.92",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "31.79"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "39.43"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "41.44"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx",
+          "locator": "基本項目!E58:E61（自由料金）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "demand_seasonal",
+      "planId": "ja_denki_low_voltage",
+      "planName": "JAでんき 低圧電力",
+      "side": "ja",
+      "baseChargePerKw": "1132.83",
+      "summerUnitPriceYenPerKwh": "26.8",
+      "otherUnitPriceYenPerKwh": "25.51",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "⑤JAでんき試算表(VS中電_低圧電力)26年7月適用.xlsx",
+          "locator": "基本項目!E38:E40",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "time_of_use",
+      "planId": "ja_denki_yotoku",
+      "planName": "JAでんき 夜トクプラン",
+      "side": "ja",
+      "baseChargeUpTo10Kw": "1897.72",
+      "baseChargePerKwOver10": "458.37",
+      "minimumMonthly": null,
+      "unitPrices": {
+        "dayOther": "44.4",
+        "daySummer": "46.46",
+        "night": "30.35",
+        "holiday": "30.35"
+      },
+      "halveBaseWhenNoUsage": true,
+      "allElectricDiscount": null,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx",
+          "locator": "基本項目!L46:L51",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
         }
       ]
     }
-  },
-  "reference_data": {
-    "chugoku_electric": {
-      "provider_id": "chugoku_electric",
-      "provider_name": "中国電力",
-      "status": "reference_values_needed",
-      "required_for": [
-        "Converting JAでんき relative prices to absolute prices",
-        "Validation and reconciliation of rate differences"
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "chugoku_juryo_a",
+      "label": "中国電力 従量電灯A",
+      "current_plan_id": "chugoku_juryo_a",
+      "candidate_plan_ids": [
+        "ja_denki_juryo_a",
+        "ja_denki_juryo_s"
       ],
-      "missing_items": [
-        "従量電灯A: 基本料金, 各段階単価",
-        "従量電灯S: 基本料金, 各段階単価",
-        "スマートコース: 各段階単価",
-        "シンプルコース: 各段階単価",
-        "低圧電力: 基本料金, 各段階単価",
-        "燃料費調整: 単価と計算方式",
-        "再エネ賦課金: 単価"
-      ]
-    }
-  },
-  "business_rules": {
-    "plan_selection": {
-      "breakpoint_kwh": 217,
-      "below_breakpoint": "従量電灯S が有利",
-      "above_breakpoint": "従量電灯A が有利",
-      "source": "JAでんき_QA_統合版.docx Q16 + 広島市JAでんき案内資料 r3.pptx p.17"
+      "usage_form": "total",
+      "contract": "none",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx"
     },
-    "savings_estimate": {
-      "value_percent": "3-5%",
-      "against": "中国電力従量電灯A",
-      "varies_by": "使用量（多いほど削減額が大きい）",
-      "source": "JAでんき_QA_統合版.docx Q15"
-    },
-    "campaign": {
-      "name": "新規契約割引キャンペーン",
-      "discount_total_yen": 3000,
-      "distribution": "初期3か月×月1,000円",
-      "cap_if_below_thousand": "その月の料金を上限",
-      "no_carryover": true,
-      "source": "JAでんき_QA_統合版.docx Q22"
-    },
-    "paper_invoice_fee": {
-      "value_yen_per_month": 150,
-      "tax_status": "税別",
-      "note": "メール登録できない場合の選択肢",
-      "source": "JAでんき_QA_統合版.docx Q9"
-    },
-    "payment_method": {
-      "only_supported": "JA貯金口座からの自動引落",
-      "not_supported": [
-        "クレジットカード",
-        "他行口座",
-        "現金払い"
+    {
+      "scenario_id": "chugoku_smart",
+      "label": "中国電力 スマートコース",
+      "current_plan_id": "chugoku_smart",
+      "candidate_plan_ids": [
+        "ja_denki_juryo_a",
+        "ja_denki_juryo_s"
       ],
-      "new_mandate_number_required": true,
-      "note": "既に購買で口座振替利用者も新規依頼書が必要",
-      "source": "JAでんき_QA_統合版.docx Q11"
+      "usage_form": "total",
+      "contract": "none",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx"
     },
-    "supply_start_time": {
-      "duration_months": "1-2",
-      "measured_from": "申込書提出後",
-      "source": "JAでんき_QA_統合版.docx Q12"
+    {
+      "scenario_id": "chugoku_simple",
+      "label": "中国電力 シンプルコース",
+      "current_plan_id": "chugoku_simple",
+      "candidate_plan_ids": [
+        "ja_denki_juryo_a",
+        "ja_denki_juryo_s"
+      ],
+      "usage_form": "total",
+      "contract": "none",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "①JAでんき試算表(VS中電_従量A・スマート・シンプル)26年7月適用.xlsx"
     },
-    "cancellation": {
-      "penalty_yen": 0,
-      "note": "違約金なし。ただし短期反復契約でのポイント狙いは不適切",
-      "source": "JAでんき_QA_統合版.docx Q13"
+    {
+      "scenario_id": "chugoku_juryo_b",
+      "label": "中国電力 従量電灯B",
+      "current_plan_id": "chugoku_juryo_b",
+      "candidate_plan_ids": [
+        "ja_denki_juryo_b"
+      ],
+      "usage_form": "total",
+      "contract": "kva",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "②JAでんき試算表(VS中電_従量B)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_low_voltage",
+      "label": "中国電力 低圧電力",
+      "current_plan_id": "chugoku_low_voltage",
+      "candidate_plan_ids": [
+        "ja_denki_low_voltage"
+      ],
+      "usage_form": "seasonal",
+      "contract": "kw",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "⑤JAでんき試算表(VS中電_低圧電力)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_denka_style",
+      "label": "中国電力 電化Style",
+      "current_plan_id": "chugoku_denka_style",
+      "candidate_plan_ids": [
+        "ja_denki_yotoku"
+      ],
+      "usage_form": "tou",
+      "contract": "kw",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_night_holiday",
+      "label": "中国電力 ナイトホリデー",
+      "current_plan_id": "chugoku_night_holiday",
+      "candidate_plan_ids": [
+        "ja_denki_yotoku"
+      ],
+      "usage_form": "tou",
+      "contract": "kw",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "③JAでんき試算表(VS中電_電化Style・ナイトホリデー)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_midnight_b",
+      "label": "中国電力 深夜電力B",
+      "current_plan_id": "chugoku_midnight_b",
+      "candidate_plan_ids": [
+        "ja_denki_yotoku"
+      ],
+      "usage_form": "total",
+      "contract": "kw",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "all_night",
+      "source_document": "⑥JAでんき試算表(VS深夜電力B)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_family_1",
+      "label": "中国電力 ファミリータイムⅠ",
+      "current_plan_id": "chugoku_family_1",
+      "candidate_plan_ids": [
+        "ja_denki_yotoku"
+      ],
+      "usage_form": "family",
+      "contract": "kva",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "from_family",
+      "source_document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_family_2",
+      "label": "中国電力 ファミリータイムⅡ",
+      "current_plan_id": "chugoku_family_2",
+      "candidate_plan_ids": [
+        "ja_denki_yotoku"
+      ],
+      "usage_form": "family",
+      "contract": "kva",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "from_family",
+      "source_document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "chugoku_economy_night",
+      "label": "中国電力 時間帯別電灯（エコノミーナイト）",
+      "current_plan_id": "chugoku_economy_night",
+      "candidate_plan_ids": [
+        "ja_denki_yotoku"
+      ],
+      "usage_form": "economy_night",
+      "contract": "kva",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "from_economy_night",
+      "source_document": "④JAでんき試算表(VS中電_ファミリー①②・時間帯別)26年7月適用.xlsx"
+    },
+    {
+      "scenario_id": "au_m_plan",
+      "label": "auでんき Mプラン",
+      "current_plan_id": "au_m_plan",
+      "candidate_plan_ids": [
+        "ja_denki_juryo_a",
+        "ja_denki_juryo_s"
+      ],
+      "usage_form": "total",
+      "contract": "none",
+      "fuel_provider": "au",
+      "candidate_usage": "same",
+      "source_document": "☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx"
     }
-  },
-  "data_quality": {
-    "status": "phase2_extraction",
-    "completeness": "partial",
-    "absolute_values_available": false,
-    "relative_values_available": true,
-    "validated_against_source": false,
-    "missing_critical_documents": [
-      "【中国】JAでんき料金メニュー定義書（家庭用）＜20261001＞.pdf",
-      "【中国】JAでんき従量電灯Ｓ料金メニュー定義書（低圧_家庭用）＜20261001＞.pdf",
-      "【中国】JAでんき夜トクプラン料金メニュー定義書（低圧）＜20240401＞.pdf"
-    ],
-    "next_steps": [
-      "料金メニュー定義書PDFの発見（Google Drive詳細検索）",
-      "中国電力料金定義書の入手",
-      "相対値を絶対値に変換",
-      "燃料費調整・再エネ賦課金の詳細確認",
-      "端数処理ルールの確認",
-      "テストケース（150kWh, 300kWh, 400kWh, 900kWh）での検証"
-    ]
-  }
+  ],
+  "monthly_rates": [
+    {
+      "provider": "chugoku",
+      "period": "2026-07",
+      "fuel_minimum_charge_yen": "-143.77",
+      "fuel_unit_price_yen_per_kwh": "-9.57",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-07",
+        "effectiveFrom": "2026-07",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-06",
+      "fuel_minimum_charge_yen": "-146.74",
+      "fuel_unit_price_yen_per_kwh": "-9.76",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-06",
+        "effectiveFrom": "2026-06",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-05",
+      "fuel_minimum_charge_yen": "-147.69",
+      "fuel_unit_price_yen_per_kwh": "-9.83",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-05",
+        "effectiveFrom": "2026-05",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-04",
+      "fuel_minimum_charge_yen": "-171.12",
+      "fuel_unit_price_yen_per_kwh": "-11.39",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-04",
+        "effectiveFrom": "2026-04",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-03",
+      "fuel_minimum_charge_yen": "-217.69",
+      "fuel_unit_price_yen_per_kwh": "-14.5",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-03",
+        "effectiveFrom": "2026-03",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-02",
+      "fuel_minimum_charge_yen": "-219.29",
+      "fuel_unit_price_yen_per_kwh": "-14.6",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-02",
+        "effectiveFrom": "2026-02",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-01",
+      "fuel_minimum_charge_yen": "-152.11",
+      "fuel_unit_price_yen_per_kwh": "-10.12",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2026-01",
+        "effectiveFrom": "2026-01",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-12",
+      "fuel_minimum_charge_yen": "-153.73",
+      "fuel_unit_price_yen_per_kwh": "-10.23",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-12",
+        "effectiveFrom": "2025-12",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-11",
+      "fuel_minimum_charge_yen": "-154.39",
+      "fuel_unit_price_yen_per_kwh": "-10.27",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-11",
+        "effectiveFrom": "2025-11",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-10",
+      "fuel_minimum_charge_yen": "-185.34",
+      "fuel_unit_price_yen_per_kwh": "-12.33",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-10",
+        "effectiveFrom": "2025-10",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-09",
+      "fuel_minimum_charge_yen": "-188.74",
+      "fuel_unit_price_yen_per_kwh": "-12.56",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-09",
+        "effectiveFrom": "2025-09",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-08",
+      "fuel_minimum_charge_yen": "-177.9",
+      "fuel_unit_price_yen_per_kwh": "-11.85",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-08",
+        "effectiveFrom": "2025-08",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-07",
+      "fuel_minimum_charge_yen": "-141.17",
+      "fuel_unit_price_yen_per_kwh": "-9.39",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-07",
+        "effectiveFrom": "2025-07",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-06",
+      "fuel_minimum_charge_yen": "-132.86",
+      "fuel_unit_price_yen_per_kwh": "-8.84",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-06",
+        "effectiveFrom": "2025-06",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-05",
+      "fuel_minimum_charge_yen": "-128.42",
+      "fuel_unit_price_yen_per_kwh": "-8.54",
+      "renewable_levy_yen_per_kwh": "3.98",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-05",
+        "effectiveFrom": "2025-05",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-04",
+      "fuel_minimum_charge_yen": "-145.71",
+      "fuel_unit_price_yen_per_kwh": "-9.7",
+      "renewable_levy_yen_per_kwh": "3.49",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-04",
+        "effectiveFrom": "2025-04",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-03",
+      "fuel_minimum_charge_yen": "-165.63",
+      "fuel_unit_price_yen_per_kwh": "-11.03",
+      "renewable_levy_yen_per_kwh": "3.49",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-03",
+        "effectiveFrom": "2025-03",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-02",
+      "fuel_minimum_charge_yen": "-167.85",
+      "fuel_unit_price_yen_per_kwh": "-11.17",
+      "renewable_levy_yen_per_kwh": "3.49",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-02",
+        "effectiveFrom": "2025-02",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2025-01",
+      "fuel_minimum_charge_yen": "-130.31",
+      "fuel_unit_price_yen_per_kwh": "-8.67",
+      "renewable_levy_yen_per_kwh": "3.49",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-01",
+        "effectiveFrom": "2025-01",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "au",
+      "period": "2026-07",
+      "fuel_minimum_charge_yen": "-196.24",
+      "fuel_unit_price_yen_per_kwh": "-13.09",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "①〜⑥JAでんき試算表 26年7月適用",
+        "locator": "☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx「基本項目」燃料費調整額 2026-07",
+        "effectiveFrom": "2026-07",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    }
+  ]
 }

@@ -14,24 +14,39 @@
 ```
 ja_denki_simulator_web/
 ├── packages/
-│   └── calc-core/               # 共通計算エンジン（10進固定小数）
+│   └── calc-core/               # 計算エンジン（Decimal・8構造）
+│       ├── src/monthlyRates.ts  # ★正本: 燃料費調整額・再エネ賦課金（年×月）
+│       └── tests/               # 156テスト・カバレッジ100%
 ├── apps/
 │   ├── web/                     # Phase A: 静的Webアプリ
-│   └── admin/                   # Phase B: 管理画面（オプション）
+│   │   └── src/data/rates.ts    # ★正本: 全プランの単価と出典
+│   └── admin/                   # Phase B: 改定レビュー画面（未実装）
 ├── services/
-│   └── rate-fetcher/            # Phase B: 料金自動取得ボット
+│   └── rate-fetcher/            # Phase B: 料金取得（未実装）
 ├── data/
-│   ├── rate_master.json         # 料金マスター
-│   ├── source_registry.json     # 出典管理
-│   └── schemas/                 # JSONスキーマ
+│   └── rate_master.json         # 生成物（監査用エクスポート）
+├── scripts/
+│   └── generate-rate-master.ts  # rates.ts → rate_master.json
 ├── docs/
 │   ├── source_inventory.md      # 資料棚卸し
 │   ├── rate_extraction_report.md # ルール抽出
+│   ├── PHASE_6_DESIGN.md        # Phase B 改定レビューの設計
 │   └── IMPLEMENTATION_PLAN.md   # 実装計画
-├── tests/                       # 回帰テスト
-├── scripts/                     # ユーティリティ
-├── reports/                     # テスト結果
-└── sample_data/                 # テスト用サンプル
+└── archive/                     # 元資料のローカルコピー（読み取り専用）
+```
+
+### 料金の正本はどこか
+
+単価の正本は **TypeScript 側**（`apps/web/src/data/rates.ts` と
+`packages/calc-core/src/monthlyRates.ts`）です。型と `Decimal` をそのまま持てるうえ、
+すべての値に出典（ファイル名・シート名・セル番地）が付いた状態でコンパイル時に検証できます。
+
+`data/rate_master.json` は **そこからの生成物**で、監査とフェーズ6の改定レビュー画面が
+読むためのものです。手で編集しても計算には反映されません。
+
+```bash
+npm run rate-master:generate   # 正本から書き出す
+npm run rate-master:check      # 正本とズレていないか検証（CIで実行）
 ```
 
 ## ドキュメント
