@@ -7,7 +7,7 @@ import {
 } from '@ja-denki-simulator/calc-core'
 import {
   DEFAULT_RATE_PERIOD,
-  PERIOD_OPTIONS,
+  periodOptionsFor,
   SCENARIOS,
   findScenario,
   formatCurrency,
@@ -142,6 +142,8 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [dayCounts, setDayCounts] = useState<{ days: string; weekendDays: string; holidayDays: string } | null>(null)
 
   const scenario = findScenario(scenarioId)!
+  // 選択肢は事業者ごとに変わる（燃調の公表時期がずれるため）
+  const periodOptions = periodOptionsFor(scenario)
   const summer = isSummerMonth(period.month)
   const num = (s: string) => (s.trim() === '' ? 0 : Number(s))
 
@@ -259,7 +261,15 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
           <select
             id="scenario"
             value={scenarioId}
-            onChange={e => setScenarioId(e.target.value)}
+            onChange={e => {
+              setScenarioId(e.target.value)
+              // 事業者が変わると選べる月も変わる。選択中の月が新しい選択肢に
+              // 無ければ既定に戻す（選べるのに計算できない状態を作らない）。
+              const next = findScenario(e.target.value)
+              if (next && !periodOptionsFor(next).some(o => o.year === period.year && o.month === period.month)) {
+                setPeriod(DEFAULT_RATE_PERIOD)
+              }
+            }}
             style={{ marginTop: '8px', fontSize: '16px', padding: '10px' }}
           >
             {SCENARIOS.map(s => (
@@ -282,7 +292,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
             }}
             style={{ marginTop: '8px', fontSize: '16px', padding: '10px' }}
           >
-            {PERIOD_OPTIONS.map(p => (
+            {periodOptions.map(p => (
               <option key={`${p.year}-${p.month}`} value={`${p.year}-${p.month}`}>
                 {p.year}年{p.month}月
               </option>

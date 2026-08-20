@@ -56,7 +56,17 @@ export type CalculationOutcome =
 export { SCENARIOS, findScenario, needsCalendar }
 export type { ComparisonScenario }
 
-export const PERIOD_OPTIONS = availablePeriods('chugoku')
+/**
+ * 検針月の選択肢。**シナリオごとに変える必要がある。**
+ *
+ * 燃料費調整額は事業者ごとに公表時期がずれる。中国電力系が 2026-09 まで
+ * 出ていても auでんき は 2026-08 までしか出ていない、といったことが起きる。
+ * 全社共通の一覧を出すと、選べるのに計算できない月が混ざる。
+ */
+export function periodOptionsFor(scenario: ComparisonScenario): RatePeriod[] {
+  return availablePeriods(scenario.fuelProvider)
+}
+
 export const DEFAULT_RATE_PERIOD = DEFAULT_PERIOD
 
 export interface CalculateOptions {

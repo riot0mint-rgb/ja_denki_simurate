@@ -13,7 +13,7 @@
 JAでんき料金比較シミュレータ（Web版）。**11シナリオの「JAでんき VS 他社」比較が実装済み**で、
 公式試算表 Excel の計算式・単価をすべて写し取り、回帰テストで固定してある。
 
-- テスト **193件全通過 / calc-core カバレッジ 100%**
+- テスト **196件全通過 / calc-core カバレッジ 100%**
 - CI グリーン、PR #2（draft・mergeable）
 - 最新コミット: `test: 営業資料に明記された中国電力との差額をテストで固定`
 
@@ -138,6 +138,8 @@ packages/calc-core/src/
 apps/web/src/
   data/rates.ts        全プランの単価＋出典＋シナリオ定義
   services/calculateService.ts  シナリオ解決・使用量の振替・表示用整形
+                                検針月の選択肢は periodOptionsFor(scenario) で
+                                事業者ごとに絞る（燃調の公表時期がずれるため）
   pages/ManualInput.tsx         入力フォーム（構造ごとに切替）
   pages/ComparisonResult.tsx    結果表示
 ```

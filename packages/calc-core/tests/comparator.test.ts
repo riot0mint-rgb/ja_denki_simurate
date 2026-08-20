@@ -225,3 +225,34 @@ describe('ナイトホリデー → JAでんき夜トクプラン', () => {
     expect(at600.greaterThan(0)).toBe(true);
   });
 });
+
+describe('事業者ごとの収録月のずれ', () => {
+  /**
+   * 燃料費調整額は事業者ごとに公表時期がずれる。中国電力系が 2026-09 まで
+   * 出ていても auでんき は 2026-08 までしかない、といったことが起きる。
+   *
+   * 画面の検針月セレクタは `periodOptionsFor(scenario)` でシナリオごとに
+   * 絞る必要がある。全社共通の一覧を出すと、選べるのに計算できない月が混ざる。
+   */
+  it('収録済みの月はどちらの系統も必ず計算できる', () => {
+    for (const provider of ['chugoku', 'au'] as const) {
+      for (const p of availablePeriods(provider)) {
+        expect(lookupFuelAdjustment(p, provider)).not.toBeNull();
+        expect(lookupRenewableLevy(p)).not.toBeNull();
+      }
+    }
+  });
+
+  it('中国電力系にあって auでんき に無い月が存在する', () => {
+    const au = new Set(availablePeriods('au').map(periodKey));
+    const onlyChugoku = availablePeriods('chugoku')
+      .map(periodKey)
+      .filter(k => !au.has(k));
+    expect(onlyChugoku.length).toBeGreaterThan(0);
+  });
+
+  it('既定の対象月は両系統にある', () => {
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'chugoku')).not.toBeNull();
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'au')).not.toBeNull();
+  });
+});
