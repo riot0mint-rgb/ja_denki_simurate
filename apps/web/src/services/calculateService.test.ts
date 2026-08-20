@@ -9,7 +9,8 @@ import {
   findScenario,
   SCENARIOS,
   periodOptionsFor,
-  DEFAULT_RATE_PERIOD
+  DEFAULT_RATE_PERIOD,
+  DISCOUNT_TERMS
 } from './calculateService'
 
 const JULY = { year: 2026, month: 7 }
@@ -109,7 +110,9 @@ describe('従量電灯A の比較', () => {
   it('内訳と出典を持ち回る', () => {
     const v = ok('chugoku_juryo_a', { totalKwh: 348 })
     expect(v.current.formula).toContain('円')
-    expect(v.ratePeriodLabel).toBe('2026年7月適用')
+    expect(v.ratePeriodLabel).toBe('2026年7月')
+    expect(v.unitPriceEffectiveLabel).toBe('2026年7月適用')
+    expect(v.periodPrecedesUnitPrices).toBe(false)
     // 出典は試算表（.xlsx）と各社の公式単価表（URL）の2系統がある
     expect(v.sources.some(s => s.includes('.xlsx'))).toBe(true)
     expect(v.sources.some(s => s.includes('https://'))).toBe(true)
@@ -327,6 +330,41 @@ describe('auでんき', () => {
     const v = ok('au_m_plan', { totalKwh: 348 })
     expect(v.current.planName).toContain('auでんき')
     expect(v.recommended.monthlySavingsYen).toBeLessThan(0)
+  })
+})
+
+// 検針月のセレクタは 2025-01 まで遡れるが、単価は1版しか無い。
+// 「◯年◯月適用の単価による試算」と書くと嘘になる
+describe('検針月と単価の適用月は別物', () => {
+  it('過去月を選ぶと単価より前であることを持ち回る', () => {
+    const v = ok('chugoku_juryo_a', { totalKwh: 348 }, { period: { year: 2025, month: 1 } })
+    expect(v.ratePeriodLabel).toBe('2025年1月')
+    expect(v.unitPriceEffectiveLabel).toBe('2026年7月適用')
+    expect(v.periodPrecedesUnitPrices).toBe(true)
+  })
+
+  it('単価の適用開始以降なら注意は不要', () => {
+    const v = ok('chugoku_juryo_a', { totalKwh: 348 }, { period: { year: 2026, month: 9 } })
+    expect(v.periodPrecedesUnitPrices).toBe(false)
+  })
+})
+
+// ラベルに金額を直書きすると、改定時に計算とずれても CI で気づけない
+describe('画面に出す割引の条件は料金定義から引く', () => {
+  it('ガスセット割の月額が計算と一致する', () => {
+    const without = ok('chugoku_juryo_a', { totalKwh: 348 })
+    const withGas = ok('chugoku_juryo_a', { totalKwh: 348 }, { gasSetDiscount: true })
+    expect(withGas.annualSavingsYen - without.annualSavingsYen).toBe(
+      DISCOUNT_TERMS.gasSetMonthlyYen * 12
+    )
+  })
+
+  it('電化住宅割の率と上限がプラン定義と一致する', () => {
+    const plan = findScenario('chugoku_family_1')!.current
+    const terms = 'allElectricDiscount' in plan ? plan.allElectricDiscount : null
+    expect(terms).not.toBeNull()
+    expect(DISCOUNT_TERMS.allElectric.ratePercent).toBe(terms!.rate.times(100).toNumber())
+    expect(DISCOUNT_TERMS.allElectric.capYen).toBe(terms!.capYen.toNumber())
   })
 })
 

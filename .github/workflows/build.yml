@@ -44,8 +44,15 @@ jobs:
 
       # 試算表そのものはリポジトリに入れていないため、archive/ がある環境でのみ動く。
       # 改定の取り込み時は手元で必ず実行すること（DEPLOY.md「5-1」参照）。
+      # archive/ が無いときだけ省略する。あるのに食い違ったらジョブを落とす
+      # （`cmd || echo` にすると exit 2 を握りつぶして関門が働かない）
       - name: Reconcile with source spreadsheets (if present)
-        run: '[ -d archive ] && npm run rate-intake || echo "archive/ が無いため省略"'
+        run: |
+          if [ -d archive ]; then
+            npm run rate-intake
+          else
+            echo "archive/ が無いため省略"
+          fi
 
       - name: Build web application
         run: npm run build -w @ja-denki-simulator/web

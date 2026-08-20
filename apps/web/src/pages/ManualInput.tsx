@@ -7,6 +7,7 @@ import {
 } from '@ja-denki-simulator/calc-core'
 import {
   DEFAULT_RATE_PERIOD,
+  DISCOUNT_TERMS,
   periodOptionsFor,
   SCENARIOS,
   findScenario,
@@ -548,7 +549,11 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               <NumberField id="famNight" label="ナイトタイム kWh" value={famNight} onChange={setFamNight} />
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0 12px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={allElectric} onChange={e => setAllElectric(e.target.checked)} />
-                <span>電化住宅割を適用する（基本料金＋電力量料金の8%・上限3,300円）</span>
+                <span>
+                  電化住宅割を適用する（基本料金＋電力量料金の
+                  {DISCOUNT_TERMS.allElectric.ratePercent}%・上限
+                  {DISCOUNT_TERMS.allElectric.capYen.toLocaleString()}円）
+                </span>
               </label>
               <TotalBadge total={familyTotal} />
             </>

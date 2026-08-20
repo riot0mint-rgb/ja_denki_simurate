@@ -42,9 +42,11 @@ export interface PlanUnderCheck {
 export interface LocatorResult {
   document: string
   locator: string
-  status: 'read' | 'unresolvable' | 'not-a-spreadsheet'
+  status: 'read' | 'partial' | 'unresolvable' | 'not-a-spreadsheet'
   sheetValues: number[]
   formulaLiterals: number[]
+  /** 飛び地のうち読めなかった範囲。書式変更の手がかりになる */
+  unreadRanges: string[]
 }
 
 export interface PlanIntakeResult {
@@ -103,24 +105,48 @@ export function checkPlan(plan: PlanUnderCheck, read: RangeReader): PlanIntakeRe
     const parsed = parseLocator(source.locator)
     if (!parsed) {
       // URL や書名だけの出典。試算表ではないので突合の対象外
-      locators.push({ ...source, status: 'not-a-spreadsheet', sheetValues: [], formulaLiterals: [] })
+      locators.push({
+        ...source,
+        status: 'not-a-spreadsheet',
+        sheetValues: [],
+        formulaLiterals: [],
+        unreadRanges: []
+      })
       continue
     }
-    // 飛び地の範囲は 1 つでも読めれば読めたものとして扱い、読めた分だけを突合に使う
-    const read_ = parsed.ranges.map(range => read(source.document, parsed.sheet, range))
-    const cells = read_.filter((c): c is CellRange => c !== null)
+    // 飛び地は読めた分だけを突合に使う。ただし読めなかった範囲は必ず残す。
+    // 一部だけ読めた状態を 'read' と言い切ると、**書式変更を単価改定と読み違えて**
+    // rates.ts を誤った値に「合わせて」しまう
+    const attempts = parsed.ranges.map(range => ({
+      range,
+      cells: read(source.document, parsed.sheet, range)
+    }))
+    const cells = attempts.map(a => a.cells).filter((c): c is CellRange => c !== null)
+    const unreadRanges = attempts.filter(a => a.cells === null).map(a => a.range)
     if (cells.length === 0) {
-      locators.push({ ...source, status: 'unresolvable', sheetValues: [], formulaLiterals: [] })
+      locators.push({
+        ...source,
+        status: 'unresolvable',
+        sheetValues: [],
+        formulaLiterals: [],
+        unreadRanges
+      })
       continue
     }
     const values = cells.flatMap(c => c.values)
     const literals = cells.flatMap(c => c.formulaLiterals)
-    locators.push({ ...source, status: 'read', sheetValues: values, formulaLiterals: literals })
+    locators.push({
+      ...source,
+      status: unreadRanges.length > 0 ? 'partial' : 'read',
+      sheetValues: values,
+      formulaLiterals: literals,
+      unreadRanges
+    })
     sheetValues.push(...values)
     formulaLiterals.push(...literals)
   }
 
-  const readable = locators.filter(l => l.status === 'read')
+  const readable = locators.filter(l => l.status === 'read' || l.status === 'partial')
   if (readable.length === 0) {
     const anySpreadsheet = locators.some(l => l.status === 'unresolvable')
     return {
@@ -140,10 +166,12 @@ export function checkPlan(plan: PlanUnderCheck, read: RangeReader): PlanIntakeRe
   // 数式の定数はその月の試算値も混ざるため、余剰の報告はセルの値だけを対象にする
   const extraInSheet = sheetValues.filter(v => !planKeys.has(key(v)))
 
+  // 一部の範囲が読めていないなら、値が揃って見えても「一致」とは言わない
+  const partial = locators.some(l => l.status === 'partial')
   return {
     planId: plan.planId,
     planName: plan.planName,
-    status: missingInSheet.length === 0 ? 'match' : 'mismatch',
+    status: missingInSheet.length === 0 && !partial ? 'match' : 'mismatch',
     locators,
     missingInSheet: Array.from(new Set(missingInSheet)),
     extraInSheet: Array.from(new Set(extraInSheet))
@@ -201,10 +229,13 @@ export function renderIntakeReport(report: IntakeReport, label: string): string 
 
     // 読める番地が1つでもあれば不一致として扱うが、読めなかった番地は必ず挙げる。
     // 「番地が動いた」ことが原因のときは、そこが診断の要になる
-    const broken = plan.locators.filter(l => l.status === 'unresolvable')
+    const broken = plan.locators.filter(l => l.unreadRanges.length > 0)
     if (broken.length > 0) {
       lines.push('**読めなかった番地があります。シートの書式が変わった可能性があります。**', '')
-      for (const l of broken) lines.push(`- \`${l.locator}\` — ${l.document}`)
+      lines.push('単価の改定と読み違えないでください。元資料を開いて番地を確認してください。', '')
+      for (const l of broken) {
+        lines.push(`- \`${l.locator}\` のうち ${l.unreadRanges.join(', ')} — ${l.document}`)
+      }
       lines.push('')
     }
 
@@ -216,7 +247,8 @@ export function renderIntakeReport(report: IntakeReport, label: string): string 
       lines.push(`| ${plan.missingInSheet[i] ?? '—'} | ${plan.extraInSheet[i] ?? '—'} |`)
     }
     lines.push('')
-    lines.push(`読んだ番地: ${plan.locators.filter(l => l.status === 'read').map(l => `\`${l.locator}\``).join(' / ')}`)
+    const readLocators = plan.locators.filter(l => l.status === 'read' || l.status === 'partial')
+    lines.push(`読んだ番地: ${readLocators.map(l => `\`${l.locator}\``).join(' / ')}`)
     lines.push(`その範囲の全値: ${sheet.join(', ')}`)
     if (literals.length > 0) lines.push(`数式に現れる定数: ${literals.join(', ')}`)
     lines.push('')

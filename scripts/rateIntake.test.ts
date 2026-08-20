@@ -157,11 +157,26 @@ describe('飛び地の範囲', () => {
     expect(r.status).toBe('match')
   })
 
-  it('一部の範囲しか読めなくても、読めた分で突合する', () => {
+  // 一部だけ読めた状態を「一致」と言い切ると、書式変更を単価改定と読み違えて
+  // rates.ts を誤った値に「合わせて」しまう
+  it('一部の範囲しか読めなければ partial として扱う', () => {
     const r = checkPlan(family, reader({ 'ファミリーⅡ結果!E8': { values: [1578.72] } }))
     expect(r.status).toBe('mismatch')
-    expect(r.locators[0].status).toBe('read')
+    expect(r.locators[0].status).toBe('partial')
+    expect(r.locators[0].unreadRanges).toEqual(['E10:E11'])
     expect(r.missingInSheet).toEqual(['46.46', '30.35'])
+  })
+
+  it('値が揃って見えても、読めない範囲があれば一致とは言わない', () => {
+    // 読めた範囲だけで実装の値がすべて説明できてしまうケース
+    const plan2 = plan({
+      values: ['1578.72'],
+      sources: [{ document: XLSX, locator: "'ファミリーⅡ結果'!E8, E10:E11" }]
+    })
+    const r = checkPlan(plan2, reader({ 'ファミリーⅡ結果!E8': { values: [1578.72] } }))
+    expect(r.missingInSheet).toEqual([])
+    expect(r.status).toBe('mismatch')
+    expect(r.locators[0].unreadRanges).toEqual(['E10:E11'])
   })
 
   it('どの範囲も読めなければ解決不能', () => {
@@ -211,7 +226,7 @@ describe('番地が解決できないとき（CLAUDE.md ルール8）', () => {
     expect(r.locators[0].status).toBe('unresolvable')
   })
 
-  it('読める番地が1つでもあれば突合は進めるが、読めなかった番地を残す', () => {
+  it('読める出典が1つでもあれば突合は進めるが、読めなかった出典を残す', () => {
     const two = plan({
       sources: [
         { document: XLSX, locator: '基本項目!E26:E29' },
@@ -219,6 +234,7 @@ describe('番地が解決できないとき（CLAUDE.md ルール8）', () => {
       ]
     })
     const r = checkPlan(two, reader(E26))
+    // 出典まるごと読めないのは「別の出典」なので match のまま
     expect(r.status).toBe('match')
     expect(r.locators.map(l => l.status)).toEqual(['read', 'unresolvable'])
   })
@@ -285,17 +301,14 @@ describe('レポート', () => {
     expect(renderIntakeReport(report, label)).toContain('数式に現れる定数: 1844.7, 1845')
   })
 
-  it('読めなかった番地は不一致のときも必ず挙げる', () => {
-    const two = plan({
-      values: ['33.00'],
-      sources: [
-        { document: XLSX, locator: '基本項目!E26:E29' },
-        { document: XLSX, locator: '基本項目!ZZ900:ZZ903' }
-      ]
+  it('飛び地の一部が読めなければ番地を挙げて改定と読み違えないよう促す', () => {
+    const partial = plan({
+      sources: [{ document: XLSX, locator: '基本項目!E26:E29, ZZ900:ZZ903' }]
     })
-    const out = renderIntakeReport(runIntake([two], reader(E26)), label)
+    const out = renderIntakeReport(runIntake([partial], reader(E26)), label)
     expect(out).toContain('読めなかった番地があります')
     expect(out).toContain('ZZ900:ZZ903')
+    expect(out).toContain('単価の改定と読み違えないでください')
   })
 
   it('解決不能は書式変更を疑うよう促す', () => {

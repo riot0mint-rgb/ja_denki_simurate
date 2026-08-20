@@ -36,7 +36,12 @@ export interface PlanResult {
 
 export interface ComparisonView {
   scenarioId: string
+  /** 検針月（燃料費調整額・再エネ賦課金がこの月のもの） */
   ratePeriodLabel: string
+  /** 単価そのものの適用開始。検針月とは別に動く */
+  unitPriceEffectiveLabel: string
+  /** 検針月が単価の適用開始より前か。過去月の試算で起きる */
+  periodPrecedesUnitPrices: boolean
   totalKwh: number
   current: PlanResult
   candidates: PlanResult[]
@@ -68,6 +73,25 @@ export function periodOptionsFor(scenario: ComparisonScenario): RatePeriod[] {
 }
 
 export const DEFAULT_RATE_PERIOD = DEFAULT_PERIOD
+
+/**
+ * 画面に出す割引の条件。金額をラベルに直書きすると改定時に計算とずれる。
+ * 電化住宅割はプラン定義（④結果シート H15）、セット割は①I20 が正。
+ */
+export const DISCOUNT_TERMS = {
+  gasSetMonthlyYen: GAS_SET_DISCOUNT_MONTHLY.toNumber(),
+  allElectric: (() => {
+    const plan = SCENARIOS.map(s => s.current).find(
+      p => 'allElectricDiscount' in p && p.allElectricDiscount !== null
+    )
+    const terms =
+      plan && 'allElectricDiscount' in plan ? plan.allElectricDiscount : null
+    return {
+      ratePercent: terms ? terms.rate.times(100).toNumber() : 0,
+      capYen: terms ? terms.capYen.toNumber() : 0
+    }
+  })()
+}
 
 export interface CalculateOptions {
   period?: RatePeriod
@@ -110,6 +134,32 @@ function billOf(
     : { ok: false, reason: result.reason, nextSteps: result.nextSteps }
 }
 
+/**
+ * 単価の適用開始と検針月の関係を出す。
+ *
+ * 検針月のセレクタは 2025-01 まで遡れるが、これは元資料の燃調テーブルが
+ * 年×月で 2024〜2034 を持っているため（①「基本項目」H5:K25）。
+ * **単価そのものは1版しか無い。** 過去月を選んでも動くのは燃調と賦課金だけなので、
+ * 画面と印刷物ではそれが分かる書き方にする。
+ */
+function unitPriceEffectiveness(
+  sources: Array<{ effectiveFrom: string }>,
+  period: RatePeriod
+): { label: string; precedes: boolean } {
+  const months = sources
+    .map(s => s.effectiveFrom)
+    .filter(v => /^\d{4}-\d{2}$/.test(v))
+    .sort()
+  const latest = months[months.length - 1]
+  if (!latest) return { label: '不明', precedes: false }
+  const [year, month] = latest.split('-').map(Number)
+  const asNumber = (y: number, m: number) => y * 12 + m
+  return {
+    label: `${year}年${month}月適用`,
+    precedes: asNumber(period.year, period.month) < asNumber(year, month)
+  }
+}
+
 export function calculateComparison(
   scenarioId: string,
   usage: UsageInput,
@@ -148,6 +198,13 @@ export function calculateComparison(
     candidateBills.push(b.bill)
   }
 
+  // 単価は1版しか持っていない（26年7月適用）。月を変えて動くのは
+  // 燃料費調整額と再エネ賦課金だけ。「◯年◯月適用の単価」と書くと嘘になる
+  const effective = unitPriceEffectiveness(
+    [scenario.current, ...scenario.candidates].flatMap(p => p.sources),
+    period
+  )
+
   const gasSetDiscountApplied = options.gasSetDiscount === true
   const discounts: DiscountTerms = {
     gasSetDiscountMonthly: gasSetDiscountApplied ? GAS_SET_DISCOUNT_MONTHLY : new Decimal('0'),
@@ -176,7 +233,9 @@ export function calculateComparison(
     status: 'ok',
     view: {
       scenarioId,
-      ratePeriodLabel: `${period.year}年${period.month}月適用`,
+      ratePeriodLabel: `${period.year}年${period.month}月`,
+      unitPriceEffectiveLabel: effective.label,
+      periodPrecedesUnitPrices: effective.precedes,
       totalKwh: currentBill.bill.totalKwh.toNumber(),
       current: {
         planId: currentBill.bill.planId,

@@ -123,14 +123,29 @@ describe('PDF保存・印刷', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
     const line = screen.getByText(/試算日:/)
     expect(line).toHaveClass('print-only')
-    expect(line.textContent).toContain('2026年7月適用')
+    expect(line.textContent).toContain('検針月: 2026年7月')
+    expect(line.textContent).toContain('単価: 2026年7月適用')
   })
 })
 
 describe('結果画面（つづき）', () => {
-  it('注意書きに対象月と未計上項目を書く', () => {
+  it('注意書きに検針月・単価の適用月・未計上項目を書く', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
-    expect(screen.getByText(/2026年7月適用の単価による試算です/)).toBeInTheDocument()
+    expect(screen.getByText(/2026年7月適用の単価に/)).toBeInTheDocument()
+    expect(screen.getByText(/2026年7月の燃料費調整額・再エネ賦課金/)).toBeInTheDocument()
     expect(screen.getByText(/検針票発行手数料/)).toBeInTheDocument()
+  })
+
+  // 単価は1版しか無いので、過去月を選ぶと実際の請求額とは違う
+  it('単価の適用開始より前の月では注意を足す', () => {
+    render(
+      <ComparisonResult
+        scenarioId="chugoku_juryo_a"
+        usage={{ totalKwh: 348 }}
+        period={{ year: 2025, month: 1 }}
+        onBack={() => {}}
+      />
+    )
+    expect(screen.getByText(/単価の適用開始より前のため、実際の請求額とは異なります/)).toBeInTheDocument()
   })
 })

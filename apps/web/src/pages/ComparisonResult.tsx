@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
-import { calculateComparison, formatCurrency, formatPercentage } from '../services/calculateService'
+import {
+  DISCOUNT_TERMS,
+  calculateComparison,
+  formatCurrency,
+  formatPercentage
+} from '../services/calculateService'
 
 interface ComparisonResultProps {
   scenarioId: string;
@@ -95,7 +100,8 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
         <div style={cardStyle}>
           <h3 style={{ marginBottom: '4px' }}>料金比較表</h3>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            {v.ratePeriodLabel} ／ ご使用量 {v.totalKwh.toLocaleString()} kWh
+            検針月 {v.ratePeriodLabel} ／ 単価 {v.unitPriceEffectiveLabel} ／ ご使用量{' '}
+            {v.totalKwh.toLocaleString()} kWh
           </p>
           <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
             <thead>
@@ -156,7 +162,7 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
         <div style={cardStyle} className={gasSet ? undefined : 'print-hide'}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
             <input type="checkbox" checked={gasSet} onChange={e => setGasSet(e.target.checked)} />
-            <span>ガスとでんきのセット割を適用する（月110円）</span>
+            <span>ガスとでんきのセット割を適用する（月{DISCOUNT_TERMS.gasSetMonthlyYen}円）</span>
           </label>
         </div>
 
@@ -190,13 +196,17 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
         {/* 紙で受け取った人が「いつ時点の試算か」を判断できるようにする。
             日付は個人情報ではなく、印刷物の有効期限の目安として必要 */}
         <p className="print-only" style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-          試算日: {new Date().toLocaleDateString('ja-JP')} ／ 適用単価: {v.ratePeriodLabel}
+          試算日: {new Date().toLocaleDateString('ja-JP')} ／ 検針月: {v.ratePeriodLabel} ／ 単価:{' '}
+          {v.unitPriceEffectiveLabel}
         </p>
 
         <div style={{ marginBottom: '20px', padding: '15px', background: '#fef3c7', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
           <p style={{ fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
-            <strong>注意:</strong> {v.ratePeriodLabel}の単価による試算です。
+            <strong>注意:</strong> {v.unitPriceEffectiveLabel}の単価に、
+            {v.ratePeriodLabel}の燃料費調整額・再エネ賦課金を当てた試算です。
             燃料費調整額・再エネ賦課金は毎月改定されます。
+            {v.periodPrecedesUnitPrices &&
+              `なお ${v.ratePeriodLabel} は単価の適用開始より前のため、実際の請求額とは異なります。`}
             検針票発行手数料（1契約55円）やポイント還元は含んでいません。
             正確な金額は営業担当までお問い合わせください。
           </p>
