@@ -4,10 +4,12 @@
  * 実装当初の単価はすべて JAでんき公式試算表からの転記で、出典が試算表1本しかなかった。
  * 2026-08-20 に下記を直接取得して全プランを照合した結果をここに固定する。
  *
- *   中国電力 電気料金単価表（電灯）
- *     https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html
- *   中国電力 電気料金単価表（電灯・電力 サービス約款）
- *     https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html
+ *   中国電力 電気料金単価表（電灯）        pricelist1.html
+ *   中国電力 電気料金単価表（電灯・選択約款） pricelist2.html
+ *   中国電力 電気料金単価表（電力）         pricelist3.html
+ *   中国電力 電気料金単価表（電力・選択約款） pricelist4.html
+ *   中国電力 電気料金単価表（電灯・電力 サービス約款） pricelist5.html
+ *     https://www.energia.co.jp/elec/h_menu/pricelist/
  *   JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定
  *     https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf
  *
@@ -46,7 +48,34 @@ const OFFICIAL = {
     daySummer: 46.46,
     dayOther: 44.4,
     night: 30.35
-  }
+  },
+  /** 規制料金の「低圧電力」。自由料金の「動力コース」1,152.44円/kW とは別メニュー。 */
+  chugokuLowVoltage: { basePerKw: 1163.92, summer: 26.8, other: 25.51 },
+  chugokuFamilyTime1: {
+    baseUpTo10Kva: 2577.1,
+    basePerKvaOver10: 481.77,
+    daySummer: 47.38,
+    dayOther: 42.57,
+    family: 42.33,
+    night: 30.34
+  },
+  chugokuFamilyTime2: {
+    baseUpTo10Kva: 1587.1,
+    basePerKvaOver10: 481.77,
+    daySummer: 50.71,
+    dayOther: 45.58,
+    family: 45.34,
+    night: 30.34
+  },
+  chugokuEconomyNight: {
+    baseUpTo10Kva: 1578.72,
+    basePerKvaOver10: 480.37,
+    dayTiers: [38.22, 43.82, 44.86],
+    night: 30.34
+  },
+  chugokuMidnightB: { basePerKw: 375.92, unitPrice: 30.34 },
+  /** 電化住宅割引は基本料金+電力量料金の 8%、上限 3,300円。 */
+  allElectricDiscount: { rate: 0.08, capYen: 3300 }
 } as const;
 
 const tierPrices = (plan: { tiers: { unitPriceYenPerKwh: { toNumber(): number } }[] }) =>
@@ -73,6 +102,55 @@ describe('中国電力 公式単価表との突合', () => {
   it('従量電灯B（規制料金）', () => {
     expect(F.chugokuJuryoB.baseChargePerKva.toNumber()).toBe(OFFICIAL.chugokuJuryoB.basePerKva);
     expect(tierPrices(F.chugokuJuryoB)).toEqual([...OFFICIAL.chugokuJuryoB.tiers]);
+  });
+
+  it('低圧電力（規制料金）', () => {
+    const o = OFFICIAL.chugokuLowVoltage;
+    expect(F.chugokuLowVoltage.baseChargePerKw.toNumber()).toBe(o.basePerKw);
+    expect(F.chugokuLowVoltage.summerUnitPriceYenPerKwh.toNumber()).toBe(o.summer);
+    expect(F.chugokuLowVoltage.otherUnitPriceYenPerKwh.toNumber()).toBe(o.other);
+  });
+
+  it('ファミリータイム プランⅠ（選択約款）', () => {
+    const o = OFFICIAL.chugokuFamilyTime1;
+    expect(F.chugokuFamilyTime1.baseChargeUpTo10Kva.toNumber()).toBe(o.baseUpTo10Kva);
+    expect(F.chugokuFamilyTime1.baseChargePerKvaOver10.toNumber()).toBe(o.basePerKvaOver10);
+    expect(F.chugokuFamilyTime1.unitPrices.daySummer.toNumber()).toBe(o.daySummer);
+    expect(F.chugokuFamilyTime1.unitPrices.dayOther.toNumber()).toBe(o.dayOther);
+    expect(F.chugokuFamilyTime1.unitPrices.family.toNumber()).toBe(o.family);
+    expect(F.chugokuFamilyTime1.unitPrices.night.toNumber()).toBe(o.night);
+  });
+
+  it('ファミリータイム プランⅡ（選択約款）', () => {
+    const o = OFFICIAL.chugokuFamilyTime2;
+    expect(F.chugokuFamilyTime2.baseChargeUpTo10Kva.toNumber()).toBe(o.baseUpTo10Kva);
+    expect(F.chugokuFamilyTime2.baseChargePerKvaOver10.toNumber()).toBe(o.basePerKvaOver10);
+    expect(F.chugokuFamilyTime2.unitPrices.daySummer.toNumber()).toBe(o.daySummer);
+    expect(F.chugokuFamilyTime2.unitPrices.dayOther.toNumber()).toBe(o.dayOther);
+    expect(F.chugokuFamilyTime2.unitPrices.family.toNumber()).toBe(o.family);
+    expect(F.chugokuFamilyTime2.unitPrices.night.toNumber()).toBe(o.night);
+  });
+
+  it('時間帯別電灯 エコノミーナイト（選択約款）', () => {
+    const o = OFFICIAL.chugokuEconomyNight;
+    expect(F.chugokuEconomyNight.baseChargeUpTo10Kva.toNumber()).toBe(o.baseUpTo10Kva);
+    expect(F.chugokuEconomyNight.baseChargePerKvaOver10.toNumber()).toBe(o.basePerKvaOver10);
+    expect(
+      F.chugokuEconomyNight.dayTiers.map(x => x.unitPriceYenPerKwh.toNumber())
+    ).toEqual([...o.dayTiers]);
+    expect(F.chugokuEconomyNight.nightUnitPriceYenPerKwh.toNumber()).toBe(o.night);
+  });
+
+  it('深夜電力B（電力・選択約款）', () => {
+    const o = OFFICIAL.chugokuMidnightB;
+    expect(F.chugokuMidnightB.baseChargePerKw.toNumber()).toBe(o.basePerKw);
+    expect(F.chugokuMidnightB.unitPriceYenPerKwh.toNumber()).toBe(o.unitPrice);
+  });
+
+  it('電化住宅割引（ファミリータイム）', () => {
+    const o = OFFICIAL.allElectricDiscount;
+    expect(F.chugokuFamilyTime1.allElectricDiscount!.rate.toNumber()).toBe(o.rate);
+    expect(F.chugokuFamilyTime1.allElectricDiscount!.capYen.toNumber()).toBe(o.capYen);
   });
 
   it('電化Styleコース（サービス約款）', () => {
@@ -168,5 +246,14 @@ describe('営業資料の値引き幅が一次資料どうしの差と一致す�
       F.chugokuDenkaStyle.baseChargeUpTo10Kw!.toNumber() -
       F.jaDenkiYotoku.baseChargeUpTo10Kw!.toNumber();
     expect(diff).toBeCloseTo(121.0, 10);
+  });
+
+  it('低圧電力 基本料金 ▲31.09円/kW', () => {
+    // 比較対象が規制料金「低圧電力」(1,163.92) であることの裏付け。
+    // 自由料金「動力コース」(1,152.44) を基準にすると ▲19.61 になり営業資料と合わない。
+    const diff =
+      F.chugokuLowVoltage.baseChargePerKw.toNumber() -
+      F.jaDenkiLowVoltage.baseChargePerKw.toNumber();
+    expect(diff).toBeCloseTo(31.09, 10);
   });
 });
