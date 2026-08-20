@@ -18,9 +18,11 @@
     "rate-master:generate": "tsx scripts/generate-rate-master.ts",
     "rate-master:check": "tsx scripts/generate-rate-master.ts --check",
     "rate-master:diff": "tsx scripts/rate-master-diff.ts",
-    "test:scripts": "vitest run"
+    "test:scripts": "vitest run",
+    "rate-intake": "tsx scripts/rate-intake.ts"
   },
   "devDependencies": {
+    "exceljs": "^4.4.0",
     "tsx": "^4.23.12"
   },
   "engines": {

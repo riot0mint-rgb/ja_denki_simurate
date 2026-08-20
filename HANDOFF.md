@@ -100,11 +100,17 @@ WebFetch https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html
 **代替手段**: Google Drive は問題なく読める。ユーザーにPDFをDriveへ置いてもらえば
 ネットワークなしで進められる（試算表もこの方法で入手した）。
 
-### フェーズ6の残り（資料の入手を待たずに進められる）
+### 10月改定が来たらやること
 
-`scripts/rate-intake.ts` — 新しい試算表 xlsx を読み `rates.ts` の改定案を出す。
-現状は Excel の解読を対話的にやっている。これを再実行可能にする。
-設計と受け入れ条件は `docs/PHASE_6_DESIGN.md` の「3. 実装状況 / ⏳ 未実装」。
+```bash
+npm run rate-intake -- <新しい試算表のディレクトリ>
+```
+
+実装の単価がどこで食い違うかが出る。不一致があれば `rates.ts` を直し、
+`npm run rate-master:generate` → `npm test` → `npm run rate-master:diff` の順に回して
+差分レポートを PR 本文に貼る。手順は DEPLOY.md「5-1. 料金改定の反映手順」。
+
+**番地が読めない**と出たら、シートの書式が変わっている。推測で埋めずに元資料を開くこと。
 
 ### 資料が取れたらやること
 
@@ -173,6 +179,7 @@ npm run type-check
 npm run rate-master:generate # 正本から料金マスターJSONを書き出す
 npm run rate-master:check    # 正本とズレていないか（CIで実行）
 npm run rate-master:diff     # 改定差分レポート（PR本文用）
+npm run rate-intake          # 試算表と実装の突合（改定の検出）
 ```
 
 ### 設計上の判断（変更する前に理由を確認すること）

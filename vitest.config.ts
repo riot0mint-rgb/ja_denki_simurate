@@ -11,7 +11,7 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       provider: 'v8',
-      include: ['scripts/rateMasterDiff.ts'],
+      include: ['scripts/rateMasterDiff.ts', 'scripts/rateIntake.ts'],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 }
     }
   }
