@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev -w @ja-denki-simulator/web",
     "build": "npm run build -w @ja-denki-simulator/calc-core && npm run build -w @ja-denki-simulator/web",
+    "build:all": "npm run build",
     "test": "npm test -w @ja-denki-simulator/calc-core",
     "test:coverage": "npm run test:coverage -w @ja-denki-simulator/calc-core",
     "preview": "npm run preview -w @ja-denki-simulator/web",

@@ -22,7 +22,8 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ja-denki-simulator/calc-core": ["../../packages/calc-core/dist/index.d.ts"]
     }
   },
   "include": ["src"]
