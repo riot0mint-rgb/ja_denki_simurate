@@ -144,11 +144,25 @@ describe('月次レート表', () => {
   it('収録月は新しい順に並び、賦課金も揃っている', () => {
     const periods = availablePeriods();
     expect(periods.length).toBeGreaterThan(0);
-    expect(periodKey(periods[0])).toBe('2026-07');
+    // 中国電力系は全農エネルギーのお知らせから 2026-09 まで収録している。
+    expect(periodKey(periods[0])).toBe('2026-09');
     for (const p of periods) {
       expect(lookupFuelAdjustment(p)).not.toBeNull();
       expect(lookupRenewableLevy(p)).not.toBeNull();
     }
+  });
+
+  it('既定の対象月は全事業者がそろう最新月', () => {
+    // 中国電力系だけ先に進めると auでんきのシナリオが計算不可になるため、
+    // 既定は両方そろっている月に合わせてある。
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'chugoku')).not.toBeNull();
+    expect(lookupFuelAdjustment(DEFAULT_PERIOD, 'au')).not.toBeNull();
+  });
+
+  it('中国電力系のほうが auでんきより先の月まで収録している', () => {
+    const chugoku = availablePeriods('chugoku');
+    const au = availablePeriods('au');
+    expect(periodKey(chugoku[0]) > periodKey(au[0])).toBe(true);
   });
 
   it('auでんきの収録月も引ける', () => {
