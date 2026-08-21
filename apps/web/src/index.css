@@ -726,6 +726,265 @@ details.card[open] > summary::before {
   }
 }
 
+/* ── 商談ナビ ─────────────────────────────────────────────── */
+
+/* 商談のどこにいるか。お客様の前で自分の位置を見失わないための帯 */
+.stage-rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stage-chip {
+  flex: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-3);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stage-chip.is-done {
+  color: var(--green-deep);
+  border-color: var(--field-line);
+  background: var(--field);
+}
+
+.stage-chip.is-on {
+  color: #ffffff;
+  background: var(--green);
+  border-color: var(--green);
+}
+
+/* 聞き取った内容の要約。1行に収める */
+.situation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--field);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/*
+ * 読み上げる言葉。ここだけは目で追って声に出せる大きさにする。
+ * 小さいと現場で読めず、台本として機能しない
+ */
+.say {
+  background: var(--field);
+  border-left: 4px solid var(--green);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.say-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green-deep);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.say-line {
+  font-size: 16.5px;
+  line-height: 1.85;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.say-line + .say-line {
+  margin-top: 8px;
+}
+
+/* なぜそう言うのか。台本だけ渡すと棒読みになるので必ず添える */
+.why {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--ink-2);
+}
+
+.why strong {
+  color: var(--ink);
+}
+
+/* 言ってはいけないこと。ここだけ暖色で、見落とさせない */
+.avoid {
+  margin-top: 12px;
+  background: var(--warn-bg);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.avoid-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn-ink);
+  margin-bottom: 6px;
+}
+
+.avoid ul,
+.never-say ul,
+.checklist {
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--ink-2);
+}
+
+.avoid li {
+  color: var(--warn-ink);
+}
+
+.checklist li + li {
+  margin-top: 4px;
+}
+
+.checklist-input {
+  list-style: none;
+  padding-left: 0;
+}
+
+.checklist-input label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+  padding: 7px 0;
+  line-height: 1.7;
+}
+
+.checklist-input input {
+  margin-top: 4px;
+  flex: none;
+}
+
+/* ヒアリングの選択肢。指で押せる大きさにする */
+.choice-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (min-width: 560px) {
+  .choice-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+.choice-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 13px 14px;
+  cursor: pointer;
+  text-align: left;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.choice-btn:hover:not(.is-on) {
+  background: var(--field);
+}
+
+.choice-btn.is-on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+}
+
+/* この回答があとで何に効くか */
+.implication {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--green-deep);
+  font-weight: 600;
+}
+
+/* 反論カード。お客様の言葉のまま並べる */
+.objection > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.objection > summary::-webkit-details-marker {
+  display: none;
+}
+
+.objection-said {
+  flex: 1;
+}
+
+.objection.is-likely {
+  border-color: var(--gold-500);
+}
+
+.card-warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-ink);
+}
+
+.card-warn .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--warn-ink);
+}
+
+.never-say > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn-ink);
+  list-style: none;
+}
+
+.never-say > summary::-webkit-details-marker {
+  display: none;
+}
+
+@media print {
+  /* 紙に出すのは台本ではなくお客様向けの試算。ナビは出さない */
+  .stage-rail,
+  .never-say {
+    display: none;
+  }
+}
+
 /* ── 1年ぶんの見積もり方の切り替え ─────────────────────────── */
 
 .method-switch {

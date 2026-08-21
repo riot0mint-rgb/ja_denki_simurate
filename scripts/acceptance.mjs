@@ -332,6 +332,49 @@ async function runDetailed(page, scenario, usage = '348', period) {
   await ctx.close()
 }
 
+// ───────────────────────────────────────────────────────────
+// A10: 商談ナビ — 素人が読み上げられる言葉が出て、押し売りに倒れない
+// ───────────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } })
+  const page = await ctx.newPage()
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  const rail = page.getByRole('navigation', { name: '商談の進み方' })
+
+  // 導入に、そのまま声に出せる言葉が出るか
+  await rail.getByRole('button', { name: '導入' }).click()
+  await page.waitForTimeout(200)
+  const opening = await page.innerText('body')
+  check('A10', '商談ナビに、そのまま読める言葉が出る', /このまま読めます/.test(opening) && /3分/.test(opening))
+
+  // 台本に「なぜそう言うのか」が必ず添うか（棒読みを防ぐ）
+  check('A10b', '台本に「なぜ」が添えられている', /なぜ：/.test(opening))
+
+  // 押し売りの型に倒れていないか
+  await rail.getByRole('button', { name: '手続き' }).click()
+  await page.waitForTimeout(200)
+  const closing = await page.innerText('body')
+  check('A10c', 'クロージングに「決めるのはお客様」が入っている', /お決めになるのはお客様/.test(closing))
+  check(
+    'A10d',
+    '「今日だけ」など期限を作らないよう戒めている',
+    /「今日だけ」「今なら」と期限を作ること/.test(closing)
+  )
+
+  // おうかがいに個人情報の項目が無いか（ルール9）
+  await rail.getByRole('button', { name: '聞く' }).click()
+  await page.waitForTimeout(200)
+  const hearing = await page.innerText('body')
+  const pii = ['お名前', '氏名', 'ご住所', '電話番号', 'メールアドレス', 'お客様番号'].filter(w =>
+    hearing.includes(w)
+  )
+  check('A10e', 'おうかがいに個人情報の項目が無い', pii.length === 0, pii.join(' / '))
+  await ctx.close()
+}
+
 await browser.close()
 server.close()
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import Icon from '../components/Icon'
 import { DEMAND_PROFILE } from '../data/demandProfile'
@@ -18,6 +18,8 @@ interface ComparisonResultProps {
   period: { year: number; month: number };
   /** かんたん試算で電気料金から使用量を逆算した場合の内訳 */
   estimate?: { billYen: number; kwh: number; exact: boolean; estimatedBillYen: number };
+  /** 年間の差額を外へ知らせる。商談ナビが「高くなるなら勧めない」に倒すために見る */
+  onAnnualSavings?: (yen: number | null) => void;
   onBack: () => void;
 }
 
@@ -232,7 +234,14 @@ function AnnualMethodSwitch({
   )
 }
 
-export default function ComparisonResult({ scenarioId, usage, period, estimate, onBack }: ComparisonResultProps) {
+export default function ComparisonResult({
+  scenarioId,
+  usage,
+  period,
+  estimate,
+  onAnnualSavings,
+  onBack
+}: ComparisonResultProps) {
   const [gasSet, setGasSet] = useState(false)
   // 既定は「毎月おなじだけ使う」。検針票に書いてある数字だけで説明が済み、
   // 統計をあいだに挟まないぶん、お客様に確かめてもらいやすい
@@ -284,6 +293,11 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
   // 年額はガスセット割を含むため、月額と符号が食い違うことがある
   // （月 -50円 でもセット割 +110円/月 で年間は +720円）。年額の符号は年額で判断する
   const annualYen = annual ? annual.savingsYen : v.annualSavingsYen
+
+  // 商談ナビへ知らせる。描画中に親を更新しないよう、描画後に渡す
+  useEffect(() => {
+    onAnnualSavings?.(annualYen)
+  }, [annualYen, onAnnualSavings])
   const firstYearYen = annual ? annual.firstYearSavingsYen : v.firstYearSavingsYen
   const annualTone = toneOf(annualYen)
   const monthTone = toneOf(savings)

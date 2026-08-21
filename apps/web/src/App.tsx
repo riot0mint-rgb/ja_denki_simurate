@@ -4,13 +4,14 @@ import Home from './pages/Home'
 import ManualInput from './pages/ManualInput'
 import SimpleInput, { SimpleEstimate } from './pages/SimpleInput'
 import ComparisonResult from './pages/ComparisonResult'
+import SalesCoach from './pages/SalesCoach'
 import UpdateBanner from './components/UpdateBanner'
 import Logo from './components/Logo'
 import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
 
-type PageType = 'home' | 'simple' | 'input' | 'result'
+type PageType = 'home' | 'simple' | 'input' | 'result' | 'coach'
 
 interface Query {
   scenarioId: string
@@ -28,6 +29,13 @@ export default function App() {
     period: DEFAULT_RATE_PERIOD
   })
   const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null)
+  /**
+   * 直近の試算で出た年間の差額。商談ナビが「高くなる結果なら勧めない」に
+   * 倒すために見る。null は「まだ試算していない」
+   */
+  const [lastAnnualSavingsYen, setLastAnnualSavingsYen] = useState<number | null>(null)
+  /** 試算から戻るときに商談ナビへ返すか */
+  const [cameFromCoach, setCameFromCoach] = useState(false)
 
   useEffect(() => {
     // setState に関数を渡すと更新関数と解釈されるため、包んで保持する
@@ -66,7 +74,30 @@ export default function App() {
             setLastInputPage('simple')
             setCurrentPage('simple')
           }}
+          onStartCoach={() => {
+            setCameFromCoach(true)
+            setCurrentPage('coach')
+          }}
         />
+      )}
+      {/*
+        商談ナビは試算画面と行き来する。畳むと聞き取った内容が消えて、
+        お客様の前で同じことを二度聞くはめになるので、隠して保持する
+      */}
+      {(currentPage === 'coach' || cameFromCoach) && (
+        <div style={currentPage === 'coach' ? undefined : { display: 'none' }}>
+          <SalesCoach
+            lastAnnualSavingsYen={lastAnnualSavingsYen}
+            onOpenEstimate={kind => {
+              setLastInputPage(kind === 'simple' ? 'simple' : 'input')
+              setCurrentPage(kind === 'simple' ? 'simple' : 'input')
+            }}
+            onBack={() => {
+              setCameFromCoach(false)
+              setCurrentPage('home')
+            }}
+          />
+        </div>
       )}
       {currentPage === 'simple' && (
         <SimpleInput
@@ -94,7 +125,8 @@ export default function App() {
           usage={query.usage}
           period={query.period}
           estimate={query.estimate}
-          onBack={() => setCurrentPage(lastInputPage)}
+          onAnnualSavings={setLastAnnualSavingsYen}
+          onBack={() => setCurrentPage(cameFromCoach ? 'coach' : lastInputPage)}
         />
       )}
       {/*

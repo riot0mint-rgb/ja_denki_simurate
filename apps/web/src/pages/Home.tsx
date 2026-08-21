@@ -5,6 +5,8 @@ interface HomeProps {
   onStartInput: () => void;
   /** かんたん試算（1か月の電気料金から逆算する） */
   onStartSimple: () => void;
+  /** 商談ナビ（おうかがいから、お手続きのご案内まで） */
+  onStartCoach: () => void;
 }
 
 /**
@@ -37,7 +39,7 @@ const STEPS: Array<{ n: string; icon: IconName; tone: string; title: string; bod
   }
 ]
 
-export default function Home({ onStartInput, onStartSimple }: HomeProps) {
+export default function Home({ onStartInput, onStartSimple, onStartCoach }: HomeProps) {
   return (
     <main className="wrap">
       <section className="card hero">
@@ -74,6 +76,24 @@ export default function Home({ onStartInput, onStartSimple }: HomeProps) {
           かんたん試算は、1か月の電気料金だけでおよその金額を出します。
         </p>
       </section>
+
+      {/*
+        試算そのものより、お客様の前で何を言えばよいかで困る職員のほうが多い。
+        入口を分けて、試算の手前から支えられるようにする
+      */}
+      <div className="card">
+        <div className="card-head" style={{ marginBottom: '8px' }}>
+          <span className="badge-icon badge-teal"><Icon name="chat" size={20} /></span>
+          <p className="card-title">はじめてのご訪問ですか</p>
+        </div>
+        <p className="note">
+          おうかがいすること、ご説明のしかた、よくお受けするご質問への答え方を、
+          順番にご案内します。そのまま読める言葉で出ます。
+        </p>
+        <button className="btn btn-ghost btn-full" style={{ marginTop: '14px' }} onClick={onStartCoach}>
+          商談ナビをひらく
+        </button>
+      </div>
 
       <ol className="card" style={{ listStyle: 'none', display: 'grid', gap: '18px' }}>
         {STEPS.map(s => (

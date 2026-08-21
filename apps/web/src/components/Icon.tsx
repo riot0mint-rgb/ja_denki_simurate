@@ -18,6 +18,7 @@ export type IconName =
   | 'alert'
   | 'pencil'
   | 'check'
+  | 'chat'
 
 const PATHS: Record<IconName, JSX.Element> = {
   // 検針票（明細）
@@ -86,7 +87,14 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M14.8 5.4 18.6 9.2" />
     </>
   ),
-  check: <path d="m4.8 12.6 4.6 4.6L19.2 7.4" />
+  check: <path d="m4.8 12.6 4.6 4.6L19.2 7.4" />,
+  // 会話（商談ナビ）
+  chat: (
+    <>
+      <path d="M3.5 6.2a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-4.3 3.6a.4.4 0 0 1-.7-.3v-3.3h-.5a2 2 0 0 1 0-.1z" />
+      <path d="M8 9.2h8M8 12.6h5" />
+    </>
+  )
 }
 
 export default function Icon({
