@@ -361,23 +361,23 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
             <p className="card-sub">
               日数・土日・祝日は自動で数えます。夜トクプランの「ホリデータイム」を求めるために必要です
             </p>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
+            {/* 日付入力はブラウザが最低幅を持っているため、横並びだと
+                狭い画面ではみ出す。狭いときは縦に積む（date-range） */}
+            <div className="date-range">
               <input
                 type="date"
                 aria-label="検針期間の開始日"
                 value={startDate}
                 onChange={e => setMeterStart(e.target.value)}
                 className="input"
-                style={{ marginTop: 0 }}
               />
-              <span style={{ color: 'var(--ink-3)' }}>〜</span>
+              <span className="date-range-sep">〜</span>
               <input
                 type="date"
                 aria-label="検針期間の終了日"
                 value={endDate}
                 onChange={e => setMeterEnd(e.target.value)}
                 className="input"
-                style={{ marginTop: 0 }}
               />
             </div>
             {dayCounts ? (

@@ -717,9 +717,19 @@ details.card[open] > summary::before {
   color: var(--green-deep);
 }
 
-/* プラン名は一塊で扱い、「（現在）」だけを次の行へ送る */
+/*
+ * プラン名は一塊で扱い、「（現在）」だけを次の行へ送る。
+ * ただし「中国電力 時間帯別電灯（エコノミーナイト）」のような長い名前は
+ * 狭い画面で枠から出るため、720px 未満では折り返しを許す。
+ */
 .compare-name > span {
-  white-space: nowrap;
+  white-space: normal;
+}
+
+@media (min-width: 720px) {
+  .compare-name > span {
+    white-space: nowrap;
+  }
 }
 
 @media (min-width: 900px) {
@@ -953,6 +963,8 @@ details.card[open] > summary::before {
   display: none;
 }
 
+/* 2列に減らしている幅では折り返さないほうが読みやすい。
+   ただし 320px 級では折り返さないと表が画面から出る（下の @media 参照） */
 .diff-table .plan-name {
   white-space: nowrap;
 }
@@ -964,4 +976,90 @@ details.card[open] > summary::before {
   .diff-table td:nth-child(3) {
     display: table-cell;
   }
+}
+
+/* ── 狭い画面での崩れ対策 ─────────────────────────────────── */
+
+/*
+ * ボタンは語中で折らない（white-space: nowrap）ので、2つ並べると
+ * 320〜390px では入りきらずに画面外へ出ていた。
+ * 入らないときは自動で縦に積む。
+ */
+.btn-row {
+  flex-wrap: wrap;
+}
+
+.btn-row .btn {
+  flex: 1 1 160px;
+}
+
+/*
+ * 日付入力はブラウザ側が最低幅（およそ150px）を持っており、
+ * 2つ横に並べると狭い画面で必ずはみ出す。入らない幅では縦に積む。
+ */
+.date-range {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.date-range .input {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.date-range-sep {
+  color: var(--ink-3);
+  flex: none;
+}
+
+@media (max-width: 430px) {
+  .date-range {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .date-range-sep {
+    text-align: center;
+    line-height: 1;
+  }
+}
+
+
+/*
+ * 320px 級の端末。プラン名を折り返さない指定のままだと、
+ * 「中国電力 時間帯別電灯（エコノミーナイト）（現在）」のような長い名前で
+ * 表が画面の外へ出る。この幅では文字を一段小さくし、折り返しを許す。
+ */
+@media (max-width: 380px) {
+  .rate-table {
+    font-size: 13px;
+  }
+
+  .rate-table td + td {
+    font-size: 14px;
+    padding-left: 8px;
+  }
+
+  .rate-table td:last-child {
+    font-size: 15px;
+  }
+
+  .plan-name > span:first-child,
+  .diff-table .plan-name {
+    white-space: normal;
+  }
+}
+
+
+/*
+ * 計算の内訳に出す単価の出典にはURLが混ざる。URLは途中で折り返せないため、
+ * そのままだと横スクロールが出る。ここだけはどこでも折り返してよい。
+ */
+.formula,
+details.card li,
+details.card p {
+  overflow-wrap: anywhere;
 }
