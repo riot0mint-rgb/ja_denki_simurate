@@ -16,7 +16,7 @@ import {
   allocateFromEconomyNight,
   allocateFromFamilyTime
 } from '@ja-denki-simulator/calc-core'
-import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar } from '../data/rates'
+import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar, planForPeriod } from '../data/rates'
 
 const calculator = new BillingCalculator()
 const comparator = new BillingComparator()
@@ -110,11 +110,13 @@ export function isSummerMonth(month: number): boolean {
 }
 
 function billOf(
-  plan: RatePlan,
+  basePlan: RatePlan,
   usage: UsageInput,
   scenario: ComparisonScenario,
   period: RatePeriod
 ): { ok: true; bill: MonthlyBill } | { ok: false; reason: string; nextSteps: string[] } {
+  // 単価は改定で変わる。検針月に適用されていた版で計算する
+  const plan = planForPeriod(basePlan, period)
   // JAでんきは中国電力エリアの燃調を使う。他社側だけが独自単価を持つ場合がある。
   const provider = plan.side === 'ja' ? 'chugoku' : scenario.fuelProvider
   const fuel = lookupFuelAdjustment(period, provider)
@@ -207,7 +209,9 @@ export function calculateComparison(
   // 単価は1版しか持っていない（26年7月適用）。月を変えて動くのは
   // 燃料費調整額と再エネ賦課金だけ。「◯年◯月適用の単価」と書くと嘘になる
   const effective = unitPriceEffectiveness(
-    [scenario.current, ...scenario.candidates].flatMap(p => p.sources),
+    [scenario.current, ...scenario.candidates]
+      .map(p => planForPeriod(p, period))
+      .flatMap(p => p.sources),
     period
   )
 
@@ -232,6 +236,7 @@ export function calculateComparison(
   }
 
   const sources = [scenario.current, ...scenario.candidates]
+    .map(p => planForPeriod(p, period))
     .flatMap(p => p.sources)
     .map(s => `${s.document} ${s.locator}`)
 

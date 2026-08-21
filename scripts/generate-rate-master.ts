@@ -11,7 +11,13 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Decimal, RatePlan, availablePeriods, lookupFuelAdjustment, lookupRenewableLevy } from '@ja-denki-simulator/calc-core'
-import { ALL_PLANS, SCENARIOS } from '../apps/web/src/data/rates.js'
+import { ALL_PLANS, REVISED_PLANS, SCENARIOS } from '../apps/web/src/data/rates.js'
+
+/**
+ * 監査に載せるプラン一覧。改定後の単価も含める。
+ * 改定を JSON に出さないと、監査側からは値下げが起きたことが見えない。
+ */
+const MASTER_PLANS = [...ALL_PLANS, ...REVISED_PLANS]
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = resolve(ROOT, 'data/rate_master.json')
@@ -58,10 +64,10 @@ const master = {
     generator: 'scripts/generate-rate-master.ts',
     warning:
       'このファイルは生成物です。編集しても計算には反映されません。単価を直すには正本の TypeScript を変更してください。',
-    plan_count: ALL_PLANS.length,
+    plan_count: MASTER_PLANS.length,
     scenario_count: SCENARIOS.length
   },
-  plans: ALL_PLANS.map(planEntry),
+  plans: MASTER_PLANS.map(planEntry),
   scenarios: SCENARIOS.map(s => ({
     scenario_id: s.scenarioId,
     label: s.label,
@@ -91,8 +97,8 @@ if (check) {
     )
     process.exit(1)
   }
-  console.log(`✓ data/rate_master.json は正本と一致しています（${ALL_PLANS.length}プラン）`)
+  console.log(`✓ data/rate_master.json は正本と一致しています（${MASTER_PLANS.length}プラン）`)
 } else {
   writeFileSync(OUT, json)
-  console.log(`✓ data/rate_master.json を生成しました（${ALL_PLANS.length}プラン / ${master.monthly_rates.length}か月分）`)
+  console.log(`✓ data/rate_master.json を生成しました（${MASTER_PLANS.length}プラン / ${master.monthly_rates.length}か月分）`)
 }

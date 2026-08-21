@@ -106,6 +106,23 @@ const OFFICIAL_TARIFF_AU: RateSource = {
   verifiedAt: '2026-08-20'
 }
 
+/**
+ * 2026年10月改定（値下げ）の定義書。
+ *
+ * 実施期日は令和8年10月1日だが、**適用は検針日基準で令和8年11月1日**。
+ * つまり 2026年10月使用分＝11月検針分から新単価になる。
+ * 対象は 従量電灯A・従量電灯B・従量電灯S・低圧電力 の4メニュー。
+ * 夜トクプランは対象外（定義書も2024年4月版のまま）。
+ */
+const OFFICIAL_JA_DENKI_DEFINITION_2026_10: RateSource = {
+  document:
+    '家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf / 家庭⑦-2 従量電灯Ｓ＜20261001＞.pdf',
+  locator: '別表1 ＪＡでんき家庭向け料金表【中国】（適用開始日 検針日基準 令和8年11月1日）',
+  effectiveFrom: '2026-11',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-21'
+}
+
 const OFFICIAL_JA_DENKI_DEFINITION: RateSource = {
   document: 'JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定',
   locator:
@@ -284,6 +301,76 @@ export const jaDenkiLowVoltage: DemandSeasonalPlan = {
   rounding: CHUGOKU_ROUNDING,
   sources: [src(DOC.lowVoltage, '基本項目!E38:E40'), OFFICIAL_JA_DENKI_DEFINITION]
 }
+
+// ─────────────────────────────────────────────
+// 2026年10月改定（値下げ）後のJAでんき単価
+//
+// 検針月が 2026年11月以降のとき、下の4プランが上のプランに代わって使われる
+// （planForPeriod）。改定前の単価も残すのは、過去月の試算をやり直したときに
+// そのときの請求額を再現できるようにするため。
+// ─────────────────────────────────────────────
+
+const JA_2026_10_SOURCES = [OFFICIAL_JA_DENKI_DEFINITION_2026_10]
+
+const jaDenkiJuryoA_2026_11: TieredMinimumPlan = {
+  ...jaDenkiJuryoA,
+  minimumCharge: new Decimal('704.68'),
+  tiers: tiers15('32.22', '38.04', '38.14'),
+  sources: JA_2026_10_SOURCES
+}
+
+const jaDenkiJuryoS_2026_11: TieredMinimumPlan = {
+  ...jaDenkiJuryoS,
+  minimumCharge: new Decimal('614.92'),
+  // 従量料金は据え置き。変わったのは最低月額料金だけ（新旧対照表）
+  tiers: tiers15('31.79', '39.43', '41.44'),
+  sources: JA_2026_10_SOURCES
+}
+
+const jaDenkiJuryoB_2026_11: CapacityTieredPlan = {
+  ...jaDenkiJuryoB,
+  baseChargePerKva: new Decimal('434.22'),
+  tiers: tiers0('30.06', '35.41', '36.01'),
+  sources: JA_2026_10_SOURCES
+}
+
+const jaDenkiLowVoltage_2026_11: DemandSeasonalPlan = {
+  ...jaDenkiLowVoltage,
+  // 基本料金は据え置き（1,132.83円/kW）。変わったのは従量料金だけ
+  summerUnitPriceYenPerKwh: new Decimal('26.50'),
+  otherUnitPriceYenPerKwh: new Decimal('25.21'),
+  sources: JA_2026_10_SOURCES
+}
+
+/**
+ * 単価の改定履歴。キーは planId、値は「この検針月から」の昇順。
+ *
+ * 改定のたびに古い単価を消すと、過去月の試算が当時の請求額と合わなくなる。
+ * 画面が過去21か月まで遡れる以上、履歴として持つ。
+ */
+const PLAN_REVISIONS: Record<string, Array<{ fromPeriod: string; plan: RatePlan }>> = {
+  ja_denki_juryo_a: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoA_2026_11 }],
+  ja_denki_juryo_s: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoS_2026_11 }],
+  ja_denki_juryo_b: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoB_2026_11 }],
+  ja_denki_low_voltage: [{ fromPeriod: '2026-11', plan: jaDenkiLowVoltage_2026_11 }]
+}
+
+/** 検針月に適用される単価。改定履歴が無いプランはそのまま返す。 */
+export function planForPeriod(plan: RatePlan, period: { year: number; month: number }): RatePlan {
+  const revisions = PLAN_REVISIONS[plan.planId]
+  if (!revisions) return plan
+  const key = `${period.year}-${String(period.month).padStart(2, '0')}`
+  let applied = plan
+  for (const r of revisions) {
+    if (key >= r.fromPeriod) applied = r.plan
+  }
+  return applied
+}
+
+/** 改定後の単価を持つプラン。監査と料金マスターの生成に使う。 */
+export const REVISED_PLANS: RatePlan[] = Object.values(PLAN_REVISIONS)
+  .flatMap(rs => rs.map(r => r.plan))
+  .sort((a, b) => a.planId.localeCompare(b.planId))
 
 // ─────────────────────────────────────────────
 // 時間帯別（電化Style / ナイトホリデー / 夜トクプラン）

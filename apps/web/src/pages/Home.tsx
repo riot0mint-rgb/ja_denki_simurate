@@ -12,7 +12,7 @@ const STEPS = [
   {
     n: '1',
     title: '検針票を手元に',
-    body: '使うのは3か所だけです。「ご契約種別」「ご使用量」「ご契約容量」'
+    body: '使うのは3か所だけ。「ご契約種別」「ご使用量」「ご契約容量」です'
   },
   {
     n: '2',
@@ -31,13 +31,14 @@ export default function Home({ onStartInput }: HomeProps) {
     <main className="wrap">
       <section className="card hero">
         <p className="eyebrow">中国電力・auでんき ⇄ JAでんき</p>
-        <h1 style={{ fontSize: '28px', margin: '12px 0 0', letterSpacing: '0.01em', color: 'var(--green-deep)' }}>
-          検針票が1枚あれば、
+        <h1 style={{ fontSize: '30px', margin: '12px 0 0', letterSpacing: '0.01em', color: 'var(--green-deep)' }}>
+          電気代、1年でいくら
           <br />
-          電気代が1年でいくら変わるか、わかります。
+          おトクになる？
         </h1>
-        <p className="note" style={{ marginTop: '12px', fontSize: '14px' }}>
-          いまのご契約と、JAでんきに切り替えた場合の料金をその場でくらべます。12のプランに対応しています。
+        <p className="note" style={{ marginTop: '14px', fontSize: '14px' }}>
+          検針票の数字を入れるだけ。JAでんきに切り替えた場合の1年分を、その場で計算します。
+          12のプランに対応しています。
         </p>
         <button className="btn btn-gold btn-full" style={{ marginTop: '22px' }} onClick={onStartInput}>
           検針票から試算する

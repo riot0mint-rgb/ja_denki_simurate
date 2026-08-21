@@ -20,6 +20,6 @@ describe('ホーム画面', () => {
 
   it('ロゴが無い環境でも見出しが出る', () => {
     render(<Home onStartInput={() => {}} />)
-    expect(screen.getByRole('heading', { name: /1年でいくら変わるか/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /1年でいくら/ })).toBeInTheDocument()
   })
 })

@@ -5,8 +5,10 @@
    全体は白と淡い若草色で明るく保ち、金額の面だけを薄緑で起こす。
    グラデーション・強い影・浮き上がるホバーは使わない。
 
-   緑は2段。淡い若草（面）と、はっきりした緑（数字・棒・ボタン）。
-   琥珀は注意書きにだけ使い、それ以外には出さない。
+   色はグループ会社（全農エネルギー「JAでんき」）のサイトに合わせる。
+   主色 #1f903b、注意まわりの黄 #f8b500、淡い若草 #eaf4e3 が向こうの地色。
+   ただし白地に置く文字と、白文字を載せる面だけは一段暗くする。
+   #1f903b に白文字はコントラスト比 3.8 で、本文サイズでは読みにくい。
 
    和文は端末のフォントを使う（外部フォントを読み込まない）。
    Phase A はブラウザ内で完結する設計で、オフラインでも使えることが
@@ -17,33 +19,33 @@
 
 :root {
   /* 紙とインク。ニュートラルはわずかに緑寄りにして主色となじませる */
-  --ink: #14241d;
-  --ink-2: #5b6b63;
-  --ink-3: #8f9b94;
+  --ink: #1d2419;
+  --ink-2: #5f6a58;
+  --ink-3: #929c8b;
   --paper: #ffffff;
-  --paper-2: #f7faf8;
-  --paper-3: #eaf3ee;
-  --line: #e3ebe6;
-  --line-strong: #cbdad2;
+  --paper-2: #f8faf6;
+  --paper-3: #eaf1e4;
+  --line: #e5ebe0;
+  --line-strong: #ccd8c4;
 
-  /* 主色。操作と「JAでんき側」を指す。前より一段明るい */
-  --green: #17875e;
-  --green-dark: #0f6a49;
-  --green-soft: #e9f6ef;
+  /* 主色。操作と「JAでんき側」を指す（グループ会社サイトに合わせた若草色） */
+  --green: #16702e;
+  --green-dark: #0f5a24;
+  --green-soft: #eaf4e3;
 
   /* 金額を置く面。淡い若草のベタで、地の白から少しだけ起こす */
-  --field: #e6f4ec;
-  --field-line: #bfe0cd;
-  --green-deep: #0c5c3f;
-  --green-bright: #1fa16f;
+  --field: #eaf4e3;
+  --field-line: #c2ddb2;
+  --green-deep: #0f5a24;
+  --green-bright: #1f903b;
 
   /* 増減。赤緑だけに頼らず、符号と語で必ず併記する */
-  --gain: #12734f;
-  --loss: #b23a26;
+  --gain: #167a33;
+  --loss: #c1401f;
 
-  --warn-bg: #fff8e8;
-  --warn-line: #e8c47c;
-  --warn-ink: #7a5b16;
+  --warn-bg: #fff4d8;
+  --warn-line: #f8b500;
+  --warn-ink: #6b4c05;
 
   --radius: 14px;
   --radius-sm: 9px;

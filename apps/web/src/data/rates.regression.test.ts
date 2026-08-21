@@ -8,7 +8,15 @@ import {
   lookupFuelAdjustment,
   lookupRenewableLevy
 } from '@ja-denki-simulator/calc-core'
-import { ALL_PLANS, jaDenkiJuryoA, jaDenkiJuryoS } from './rates'
+import {
+  ALL_PLANS,
+  REVISED_PLANS,
+  jaDenkiJuryoA,
+  jaDenkiJuryoB,
+  jaDenkiJuryoS,
+  jaDenkiLowVoltage,
+  planForPeriod
+} from './rates'
 import * as F from '../../../../packages/calc-core/tests/fixtures'
 import lookup from '../../../../packages/calc-core/tests/excel-lookup.fixture.json'
 
@@ -132,6 +140,75 @@ describe('出典（CLAUDE.md ルール4）', () => {
         expect(s.document.trim(), plan.planId).not.toBe('')
         expect(s.locator.trim(), plan.planId).not.toBe('')
         expect(s.verificationStatus, plan.planId).toBe('verified')
+      }
+    }
+  })
+})
+
+// 2026年10月改定（値下げ）。適用は検針日基準で令和8年11月1日＝2026年11月検針分から。
+// 出典: 家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf 別表1 ほか
+describe('2026年10月改定', () => {
+  const at = (planId: string, year: number, month: number) => {
+    const plan = ALL_PLANS.find(p => p.planId === planId)!
+    return planForPeriod(plan, { year, month })
+  }
+
+  it('11月検針分から新単価に切り替わる', () => {
+    const before = at('ja_denki_juryo_a', 2026, 10) as typeof jaDenkiJuryoA
+    const after = at('ja_denki_juryo_a', 2026, 11) as typeof jaDenkiJuryoA
+    expect(before.minimumCharge.toString()).toBe('759.68')
+    expect(after.minimumCharge.toString()).toBe('704.68')
+  })
+
+  it('10月検針分までは改定前の単価のまま', () => {
+    for (const [y, m] of [[2025, 1], [2026, 7], [2026, 10]] as const) {
+      const p = at('ja_denki_juryo_a', y, m) as typeof jaDenkiJuryoA
+      expect(p.minimumCharge.toString()).toBe('759.68')
+      expect(p.tiers[2].unitPriceYenPerKwh.toString()).toBe('38.84')
+    }
+  })
+
+  it('従量電灯A: 第3段階と最低月額料金だけが下がる', () => {
+    const a = at('ja_denki_juryo_a', 2026, 11) as typeof jaDenkiJuryoA
+    expect(a.minimumCharge.toString()).toBe('704.68')
+    expect(a.tiers.map(t => t.unitPriceYenPerKwh.toString())).toEqual(['32.22', '38.04', '38.14'])
+  })
+
+  it('従量電灯S: 最低月額料金だけが下がり、従量料金は据え置き', () => {
+    const s = at('ja_denki_juryo_s', 2026, 11) as typeof jaDenkiJuryoS
+    expect(s.minimumCharge.toString()).toBe('614.92')
+    expect(s.tiers.map(t => t.unitPriceYenPerKwh.toString())).toEqual(['31.79', '39.43', '41.44'])
+  })
+
+  it('従量電灯B: 基本料金と第3段階が下がる', () => {
+    const b = at('ja_denki_juryo_b', 2026, 11) as typeof jaDenkiJuryoB
+    expect(b.baseChargePerKva.toString()).toBe('434.22')
+    expect(b.tiers.map(t => t.unitPriceYenPerKwh.toString())).toEqual(['30.06', '35.41', '36.01'])
+  })
+
+  it('低圧電力: 従量料金だけが下がり、基本料金は据え置き', () => {
+    const l = at('ja_denki_low_voltage', 2026, 11) as typeof jaDenkiLowVoltage
+    expect(l.baseChargePerKw.toString()).toBe('1132.83')
+    expect(l.summerUnitPriceYenPerKwh.equals('26.50')).toBe(true)
+    expect(l.otherUnitPriceYenPerKwh.equals('25.21')).toBe(true)
+  })
+
+  // 改定対象は4メニュー。夜トクプランは定義書も2024年4月版のまま
+  it('夜トクプランと他社プランは改定の対象外', () => {
+    for (const planId of ['ja_denki_yotoku', 'chugoku_juryo_a', 'au_m_plan']) {
+      const plan = ALL_PLANS.find(p => p.planId === planId)
+      if (!plan) continue
+      expect(planForPeriod(plan, { year: 2026, month: 11 })).toBe(plan)
+    }
+  })
+
+  it('改定後の単価にも出典が付いている（ルール4）', () => {
+    for (const plan of REVISED_PLANS) {
+      expect(plan.sources.length).toBeGreaterThan(0)
+      for (const s of plan.sources) {
+        expect(s.document).toMatch(/20261001/)
+        expect(s.effectiveFrom).toBe('2026-11')
+        expect(s.verificationStatus).toBe('verified')
       }
     }
   })

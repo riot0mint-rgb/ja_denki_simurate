@@ -4,7 +4,7 @@
     "generated_from": "apps/web/src/data/rates.ts + packages/calc-core/src/monthlyRates.ts",
     "generator": "scripts/generate-rate-master.ts",
     "warning": "このファイルは生成物です。編集しても計算には反映されません。単価を直すには正本の TypeScript を変更してください。",
-    "plan_count": 17,
+    "plan_count": 21,
     "scenario_count": 12
   },
   "plans": [
@@ -746,6 +746,160 @@
           "effectiveFrom": "2024-05",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "ja_denki_juryo_a",
+      "planName": "JAでんき 従量電灯A",
+      "side": "ja",
+      "minimumCharge": "704.68",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "32.22"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "38.04"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "38.14"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf / 家庭⑦-2 従量電灯Ｓ＜20261001＞.pdf",
+          "locator": "別表1 ＪＡでんき家庭向け料金表【中国】（適用開始日 検針日基準 令和8年11月1日）",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-21"
+        }
+      ]
+    },
+    {
+      "structure": "capacity_tiered",
+      "planId": "ja_denki_juryo_b",
+      "planName": "JAでんき 従量電灯B",
+      "side": "ja",
+      "baseChargePerKva": "434.22",
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "30.06"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "35.41"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "36.01"
+        }
+      ],
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "none",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf / 家庭⑦-2 従量電灯Ｓ＜20261001＞.pdf",
+          "locator": "別表1 ＪＡでんき家庭向け料金表【中国】（適用開始日 検針日基準 令和8年11月1日）",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-21"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "ja_denki_juryo_s",
+      "planName": "JAでんき 従量電灯S",
+      "side": "ja",
+      "minimumCharge": "614.92",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "31.79"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "39.43"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "41.44"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf / 家庭⑦-2 従量電灯Ｓ＜20261001＞.pdf",
+          "locator": "別表1 ＪＡでんき家庭向け料金表【中国】（適用開始日 検針日基準 令和8年11月1日）",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-21"
+        }
+      ]
+    },
+    {
+      "structure": "demand_seasonal",
+      "planId": "ja_denki_low_voltage",
+      "planName": "JAでんき 低圧電力",
+      "side": "ja",
+      "baseChargePerKw": "1132.83",
+      "summerUnitPriceYenPerKwh": "26.5",
+      "otherUnitPriceYenPerKwh": "25.21",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf / 家庭⑦-2 従量電灯Ｓ＜20261001＞.pdf",
+          "locator": "別表1 ＪＡでんき家庭向け料金表【中国】（適用開始日 検針日基準 令和8年11月1日）",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-21"
         }
       ]
     }
