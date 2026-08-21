@@ -27,6 +27,7 @@ export {
   BillResult
 } from './models.js';
 export { BillingCalculator, calculator } from './calculator.js';
+export { UsageEstimate, UsageEstimateResult, estimateUsageFromBill } from './inverseUsage.js';
 export {
   HolidayUsageRatio,
   CalendarInput,

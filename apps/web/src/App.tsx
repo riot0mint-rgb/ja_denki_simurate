@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import Home from './pages/Home'
 import ManualInput from './pages/ManualInput'
+import SimpleInput, { SimpleEstimate } from './pages/SimpleInput'
 import ComparisonResult from './pages/ComparisonResult'
 import UpdateBanner from './components/UpdateBanner'
 import Logo from './components/Logo'
@@ -9,12 +10,14 @@ import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
 
-type PageType = 'home' | 'input' | 'result'
+type PageType = 'home' | 'simple' | 'input' | 'result'
 
 interface Query {
   scenarioId: string
   usage: UsageInput
   period: { year: number; month: number }
+  /** かんたん試算で電気料金から使用量を逆算した場合の内訳 */
+  estimate?: SimpleEstimate
 }
 
 export default function App() {
@@ -34,11 +37,15 @@ export default function App() {
   const handleInputComplete = (
     scenarioId: string,
     usage: UsageInput,
-    period: { year: number; month: number }
+    period: { year: number; month: number },
+    estimate?: SimpleEstimate
   ) => {
-    setQuery({ scenarioId, usage, period })
+    setQuery({ scenarioId, usage, period, estimate })
     setCurrentPage('result')
   }
+
+  // 結果から戻ったとき、来た画面へ返す
+  const [lastInputPage, setLastInputPage] = useState<'simple' | 'input'>('input')
 
   return (
     <div className="app">
@@ -49,7 +56,28 @@ export default function App() {
           <span className="topbar-sub">中国電力エリア・低圧</span>
         </div>
       </header>
-      {currentPage === 'home' && <Home onStartInput={() => setCurrentPage('input')} />}
+      {currentPage === 'home' && (
+        <Home
+          onStartInput={() => {
+            setLastInputPage('input')
+            setCurrentPage('input')
+          }}
+          onStartSimple={() => {
+            setLastInputPage('simple')
+            setCurrentPage('simple')
+          }}
+        />
+      )}
+      {currentPage === 'simple' && (
+        <SimpleInput
+          onComplete={handleInputComplete}
+          onBack={() => setCurrentPage('home')}
+          onSwitchToDetailed={() => {
+            setLastInputPage('input')
+            setCurrentPage('input')
+          }}
+        />
+      )}
       {/*
         入力画面はいったん開いたら畳まずに隠しておく。条件を変えて試算し直すたびに
         プラン・検針月・検針期間・契約容量・各時間帯の入力が消えると、
@@ -65,7 +93,8 @@ export default function App() {
           scenarioId={query.scenarioId}
           usage={query.usage}
           period={query.period}
-          onBack={() => setCurrentPage('input')}
+          estimate={query.estimate}
+          onBack={() => setCurrentPage(lastInputPage)}
         />
       )}
     </div>

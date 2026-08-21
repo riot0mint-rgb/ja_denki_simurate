@@ -14,7 +14,8 @@ import {
   lookupFuelAdjustment,
   lookupRenewableLevy,
   allocateFromEconomyNight,
-  allocateFromFamilyTime
+  allocateFromFamilyTime,
+  estimateUsageFromBill
 } from '@ja-denki-simulator/calc-core'
 import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar, planForPeriod } from '../data/rates'
 
@@ -588,4 +589,71 @@ export function calculateAnnual(
     firstYearSavingsYen: savingsYen + FIRST_YEAR_SPECIAL_DISCOUNT.toNumber(),
     fallbackReason: null
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   かんたん試算（電気料金から使用量を逆算する）
+
+   検針票が手元にないお客様向け。1か月の電気料金だけから使用量を戻し、
+   あとは通常と同じ計算にかける。逆算は近似ではなく、実際の計算式を
+   そのまま逆に引いている（CLAUDE.md ルール1）。
+   ───────────────────────────────────────────────────────────── */
+
+export interface UsageEstimateView {
+  kwh: number
+  rangeKwh: { min: number; max: number }
+  /** 逆算した使用量での請求額。入力額と数十円ずれることがある */
+  billYen: number
+  exact: boolean
+}
+
+export type EstimateOutcome =
+  | { status: 'ok'; estimate: UsageEstimateView }
+  | { status: 'unsupported'; reason: string; nextSteps: string[] }
+
+/** かんたん試算に対応するシナリオ（総使用量だけで決まるもの） */
+export function supportsSimpleEstimate(scenario: ComparisonScenario): boolean {
+  return scenario.usageForm === 'total'
+}
+
+export function estimateUsage(
+  scenarioId: string,
+  billYen: number,
+  options: { period?: RatePeriod; contract?: number } = {}
+): EstimateOutcome {
+  const scenario = findScenario(scenarioId)
+  if (!scenario || !supportsSimpleEstimate(scenario)) {
+    return {
+      status: 'unsupported',
+      reason: 'このご契約は電気料金からの逆算に対応していません',
+      nextSteps: ['「くわしい試算」からご使用量を入力してください']
+    }
+  }
+
+  const period = options.period ?? DEFAULT_PERIOD
+  const plan = planForPeriod(scenario.current, period)
+  const fuel = lookupFuelAdjustment(period, scenario.fuelProvider)
+  const levy = lookupRenewableLevy(period)
+  if (!fuel || !levy) {
+    return {
+      status: 'unsupported',
+      reason: `${period.year}年${period.month}月の燃料費調整額・再エネ賦課金が元資料に収録されていません`,
+      nextSteps: ['対象月を変更してください']
+    }
+  }
+
+  const usage: UsageInput = {}
+  if (scenario.contract === 'kw') usage.contractKw = options.contract
+  if (scenario.contract === 'kva') usage.contractKva = options.contract
+
+  const result = estimateUsageFromBill({
+    targetYen: billYen,
+    plan,
+    usage,
+    fuelAdjustment: fuel.value,
+    renewableLevy: levy.value
+  })
+  return result.status === 'ok'
+    ? { status: 'ok', estimate: result.estimate }
+    : { status: 'unsupported', reason: result.reason, nextSteps: result.nextSteps }
 }

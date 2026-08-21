@@ -45,3 +45,24 @@ describe('画面遷移', () => {
     expect(screen.getByRole('heading', { name: /1年でいくら/ })).toBeInTheDocument()
   })
 })
+
+// かんたん試算から結果まで通しで動くこと。結果には逆算だったことを残す
+describe('かんたん試算の導線', () => {
+  it('電気料金から試算し、結果に概算である旨を出す', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: /かんたん試算/ }))
+
+    expect(screen.getByRole('heading', { name: 'かんたん試算' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('1か月の電気料金'), '12000')
+    await user.click(screen.getByRole('button', { name: '詳しい結果を見る' }))
+
+    expect(screen.getByRole('heading', { name: '料金比較結果' })).toBeInTheDocument()
+    expect(screen.getByText('かんたん試算の結果です')).toBeInTheDocument()
+    expect(screen.getByText(/電気料金からの概算/)).toBeInTheDocument()
+
+    // 戻ると、かんたん試算の入力に戻る（くわしい試算に飛ばされない）
+    await user.click(screen.getByRole('button', { name: '条件を変えて試算する' }))
+    expect(screen.getByRole('heading', { name: 'かんたん試算' })).toBeInTheDocument()
+  })
+})

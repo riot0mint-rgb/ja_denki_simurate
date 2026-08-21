@@ -1,5 +1,8 @@
 interface HomeProps {
+  /** くわしい試算（検針票の数字を入力する） */
   onStartInput: () => void;
+  /** かんたん試算（1か月の電気料金から逆算する） */
+  onStartSimple: () => void;
 }
 
 /**
@@ -12,7 +15,7 @@ const STEPS = [
   {
     n: '1',
     title: '検針票を手元に',
-    body: '使うのは3か所だけ。「ご契約種別」「ご使用量」「ご契約容量」です'
+    body: '使うのは3か所だけ。「ご契約種別」「ご使用量」「ご契約容量」です。お手元になければ、1か月の電気料金だけでも試算できます'
   },
   {
     n: '2',
@@ -26,7 +29,7 @@ const STEPS = [
   }
 ]
 
-export default function Home({ onStartInput }: HomeProps) {
+export default function Home({ onStartInput, onStartSimple }: HomeProps) {
   return (
     <main className="wrap">
       <section className="card hero">
@@ -40,9 +43,18 @@ export default function Home({ onStartInput }: HomeProps) {
           検針票の数字を入れるだけ。JAでんきに切り替えた場合の1年分を、その場で計算します。
           12のプランに対応しています。
         </p>
-        <button className="btn btn-gold btn-full" style={{ marginTop: '22px' }} onClick={onStartInput}>
-          検針票から試算する
-        </button>
+        {/* 検針票が手元にあるかで最初に分ける。無い方をあきらめさせない */}
+        <div style={{ display: 'grid', gap: '10px', marginTop: '22px' }}>
+          <button className="btn btn-gold btn-full" onClick={onStartInput}>
+            検針票から試算する
+          </button>
+          <button className="btn btn-ghost btn-full" onClick={onStartSimple}>
+            検針票がない → かんたん試算
+          </button>
+        </div>
+        <p className="note" style={{ marginTop: '10px', fontSize: '12.5px' }}>
+          かんたん試算は、1か月の電気料金だけでおよその金額を出します。
+        </p>
       </section>
 
       <ol className="card" style={{ listStyle: 'none', display: 'grid', gap: '18px' }}>

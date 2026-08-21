@@ -13,6 +13,8 @@ interface ComparisonResultProps {
   scenarioId: string;
   usage: UsageInput;
   period: { year: number; month: number };
+  /** かんたん試算で電気料金から使用量を逆算した場合の内訳 */
+  estimate?: { billYen: number; kwh: number; exact: boolean; estimatedBillYen: number };
   onBack: () => void;
 }
 
@@ -177,7 +179,7 @@ function MonthlyBars({
   )
 }
 
-export default function ComparisonResult({ scenarioId, usage, period, onBack }: ComparisonResultProps) {
+export default function ComparisonResult({ scenarioId, usage, period, estimate, onBack }: ComparisonResultProps) {
   const [gasSet, setGasSet] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const handlePrint = usePrint(setDetailsOpen)
@@ -246,7 +248,22 @@ export default function ComparisonResult({ scenarioId, usage, period, onBack }: 
       <p className="page-lead">
         {v.current.planName} ／ 検針月 {v.ratePeriodLabel} ／ ご使用量{' '}
         <span className="num">{v.totalKwh.toLocaleString()}</span> kWh
+        {estimate && '（電気料金からの概算）'}
       </p>
+
+      {/* どこから来た使用量なのかを、画面にも紙にも必ず残す */}
+      {estimate && (
+        <div className="note-warn" style={{ marginBottom: '14px' }}>
+          <strong>かんたん試算の結果です</strong>
+          <br />
+          1か月の電気料金 {formatCurrency(estimate.billYen)} から、ご使用量を
+          およそ <strong className="num">{estimate.kwh.toLocaleString()} kWh</strong> と
+          見て計算しています
+          {!estimate.exact &&
+            `（このご使用量での請求額は ${formatCurrency(estimate.estimatedBillYen)}）`}
+          。実際のご使用量がわかる場合は、検針票から試算し直すと正確になります。
+        </div>
+      )}
 
       <section className="card hero">
         <div className="hero-grid">
