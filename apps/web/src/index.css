@@ -1,33 +1,35 @@
 /* ─────────────────────────────────────────────────────────────
    JAでんき料金比較 — デザイントークン
 
-   要は「数字を一箇所だけ強く見せ、まわりは静かにする」。
-   全体は白と淡い若草色で明るく保ち、金額の面だけを薄緑で起こす。
-   グラデーション・強い影・浮き上がるホバーは使わない。
+   ■ 配色の組み立て
 
-   色はグループ会社（全農エネルギー「JAでんき」）のサイトに合わせ、
-   主色は JAグリーン #1f903b。ただし1色だけだと画面が単調になるため、
-   色相環で主色の両隣を借りて3色にする。
+   主色は JAグリーン #1f903b（色相 約145°）。1色だけだと単調になり、
+   かといって色相を散らすと金額の意味づけが弱くなる。そこで
+   **暖色1・寒色1だけを足した3色**で組む。
 
-     黄緑 #7ab648（H88） ← 主色 #1f903b（H136） → 青緑 #0e8f7e（H172）
+     金 #f2a71b（約45°・暖色）  緑 #1f903b（約145°）  青緑 #0e8f7e（約180°）
 
-   類似色なので緑の印象は壊れない。役割は固定する。
-   - 黄緑: 比較の「現在」側、面の地色。暖かく後退させたいもの
-   - 主色: JAでんき側、操作、いちばん見せたい数字
-   - 青緑: 説明・内訳など、金額ではない補助情報
+   役割は固定する。
+   - 金（暖色）: おトク額まわりの目印だけ。暖色は進出色で視線を引くため、
+     ページ内でいちばん見せたい1点にしか使わない
+   - 緑: JAでんき側・操作・金額そのもの
+   - 青緑（寒色）: 金額ではない補助情報。後退色なので背景に沈む
 
-   大きい面ほど彩度を落とし、小さい面ほど上げる（面積効果）。
-   淡い緑地に濃い緑の数字を置くと同時対比で数字がより濃く見えるので、
-   金額はこの組み合わせに置く。
+   ■ おトク額を目立たせるために使っている性質
 
-   白地に置く文字と白文字を載せる面だけは一段暗くする。
+   1. 明度対比 — 数字は最も濃い緑、地は最も淡い緑。明度差を最大にとる
+   2. 面積効果 — 面積の小さい数字は彩度を上げてよい。大きい面ほど彩度を落とす
+   3. 進出色 — 金額の前後に金のアイコンと罫を置き、暖色で視線を集める
+   4. 彩度対比 — 金額のまわりの要素の彩度を落とすと、同じ彩度でも数字が冴える
+   5. 補色の隣接を避ける — 赤（ご負担増）と緑（おトク）は色相環でほぼ向かい合う。
+      隣り合わせにするとちらつくので、同じ行に並べない
+
+   白地に置く文字と白文字を載せる面は一段暗くする。
    #1f903b に白文字はコントラスト比 3.8 で、本文サイズでは読みにくい。
 
    和文は端末のフォントを使う（外部フォントを読み込まない）。
-   Phase A はブラウザ内で完結する設計で、オフラインでも使えることが
-   要件のため、外部への font 取得を持ち込まない。
-   欧文を先に置くのは、数字とラテン文字を欧文フォントから取り、
-   和文だけを日本語フォントに落とすため。
+   Phase A はブラウザ内で完結し、オフラインでも使えることが要件のため。
+   欧文を先に置くのは、数字とラテン文字を欧文フォントから取るため。
    ───────────────────────────────────────────────────────────── */
 
 :root {
@@ -36,35 +38,49 @@
   --ink-2: #5d6a56;
   --ink-3: #909c89;
   --paper: #ffffff;
-  --paper-2: #f6faf2;
+  --paper-2: #f7faf3;
   --paper-3: #e8f1e0;
-  --line: #e4ebdd;
-  --line-strong: #c9d7bd;
+  --line: #e2e9db;
+  --line-strong: #c8d5bd;
 
-  /* 主色。操作と「JAでんき側」を指す（グループ会社サイトに合わせた若草色） */
-  --green: #16702e;
-  --green-dark: #0f5a24;
-  --green-soft: #eaf4e3;
+  /* 緑（主色）。明度の階段で役割を分ける */
+  --green-800: #0d5220;
+  --green-700: #16702e;
+  --green-600: #1f903b;
+  --green-100: #dcefd0;
+  --green-50: #eef7e8;
 
-  /* 金額を置く面。淡い若草のベタで、地の白から少しだけ起こす */
-  --field: #e8f5de;
-  --field-line: #c0dcaa;
-  --green-deep: #0d5c2a;
-  --green-bright: #1f903b;
+  /* 金（暖色アクセント）。おトク額まわりにしか使わない */
+  --gold-600: #a8710a;
+  --gold-500: #f2a71b;
+  --gold-100: #ffeec2;
+  --gold-50: #fff8e6;
 
-  /* 主色の両隣。意味は持たせず、面と図の区別だけに使う */
-  --leaf: #7ab648;
-  --leaf-soft: #eaf4de;
-  --teal: #0e8f7e;
-  --teal-deep: #0a6c5f;
-  --teal-soft: #e2f2ef;
+  /* 青緑（寒色）。金額ではない補助情報 */
+  --teal-700: #0a6c5f;
+  --teal-600: #0e8f7e;
+  --teal-50: #e3f3f0;
+
+  /* 別名。既存の記述を壊さないために残す */
+  --green: var(--green-700);
+  --green-dark: var(--green-800);
+  --green-soft: var(--green-50);
+  --green-deep: var(--green-800);
+  --green-bright: var(--green-600);
+  --field: var(--green-50);
+  --field-line: #c6e3b4;
+  --leaf: #97c46e;
+  --leaf-soft: #eef7e4;
+  --teal: var(--teal-600);
+  --teal-deep: var(--teal-700);
+  --teal-soft: var(--teal-50);
 
   /* 増減。赤緑だけに頼らず、符号と語で必ず併記する */
-  --gain: #167a33;
-  --loss: #c1401f;
+  --gain: var(--green-800);
+  --loss: #c8402a;
 
-  --warn-bg: #fff4d8;
-  --warn-line: #f8b500;
+  --warn-bg: var(--gold-50);
+  --warn-line: var(--gold-500);
   --warn-ink: #6b4c05;
 
   --radius: 14px;
@@ -381,15 +397,21 @@ summary:focus-visible {
   content: '';
   position: absolute;
   inset: 0 0 auto;
-  height: 3px;
-  background: var(--green-bright);
+  height: 4px;
+  background: var(--gold-500);
 }
 
 .hero .eyebrow {
-  color: var(--green-deep);
+  color: var(--gold-600);
 }
 
 .hero .note {
+  color: var(--ink-2);
+}
+
+/* 面の中の補助要素は彩度を落とす。金額だけが冴えるようにする */
+.hero .compare-name,
+.hero .hero-figures dt {
   color: var(--ink-2);
 }
 
@@ -397,7 +419,11 @@ summary:focus-visible {
   color: var(--ink);
 }
 
+/* 金額のうしろに金の下線を敷く。暖色は進出色なので、ここに目が行く */
 .hero-figure {
+  display: inline-block;
+  padding-bottom: 6px;
+  border-bottom: 4px solid var(--gold-500);
   font-size: 56px;
   font-weight: 700;
   line-height: 1.05;
@@ -590,8 +616,8 @@ summary:focus-visible {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #fff;
-  background: var(--green);
+  color: #3a2600;
+  background: var(--gold-500);
   border-radius: 4px;
   padding: 2px 6px;
   margin-left: 6px;
@@ -771,8 +797,8 @@ details.card[open] > summary::before {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  background: var(--green-bright);
-  color: #ffffff;
+  background: var(--gold-500);
+  color: #3a2600;
   border-radius: 999px;
   padding: 2px 10px;
   font-size: 12px;
@@ -912,4 +938,30 @@ details.card[open] > summary::before {
   font-size: 0.42em;
   font-weight: 700;
   margin-left: 0.15em;
+}
+
+/* ── 差額の内訳の表 ───────────────────────────────────────── */
+
+/*
+ * 4列は狭い画面に入らない。項目名が1文字ずつ縦に折れて読めなくなるので、
+ * スマホでは「項目」と「差」の2列だけにする。両者の金額はデスクトップで見せる。
+ */
+.diff-table th:nth-child(2),
+.diff-table th:nth-child(3),
+.diff-table td:nth-child(2),
+.diff-table td:nth-child(3) {
+  display: none;
+}
+
+.diff-table .plan-name {
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .diff-table th:nth-child(2),
+  .diff-table th:nth-child(3),
+  .diff-table td:nth-child(2),
+  .diff-table td:nth-child(3) {
+    display: table-cell;
+  }
 }

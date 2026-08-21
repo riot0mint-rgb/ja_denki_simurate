@@ -367,6 +367,78 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
         </section>
       )}
 
+      {/* なぜ差が出るのか。生成AIは使わず、計算の内訳の引き算から作っている。
+          同じ入力には必ず同じ説明が出る */}
+      {v.explanation && (v.explanation.highlights.length > 0 || !v.explanation.comparable) && (
+        <section className="card">
+          <div className="card-head" style={{ marginBottom: '6px' }}>
+            <span className="badge-icon badge-teal"><Icon name="check" size={20} /></span>
+            <p className="card-title">差が出ている理由</p>
+          </div>
+
+          {v.explanation.comparable ? (
+            <>
+              <ul style={{ listStyle: 'none', padding: 0, marginTop: '12px', display: 'grid', gap: '8px' }}>
+                {v.explanation.highlights.map(h => (
+                  <li key={h} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <span
+                      style={{
+                        flex: 'none',
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '999px',
+                        background: 'var(--gold-500)',
+                        marginTop: '9px'
+                      }}
+                    />
+                    <span style={{ fontSize: '14.5px' }}>{h}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <table className="rate-table diff-table" aria-label="差額の内訳" style={{ marginTop: '16px' }}>
+                <thead>
+                  <tr>
+                    <th>内訳</th>
+                    <th>{v.current.planName}</th>
+                    <th>{v.explanation.planName}</th>
+                    <th>差</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {v.explanation.parts.map(part => (
+                    <tr key={part.label}>
+                      <td className="plan-name">{part.label}</td>
+                      <td>{part.currentYen === null ? '—' : formatCurrency(part.currentYen)}</td>
+                      <td>{part.candidateYen === null ? '—' : formatCurrency(part.candidateYen)}</td>
+                      <td
+                        style={{
+                          color: `var(--${
+                            part.differenceYen > 0 ? 'gain' : part.differenceYen < 0 ? 'loss' : 'ink-3'
+                          })`
+                        }}
+                      >
+                        {part.differenceYen > 0 ? '−' : '+'}
+                        {formatCurrency(Math.abs(part.differenceYen))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="note" style={{ marginTop: '12px' }}>
+                この表の差を足すと、月額の差{' '}
+                <strong className="num">
+                  {formatCurrency(Math.abs(v.explanation.totalDifferenceYen))}
+                </strong>{' '}
+                になります。
+              </p>
+            </>
+          ) : (
+            <p className="note" style={{ marginTop: '10px' }}>{v.explanation.reason}</p>
+          )}
+        </section>
+      )}
+
       <div className="result-grid">
         <div className="stack">
           <section className="card">
@@ -377,7 +449,7 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
             <p className="card-sub">
               単価 {v.unitPriceEffectiveLabel} ／ 燃料費調整額・再エネ賦課金 {v.ratePeriodLabel}
             </p>
-            <table className="rate-table">
+            <table className="rate-table" aria-label="料金比較表">
               <thead>
                 <tr>
                   <th>プラン</th>

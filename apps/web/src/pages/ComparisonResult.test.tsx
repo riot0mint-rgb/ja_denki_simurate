@@ -33,7 +33,7 @@ describe('結果画面', () => {
 
   it('比較表に現在プランと候補が並ぶ', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
-    const table = screen.getByRole('table')
+    const table = screen.getByRole('table', { name: '料金比較表' })
     expect(within(table).getByText(/中国電力 従量電灯A（現在）/)).toBeInTheDocument()
     expect(within(table).getByText(/JAでんき 従量電灯A/)).toBeInTheDocument()
     expect(within(table).getByText('おすすめ')).toBeInTheDocument()
@@ -43,7 +43,7 @@ describe('結果画面', () => {
   it('同額の候補は「同額」と出す', () => {
     // 0〜15kWh は中国電力もJAでんきも最低料金だけで同額になる
     show('chugoku_juryo_a', { totalKwh: 10 })
-    const table = screen.getByRole('table')
+    const table = screen.getByRole('table', { name: '料金比較表' })
     expect(within(table).getAllByText('同額').length).toBeGreaterThan(0)
     expect(within(table).queryByText('+￥0')).not.toBeInTheDocument()
   })
@@ -213,7 +213,7 @@ describe('ガスセット割はあり／なしを選ぶ', () => {
 describe('安くならないときも正直に出す', () => {
   it('JAでんきが高いシナリオでも比較表と金額をそのまま出す', () => {
     show('au_m_plan', { totalKwh: 348 })
-    const table = screen.getByRole('table')
+    const table = screen.getByRole('table', { name: '料金比較表' })
     expect(within(table).getByText(/auでんき/)).toBeInTheDocument()
     expect(within(table).getAllByText(/JAでんき/).length).toBeGreaterThan(0)
     // 高い側は「+」付きで出す。伏せない
@@ -243,5 +243,47 @@ describe('適用した特例は内訳に出す', () => {
     const note = screen.getByText(/に満たないため/)
     expect(note.textContent).toContain('※')
     expect(note.textContent).toContain('最低月額料金 1844.70円')
+  })
+})
+
+// 「なぜ差が出るのか」は生成AIを使わず、計算の内訳の引き算で作っている。
+// 内訳を足すと月額の差に必ず一致する（合わない説明は現場で使えない）
+describe('差が出ている理由', () => {
+  it('差の大きい順に理由を出す', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    expect(screen.getByText('差が出ている理由')).toBeInTheDocument()
+    const reason = screen.getByText(/電力量料金が月 .*安くなります/)
+    // 文章の金額と内訳表の金額を食い違わせない
+    expect(reason.textContent).toContain('436円')
+    // どの段階の単価が効いているかまで書く
+    // 348kWh では第2段階（180kWh分）がいちばん効く
+    expect(screen.getByText(/第2段階の単価が .*円\/kWh 安い/)).toBeInTheDocument()
+  })
+
+  it('内訳の合計が月額の差と一致する', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    const table = screen.getByRole('table', { name: '差額の内訳' })
+    const rows = within(table).getAllByRole('row').slice(1)
+    const sum = rows.reduce((total, row) => {
+      const cell = within(row).getAllByRole('cell')[3].textContent!
+      const value = Number(cell.replace(/[^\d]/g, ''))
+      return total + (cell.startsWith('−') ? value : -value)
+    }, 0)
+    // 表に出ている差の合計 ＝ 比較表の月額差（端数は「その他」の行が吸収する）
+    expect(sum).toBe(436)
+    expect(screen.getByText(/この表の差を足すと、月額の差/).textContent).toContain('￥436')
+  })
+
+  // 燃調が違う相手では、そこが理由になる
+  it('燃料費調整額の差も理由として出す', () => {
+    show('au_m_plan', { totalKwh: 348 })
+    expect(screen.getByText(/燃料費調整額が月 .*高くなります/)).toBeInTheDocument()
+  })
+
+  // 最低月額料金の月は内訳が請求額の内訳になっていない
+  it('最低月額料金が効く月は内訳を出さず理由を書く', () => {
+    show('chugoku_simple', { totalKwh: 10 })
+    expect(screen.getByText(/最低月額料金が適用されているため/)).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: '差額の内訳' })).not.toBeInTheDocument()
   })
 })

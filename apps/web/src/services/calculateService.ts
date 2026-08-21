@@ -15,7 +15,8 @@ import {
   lookupRenewableLevy,
   allocateFromEconomyNight,
   allocateFromFamilyTime,
-  estimateUsageFromBill
+  estimateUsageFromBill,
+  explainDifference
 } from '@ja-denki-simulator/calc-core'
 import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar, planForPeriod } from '../data/rates'
 
@@ -35,6 +36,33 @@ export interface PlanResult {
   notes: string[]
 }
 
+/**
+ * 差額がどこから来ているか。生成AIを使わず、計算の内訳の引き算で作る。
+ *
+ * 表示する差は円単位に丸め、丸めで出た端数は「その他」の行に集める。
+ * こうしないと、画面に並んだ数字を足しても月額の差にならない。
+ * 合わない表は営業の場で「計算が合わない」と言われる材料にしかならない。
+ */
+export interface DifferenceBreakdown {
+  label: string
+  /** 「その他」の行は個別の金額を持たない */
+  currentYen: number | null
+  candidateYen: number | null
+  differenceYen: number
+}
+
+export interface DifferenceExplanation {
+  planId: string
+  planName: string
+  comparable: boolean
+  reason: string | null
+  /** 差の大きい順の説明文。多くても3件 */
+  highlights: string[]
+  /** 差が1円以上ある構成要素だけ */
+  parts: DifferenceBreakdown[]
+  totalDifferenceYen: number
+}
+
 export interface ComparisonView {
   scenarioId: string
   /** 検針月（燃料費調整額・再エネ賦課金がこの月のもの） */
@@ -52,6 +80,8 @@ export interface ComparisonView {
   firstYearSavingsYen: number
   gasSetDiscountApplied: boolean
   firstYearSpecialDiscountYen: number
+  /** おすすめプランとの差額の内訳 */
+  explanation: DifferenceExplanation | null
   sources: string[]
 }
 
@@ -169,6 +199,40 @@ function unitPriceEffectiveness(
   }
 }
 
+/**
+ * 画面に出す内訳。1円未満の差の行は落とし、丸めと合わせて出た端数は
+ * 「その他」の1行にまとめる。**表示した差の合計は月額の差と必ず一致する。**
+ */
+function breakdownOf(explained: {
+  parts: Array<{
+    label: string
+    currentYen: { toNumber(): number }
+    candidateYen: { toNumber(): number }
+    differenceYen: { toNumber(): number }
+  }>
+  totalDifferenceYen: { toNumber(): number }
+}): DifferenceBreakdown[] {
+  const total = explained.totalDifferenceYen.toNumber()
+  const rows: DifferenceBreakdown[] = explained.parts
+    .filter(p => Math.abs(p.differenceYen.toNumber()) >= 1)
+    .map(p => ({
+      label: p.label,
+      currentYen: p.currentYen.toNumber(),
+      candidateYen: p.candidateYen.toNumber(),
+      differenceYen: Math.round(p.differenceYen.toNumber())
+    }))
+  const other = total - rows.reduce((a, r) => a + r.differenceYen, 0)
+  if (other !== 0) {
+    rows.push({
+      label: 'その他（1円未満の差・端数処理）',
+      currentYen: null,
+      candidateYen: null,
+      differenceYen: other
+    })
+  }
+  return rows
+}
+
 export function calculateComparison(
   scenarioId: string,
   usage: UsageInput,
@@ -224,6 +288,23 @@ export function calculateComparison(
 
   const result = comparator.compare(currentBill.bill, candidateBills, discounts)
   const byId = new Map(candidateBills.map(b => [b.planId, b]))
+
+  // 「なぜ差が出るのか」をおすすめプランについて出す
+  const recommendedBill = byId.get(result.recommended.planId)
+  const explained = recommendedBill
+    ? explainDifference(currentBill.bill, recommendedBill)
+    : null
+  const explanation: DifferenceExplanation | null = explained
+    ? {
+        planId: result.recommended.planId,
+        planName: result.recommended.planName,
+        comparable: explained.comparable,
+        reason: explained.reason,
+        highlights: explained.highlights,
+        parts: breakdownOf(explained),
+        totalDifferenceYen: explained.totalDifferenceYen.toNumber()
+      }
+    : null
   const toPlanResult = (c: (typeof result.candidates)[number]): PlanResult => {
     const bill = byId.get(c.planId)
     return {
@@ -264,6 +345,7 @@ export function calculateComparison(
       firstYearSavingsYen: result.firstYearSavings.toNumber(),
       gasSetDiscountApplied,
       firstYearSpecialDiscountYen: FIRST_YEAR_SPECIAL_DISCOUNT.toNumber(),
+      explanation,
       sources: Array.from(new Set(sources))
     }
   }

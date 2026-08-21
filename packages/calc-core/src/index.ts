@@ -29,6 +29,13 @@ export {
 export { BillingCalculator, calculator } from './calculator.js';
 export { UsageEstimate, UsageEstimateResult, estimateUsageFromBill } from './inverseUsage.js';
 export {
+  ExplanationPart,
+  LineComparison,
+  Explanation,
+  explainDifference,
+  partsSum
+} from './explain.js';
+export {
   HolidayUsageRatio,
   CalendarInput,
   TouAllocation,
