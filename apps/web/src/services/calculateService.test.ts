@@ -546,4 +546,60 @@ describe('年間の試算', () => {
     expect(calculateAnnual('chugoku_juryo_a', { totalKwh: -1 }, 'ja_denki_juryo_a', { period: AUG }))
       .toBeNull()
   })
+
+  describe('1年ぶんの見積もり方（毎月おなじ／季節で増減）', () => {
+    it('既定は「毎月おなじ」で、どの月も入力どおりの使用量になる', () => {
+      const a = annual('chugoku_juryo_a', { totalKwh: 348 })
+      expect(a.method).toBe('flat')
+      expect(a.profileNote).toBeNull()
+      expect(a.months.every(m => m.usageKwh === 348)).toBe(true)
+    })
+
+    it('「季節で増減」を選ぶと月ごとの使用量が変わる', () => {
+      const a = annual('chugoku_juryo_a', { totalKwh: 348 }, { method: 'seasonal' })
+      expect(a.method).toBe('seasonal')
+      expect(a.profileNote).not.toBeNull()
+      expect(new Set(a.months.map(m => m.usageKwh)).size).toBeGreaterThan(1)
+    })
+
+    it('基準にした検針月は、入力した使用量のまま動かさない', () => {
+      const a = annual('chugoku_juryo_a', { totalKwh: 348 }, { method: 'seasonal' })
+      const base = a.months.find(m => m.month === AUG.month)
+      expect(base?.usageKwh).toBe(348)
+    })
+
+    it('冷暖房を使う1月は8月基準より多く、6月は少なくなる', () => {
+      const a = annual('chugoku_juryo_a', { totalKwh: 348 }, { method: 'seasonal' })
+      const at = (month: number) => a.months.find(m => m.month === month)!.usageKwh!
+      expect(at(1)).toBeGreaterThan(348)
+      expect(at(6)).toBeLessThan(348)
+    })
+
+    it('見積もり方を変えると年額も変わる', () => {
+      const flat = annual('chugoku_juryo_a', { totalKwh: 348 })
+      const seasonal = annual('chugoku_juryo_a', { totalKwh: 348 }, { method: 'seasonal' })
+      expect(seasonal.currentYen).not.toBe(flat.currentYen)
+      // 月ごとの合計は、どちらの見積もり方でも年額と一致していること
+      expect(seasonal.months.reduce((s, m) => s + m.currentYen, 0)).toBe(seasonal.currentYen)
+      expect(seasonal.months.reduce((s, m) => s + m.candidateYen, 0)).toBe(seasonal.candidateYen)
+    })
+
+    it('使用量0なら、季節で増減させても全部0のまま', () => {
+      const a = annual('chugoku_juryo_a', { totalKwh: 0 }, { method: 'seasonal' })
+      expect(a.months.every(m => m.usageKwh === 0)).toBe(true)
+    })
+
+    it('時間帯別のプランは季節で増減させず、月額×12に落とす（ルール8）', () => {
+      // 昼と夜の比まで季節で動くはずで、その比の根拠が無い
+      const r = calculateAnnual(
+        'chugoku_night_holiday',
+        { tou: { night: 300 }, contractKw: 6, calendar: sampleCalendar },
+        'ja_denki_yotoku',
+        { period: AUG, method: 'seasonal' }
+      )
+      expect(r?.basis).toBe('times_twelve')
+      expect(r?.method).toBe('flat')
+      expect(r?.profileNote).toBeNull()
+    })
+  })
 })

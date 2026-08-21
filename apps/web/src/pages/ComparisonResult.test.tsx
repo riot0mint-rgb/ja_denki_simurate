@@ -25,6 +25,60 @@ describe('結果画面', () => {
     expect(screen.getAllByText(/おトク$/).length).toBeGreaterThan(0)
   })
 
+  describe('1年ぶんの見積もり方の切り替え', () => {
+    it('2つの選び方が両方見えていて、既定は「毎月おなじだけ使う」', () => {
+      show('chugoku_juryo_a', { totalKwh: 348 })
+      const group = screen.getByRole('group', { name: '1年ぶんの見積もり方' })
+      const flat = within(group).getByRole('button', { name: '毎月おなじ' })
+      const seasonal = within(group).getByRole('button', { name: '季節で変わる' })
+      expect(flat).toHaveAttribute('aria-pressed', 'true')
+      expect(seasonal).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('「季節で増えたり減ったり」を押すと年額が変わる', async () => {
+      const r = show('chugoku_juryo_a', { totalKwh: 348 })
+      const before = r.annual()
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(r.annual()).not.toBe(before)
+      expect(
+        screen.getByRole('button', { name: '季節で変わる' })
+      ).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('季節で増減させたときは、見込んだご使用量の幅を出す', async () => {
+      show('chugoku_juryo_a', { totalKwh: 348 })
+      // 毎月おなじなら「300kWh〜300kWh」は情報にならないので出さない
+      expect(screen.queryByText(/見込んだご使用量は/)).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(screen.getByText(/見込んだご使用量は/)).toBeInTheDocument()
+    })
+
+    it('季節で増減させたときは、もとにした統計の出典を出す（ルール4）', async () => {
+      show('chugoku_juryo_a', { totalKwh: 348 })
+      expect(screen.queryByText('季節ごとの使われ方の出典')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(screen.getByText('季節ごとの使われ方の出典')).toBeInTheDocument()
+      expect(screen.getByText(/電気事業連合会/)).toBeInTheDocument()
+    })
+
+    it('積み上げができない（月額×12に落ちる）プランでは切り替えを出さない', () => {
+      // 選んでも結果が変わらないボタンは、あるだけで誤解を招く
+      show('chugoku_night_holiday', {
+        tou: { night: 300 },
+        contractKw: 6,
+        calendar: {
+          days: 30,
+          weekendDays: 8,
+          holidayDays: 1,
+          holidayUsageRatio: 'same',
+          julyDays: 0,
+          octoberDays: 0
+        }
+      })
+      expect(screen.queryByRole('group', { name: '1年ぶんの見積もり方' })).not.toBeInTheDocument()
+    })
+  })
+
   it('高くなるときは「ご負担増」と明示する（誤解を招かない）', () => {
     show('au_m_plan', { totalKwh: 348 })
     expect(screen.getByText('年間の想定ご負担増額')).toBeInTheDocument()

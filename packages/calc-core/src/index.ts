@@ -29,6 +29,11 @@ export {
 export { BillingCalculator, calculator } from './calculator.js';
 export { UsageEstimate, UsageEstimateResult, estimateUsageFromBill } from './inverseUsage.js';
 export {
+  MonthlyDemandProfile,
+  distributeAnnualUsage,
+  monthlyRatios
+} from './demandProfile.js';
+export {
   ExplanationPart,
   LineComparison,
   Explanation,

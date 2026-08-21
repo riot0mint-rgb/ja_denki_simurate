@@ -16,9 +16,11 @@ import {
   allocateFromEconomyNight,
   allocateFromFamilyTime,
   estimateUsageFromBill,
-  explainDifference
+  explainDifference,
+  distributeAnnualUsage
 } from '@ja-denki-simulator/calc-core'
 import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar, planForPeriod } from '../data/rates'
+import { DEMAND_PROFILE } from '../data/demandProfile'
 
 const calculator = new BillingCalculator()
 const comparator = new BillingComparator()
@@ -134,6 +136,16 @@ export interface CalculateOptions {
   period?: RatePeriod
   gasSetDiscount?: boolean
 }
+
+/**
+ * 1年ぶんの見積もり方。
+ *
+ * flat     … 検針票の使用量が毎月そのまま続くとみなす
+ * seasonal … 検針票の月を出発点に、季節ごとの使われ方で増減させる
+ */
+export type AnnualMethod = 'flat' | 'seasonal'
+
+export const DEFAULT_ANNUAL_METHOD: AnnualMethod = 'flat'
 
 /** 夏季単価が適用される月（低圧電力・時間帯別プランの季節区分） */
 export function isSummerMonth(month: number): boolean {
@@ -539,6 +551,8 @@ export interface AnnualMonth {
   year: number
   month: number
   label: string
+  /** その月に使うとみなした量。flat では毎月おなじ */
+  usageKwh: number | null
   currentYen: number
   candidateYen: number
   /** 現在 − 乗り換え後。プラスがおトク。ガスセット割は含めない */
@@ -548,6 +562,10 @@ export interface AnnualMonth {
 export interface AnnualView {
   /** rollup … 12か月それぞれの単価で積み上げた／times_twelve … 月額×12 */
   basis: 'rollup' | 'times_twelve'
+  /** 実際に使った見積もり方。指定が使えなかったときは flat に落ちる */
+  method: AnnualMethod
+  /** 季節で増減させたときの、もとにした統計の説明。flat では null */
+  profileNote: string | null
   planId: string
   planName: string
   rangeLabel: string
@@ -587,7 +605,7 @@ export function calculateAnnual(
   scenarioId: string,
   usage: UsageInput,
   planId: string,
-  options: CalculateOptions = {}
+  options: CalculateOptions & { method?: AnnualMethod } = {}
 ): AnnualView | null {
   const scenario = findScenario(scenarioId)
   if (!scenario) return null
@@ -609,6 +627,8 @@ export function calculateAnnual(
     const savingsYen = currentYen - candidateYen + gasSetDiscountYen
     return {
       basis: 'times_twelve',
+      method: 'flat',
+      profileNote: null,
       planId,
       planName: baseCandidate.planName,
       rangeLabel: `${period.year}年${period.month}月の単価で12か月`,
@@ -634,9 +654,21 @@ export function calculateAnnual(
     return timesTwelve('12か月ぶんの燃料費調整額がまだ収録されていないため、この月の試算を12倍しています')
   }
 
+  // 季節で増減させるのは、検針票に総使用量しか無いプランだけ。
+  // 時間帯別のプランは、昼と夜の比まで季節で動くはずで、その比の根拠が無い
+  // （CLAUDE.md ルール8）。ここは usageForm === 'total' が保証されている。
+  const wantSeasonal = (options.method ?? DEFAULT_ANNUAL_METHOD) === 'seasonal'
+  const baseUsageKwh = usage.totalKwh ?? 0
+  const seasonalUsage = wantSeasonal
+    ? distributeAnnualUsage(new Decimal(baseUsageKwh), period.month, DEMAND_PROFILE)
+    : null
+
   const months: AnnualMonth[] = []
   for (const p of span) {
-    const r = calculateComparison(scenarioId, usage, { period: p })
+    const monthUsage: UsageInput = seasonalUsage
+      ? { ...usage, totalKwh: seasonalUsage[p.month - 1].toNumber() }
+      : usage
+    const r = calculateComparison(scenarioId, monthUsage, { period: p })
     if (r.status !== 'ok') {
       return timesTwelve('一部の月が計算できないため、この月の試算を12倍しています')
     }
@@ -646,6 +678,7 @@ export function calculateAnnual(
       year: p.year,
       month: p.month,
       label: `${p.month}月`,
+      usageKwh: monthUsage.totalKwh ?? null,
       currentYen: r.view.current.monthlyChargeYen,
       candidateYen: c.monthlyChargeYen,
       savingsYen: r.view.current.monthlyChargeYen - c.monthlyChargeYen
@@ -660,6 +693,8 @@ export function calculateAnnual(
 
   return {
     basis: 'rollup',
+    method: seasonalUsage ? 'seasonal' : 'flat',
+    profileNote: seasonalUsage ? DEMAND_PROFILE.description : null,
     planId,
     planName: baseCandidate.planName,
     rangeLabel: `${first.year}年${first.month}月〜${last.year}年${last.month}月`,

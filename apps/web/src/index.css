@@ -726,6 +726,83 @@ details.card[open] > summary::before {
   }
 }
 
+/* ── 1年ぶんの見積もり方の切り替え ─────────────────────────── */
+
+.method-switch {
+  margin-top: 18px;
+}
+
+.method-switch-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+/*
+ * 2択なので、選んでいないほうも必ず見えているようにする。
+ * プルダウンにすると「もう一つの見積もり方がある」ことに気づかれない
+ */
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-sm);
+}
+
+.segmented-btn {
+  flex: 1 1 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 4px);
+  padding: 9px 8px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.segmented-btn:hover:not(.is-on) {
+  background: var(--field);
+}
+
+.segmented-btn.is-on {
+  background: var(--green);
+  color: #ffffff;
+}
+
+.method-switch-hint {
+  margin-top: 6px;
+}
+
+@media print {
+  /* 紙では選べないので、選ばれているほうだけ残す */
+  .segmented-btn:not(.is-on) {
+    display: none;
+  }
+
+  .segmented {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .segmented-btn.is-on {
+    background: transparent;
+    color: var(--ink);
+    padding: 0;
+    text-align: left;
+  }
+}
+
 /* ── ヒーロー内の組み ─────────────────────────────────────── */
 
 .hero-grid {

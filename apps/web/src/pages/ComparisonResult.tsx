@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import Icon from '../components/Icon'
+import { DEMAND_PROFILE } from '../data/demandProfile'
 import {
   AnnualView,
   GAS_SET_DISCOUNT_YEN,
   calculateAnnual,
+  AnnualMethod,
   calculateComparison,
   formatCurrency,
   formatPercentage
@@ -148,9 +150,11 @@ function MonthlyBars({
           <div
             className="bar-col"
             key={`${m.year}-${m.month}`}
-            title={`${m.year}年${m.month}月 ${currentName} ${formatCurrency(
-              m.currentYen
-            )} / ${candidateName} ${formatCurrency(m.candidateYen)}`}
+            title={`${m.year}年${m.month}月${
+              m.usageKwh === null ? '' : ` ${m.usageKwh.toLocaleString()}kWh`
+            } ${currentName} ${formatCurrency(m.currentYen)} / ${candidateName} ${formatCurrency(
+              m.candidateYen
+            )}`}
           >
             <div className="bar-slot">
               <span
@@ -180,8 +184,59 @@ function MonthlyBars({
   )
 }
 
+/**
+ * 1年ぶんの見積もり方を選ぶ。
+ *
+ * 検針票は1か月ぶんしかないので、残りの11か月は必ず「みなし」になる。
+ * どちらの「みなし」なのかをお客様の目の前で切り替えられるようにする。
+ * 隠して片方だけ見せると、あとで実額と違ったときに説明ができない。
+ */
+function AnnualMethodSwitch({
+  value,
+  onChange
+}: {
+  value: AnnualMethod
+  onChange: (next: AnnualMethod) => void
+}) {
+  const options: Array<{ id: AnnualMethod; label: string; hint: string }> = [
+    {
+      id: 'flat',
+      label: '毎月おなじ',
+      hint: '検針票と同じご使用量が1年つづくものとして計算します'
+    },
+    {
+      id: 'seasonal',
+      label: '季節で変わる',
+      hint: '中国エリアのご家庭の平均に合わせ、夏と冬は多め、春と秋は少なめに見込みます'
+    }
+  ]
+  const current = options.find(o => o.id === value)
+  return (
+    <div className="method-switch">
+      <p className="method-switch-title">1年ぶんの見積もり方</p>
+      <div className="segmented" role="group" aria-label="1年ぶんの見積もり方">
+        {options.map(o => (
+          <button
+            key={o.id}
+            type="button"
+            className={`segmented-btn${o.id === value ? ' is-on' : ''}`}
+            aria-pressed={o.id === value}
+            onClick={() => onChange(o.id)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <p className="note method-switch-hint">{current?.hint}</p>
+    </div>
+  )
+}
+
 export default function ComparisonResult({ scenarioId, usage, period, estimate, onBack }: ComparisonResultProps) {
   const [gasSet, setGasSet] = useState(false)
+  // 既定は「毎月おなじだけ使う」。検針票に書いてある数字だけで説明が済み、
+  // 統計をあいだに挟まないぶん、お客様に確かめてもらいやすい
+  const [annualMethod, setAnnualMethod] = useState<AnnualMethod>('flat')
   const [detailsOpen, setDetailsOpen] = useState(false)
   const handlePrint = usePrint(setDetailsOpen)
   const outcome = useMemo(
@@ -193,10 +248,11 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
       outcome.status === 'ok'
         ? calculateAnnual(scenarioId, usage, outcome.view.recommended.planId, {
             period,
-            gasSetDiscount: gasSet
+            gasSetDiscount: gasSet,
+            method: annualMethod
           })
         : null,
-    [scenarioId, usage, period, gasSet, outcome]
+    [scenarioId, usage, period, gasSet, annualMethod, outcome]
   )
 
   if (outcome.status === 'unsupported') {
@@ -235,6 +291,22 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
   // 「いちばん差が大きい月」は、差がほぼ一定のプランでは意味を持たない
   // （同じ燃調を使う相手なら差額は単価の差だけで動かない）。
   // 幅として示すほうが、月ごとにどれだけ振れるかが伝わる
+  /** 見込んだご使用量の幅。毎月おなじなら出さない（「300kWh 〜 300kWh」は情報ではない） */
+  const usageSpread = useMemo(() => {
+    const rows = (annual?.months ?? []).filter(
+      (m): m is typeof m & { usageKwh: number } => m.usageKwh !== null
+    )
+    if (rows.length === 0) return null
+    const min = rows.reduce((a, b) => (b.usageKwh < a.usageKwh ? b : a))
+    const max = rows.reduce((a, b) => (b.usageKwh > a.usageKwh ? b : a))
+    if (min.usageKwh === max.usageKwh) return null
+    return {
+      min: { month: min.month, kwh: min.usageKwh },
+      max: { month: max.month, kwh: max.usageKwh },
+      total: rows.reduce((a, m) => a + m.usageKwh, 0)
+    }
+  }, [annual])
+
   const spread =
     annual && annual.months.length > 0
       ? {
@@ -284,12 +356,19 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
               <strong>{v.recommended.planName}</strong>
               {isSame ? 'は現在のご契約と同額です' : 'に切り替えた場合'}
               {annual && rollup
-                ? ` ／ ${annual.rangeLabel}の燃料費調整額・再エネ賦課金で、毎月同じご使用量として積み上げた金額です`
+                ? ` ／ ${annual.rangeLabel}の燃料費調整額・再エネ賦課金で、${
+                    annual.method === 'seasonal'
+                      ? '季節によるご使用量の増え減りを見込んで'
+                      : '毎月おなじご使用量として'
+                  }1年ぶんを積み上げた金額です`
                 : annual
                   ? ` ／ ${annual.fallbackReason}`
                   : ''}
             </p>
 
+            {annual && rollup && (
+              <AnnualMethodSwitch value={annualMethod} onChange={setAnnualMethod} />
+            )}
           </div>
 
           <div>
@@ -337,14 +416,32 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
         <section className="card">
           <p className="card-title">月ごとの料金</p>
           <p className="card-sub">
-            ご使用量が毎月 {v.totalKwh.toLocaleString()} kWh だとした場合。
-            燃料費調整額が毎月改定されるため、同じ使用量でも請求額は月ごとに動きます。
+            {annual.method === 'seasonal' ? (
+              <>
+                {period.month}月の {v.totalKwh.toLocaleString()} kWh
+                を出発点に、季節ごとの使われ方に合わせて増やしたり減らしたりした場合。燃料費調整額も毎月改定されるため、請求額は月ごとに動きます。
+              </>
+            ) : (
+              <>
+                ご使用量が毎月 {v.totalKwh.toLocaleString()} kWh
+                だとした場合。燃料費調整額が毎月改定されるため、同じ使用量でも請求額は月ごとに動きます。
+              </>
+            )}
           </p>
           <MonthlyBars
             months={annual.months}
             currentName={v.current.planName}
             candidateName={annual.planName}
           />
+          {usageSpread && (
+            <p className="note" style={{ marginTop: '10px' }}>
+              見込んだご使用量は{' '}
+              <strong className="num">{usageSpread.min.month}月 {usageSpread.min.kwh.toLocaleString()} kWh</strong>
+              {' 〜 '}
+              <strong className="num">{usageSpread.max.month}月 {usageSpread.max.kwh.toLocaleString()} kWh</strong>
+              、1年で <strong className="num">{usageSpread.total.toLocaleString()} kWh</strong> です。
+            </p>
+          )}
           {spread && (
             <p className="note" style={{ marginTop: '10px' }}>
               {spread.min === spread.max ? (
@@ -535,6 +632,19 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
               <ul className="note" style={{ paddingLeft: '18px' }}>
                 {v.sources.map(s => <li key={s}>{s}</li>)}
               </ul>
+              {annual?.method === 'seasonal' && (
+                <>
+                  <p style={{ fontWeight: 700, fontSize: '14px', marginTop: '20px' }}>
+                    季節ごとの使われ方の出典
+                  </p>
+                  <ul className="note" style={{ paddingLeft: '18px' }}>
+                    <li>
+                      {DEMAND_PROFILE.source.document}／{DEMAND_PROFILE.source.locator}
+                    </li>
+                    {annual.profileNote && <li>{annual.profileNote}</li>}
+                  </ul>
+                </>
+              )}
             </div>
           </details>
         </div>
@@ -588,7 +698,9 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
             当てた試算です。燃料費調整額・再エネ賦課金は毎月改定されます。
             {v.periodPrecedesUnitPrices &&
               `なお ${v.ratePeriodLabel} は単価の適用開始より前のため、実際の請求額とは異なります。`}
-            年額はご使用量が毎月同じだとした場合の目安です。
+            {annual?.method === 'seasonal'
+              ? '年額は、中国エリアのご家庭の平均的な使われ方に合わせて季節ごとに増減させた目安です。実際の使い方によって変わります。'
+              : '年額は、ご使用量が毎月同じだとした場合の目安です。'}
             検針票発行手数料（1契約55円）やポイント還元は含んでいません。
             正確な金額は営業担当までお問い合わせください。
             </span>
