@@ -52,11 +52,14 @@ describe('入力画面の基本動作', () => {
   it('入力しながら試算結果が見える', async () => {
     const { user } = setup()
     await user.type(screen.getByLabelText('ご使用量 (kWh)'), '348')
-    expect(screen.getByText('この内容での試算')).toBeInTheDocument()
-    // 月額だけでなく年額も入力中から見える
-    expect(screen.getByText('月あたり')).toBeInTheDocument()
-    expect(screen.getByText('年間')).toBeInTheDocument()
+    // 月額だけでなく年額も入力中から見える。年額のほうを大きく出す
+    expect(screen.getByText('1年あたり')).toBeInTheDocument()
+    expect(screen.getByText('1か月あたり')).toBeInTheDocument()
     expect(screen.getAllByText('おトク').length).toBe(2)
+    const annual = screen.getByText('1年あたり').previousElementSibling as HTMLElement
+    const monthly = screen.getByText('1か月あたり').previousElementSibling as HTMLElement
+    expect(annual.className).toContain('figure-xl')
+    expect(monthly.className).toContain('figure-lg')
   })
 
   it('割高になるプランでは「月々割高」と出す', async () => {
@@ -329,6 +332,6 @@ describe('計算できない条件は理由を先に見せる', () => {
     await pickPlan('中国電力 従量電灯A')
     await user.type(screen.getByLabelText('ご使用量 (kWh)'), '348')
     await pickMonth('2025年1月')
-    expect(screen.getByText('この内容での試算')).toBeInTheDocument()
+    expect(screen.getByText('1年あたり')).toBeInTheDocument()
   })
 })

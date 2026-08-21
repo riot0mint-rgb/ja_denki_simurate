@@ -5,6 +5,7 @@ import {
   countMeterPeriodDays,
   countMonthDays
 } from '@ja-denki-simulator/calc-core'
+import Icon from '../components/Icon'
 import {
   DEFAULT_RATE_PERIOD,
   allElectricTermsOf,
@@ -102,21 +103,24 @@ function TotalBadge({ total }: { total: number }) {
   )
 }
 
-/** 入力中に出す差額。おトク・割高を色だけでなく語でも書く */
-function PreviewFigure({ label, yen, size }: { label: string; yen: number; size: number }) {
+/**
+ * 入力中に出す差額。おトク・割高を色だけでなく語でも書く。
+ * いちばん大きく出すのは金額で、「月あたり」「年間」の見出しはその下に小さく置く。
+ */
+function PreviewFigure({ label, yen, size }: { label: string; yen: number; size: 'xl' | 'lg' }) {
   const saving = yen >= 0
   const text = formatCurrency(Math.abs(yen))
   return (
-    <span style={{ whiteSpace: 'nowrap' }}>
-      <span className="note" style={{ marginRight: '6px' }}>{label}</span>
-      <strong
-        className={`num ${saving ? 'figure-gain' : 'figure-loss'}`}
-        style={{ fontSize: `${size}px` }}
+    <span>
+      <span
+        className={`figure-${size} ${saving ? 'figure-gain' : 'figure-loss'}`}
+        style={{ display: 'block' }}
       >
         <span className="yen">{text.slice(0, 1)}</span>
         {text.slice(1)}
-      </strong>
-      <span className="note" style={{ marginLeft: '4px' }}>{saving ? 'おトク' : '割高'}</span>
+        <span className="figure-word">{saving ? 'おトク' : '割高'}</span>
+      </span>
+      <span className="note" style={{ display: 'block', marginTop: '2px' }}>{label}</span>
     </span>
   )
 }
@@ -290,7 +294,10 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
       <p className="page-lead">検針票に書かれている内容をそのまま入れてください。</p>
       <div className="stack">
         <div className="card">
-          <label className="field-label" htmlFor="scenario">現在のご契約プラン</label>
+          <div className="card-head" style={{ marginBottom: '4px' }}>
+            <span className="badge-icon badge-leaf"><Icon name="receipt" size={20} /></span>
+            <label className="field-label" htmlFor="scenario">現在のご契約プラン</label>
+          </div>
           <select
             id="scenario"
             value={scenarioId}
@@ -313,7 +320,10 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
         </div>
 
         <div className="card">
-          <label className="field-label" htmlFor="period">検針月</label>
+          <div className="card-head" style={{ marginBottom: '4px' }}>
+            <span className="badge-icon badge-teal"><Icon name="calendar" size={20} /></span>
+            <label className="field-label" htmlFor="period">検針月</label>
+          </div>
           <select
             id="period"
             value={`${period.year}-${period.month}`}
@@ -344,7 +354,10 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
 
         {needsCalendar(scenario) && (
           <div className="card">
-            <p className="card-title">検針期間</p>
+            <div className="card-head" style={{ marginBottom: '4px' }}>
+              <span className="badge-icon badge-teal"><Icon name="calendar" size={20} /></span>
+              <p className="card-title">検針期間</p>
+            </div>
             <p className="card-sub">
               日数・土日・祝日は自動で数えます。夜トクプランの「ホリデータイム」を求めるために必要です
             </p>
@@ -433,7 +446,10 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
 
         {scenario.contract !== 'none' && (
           <div className="card">
-            <p className="card-title">{scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}</p>
+            <div className="card-head" style={{ marginBottom: '4px' }}>
+              <span className="badge-icon badge-green"><Icon name="bolt" size={20} /></span>
+              <p className="card-title">{scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}</p>
+            </div>
             <p className="card-sub">
               検針票の「ご契約{scenario.contract === 'kva' ? '容量' : '電力'}」欄
             </p>
@@ -613,23 +629,27 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
 
         {hasInput && preview.status === 'ok' && (
           <div className="card hero">
-            <p className="eyebrow">この内容での試算</p>
-            <p style={{ fontWeight: 700, marginTop: '4px' }}>{preview.view.recommended.planName}</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon name="coins" size={18} />
+              {preview.view.recommended.planName} なら
+            </p>
             <div
               style={{
                 display: 'flex',
-                gap: '10px 28px',
+                gap: '18px 36px',
                 flexWrap: 'wrap',
-                marginTop: '10px',
-                alignItems: 'baseline'
+                marginTop: '12px',
+                alignItems: 'flex-end'
               }}
             >
+              {annualPreview && (
+                <PreviewFigure label="1年あたり" yen={annualPreview.savingsYen} size="xl" />
+              )}
               <PreviewFigure
-                label="月あたり"
+                label="1か月あたり"
                 yen={preview.view.recommended.monthlySavingsYen}
-                size={24}
+                size="lg"
               />
-              {annualPreview && <PreviewFigure label="年間" yen={annualPreview.savingsYen} size={30} />}
             </div>
           </div>
         )}

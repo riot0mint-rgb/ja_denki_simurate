@@ -97,7 +97,8 @@ describe('年額のラベルは年額の符号で決める', () => {
     await userEvent.click(screen.getByRole('radio', { name: /^あり/ }))
     expect(screen.getByText('年間の想定おトク額')).toBeInTheDocument()
     // 月あたりの符号は月あたりで決める。年額が黒字でも月額は割高のまま
-    expect(screen.getByText(/^￥\d+ご負担増$/)).toBeInTheDocument()
+    const monthly = screen.getByText('月あたり').closest('div')!
+    expect(monthly.textContent).toMatch(/^月あたり￥\d+ご負担増$/)
   })
 })
 

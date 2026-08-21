@@ -1,3 +1,5 @@
+import Icon, { IconName } from '../components/Icon'
+
 interface HomeProps {
   /** くわしい試算（検針票の数字を入力する） */
   onStartInput: () => void;
@@ -11,19 +13,25 @@ interface HomeProps {
  * 文言は営業がお客様に読み上げても不自然にならない言葉を選ぶ。
  * 「端末」「送信」「データ」のような言い回しは使わない。
  */
-const STEPS = [
+const STEPS: Array<{ n: string; icon: IconName; tone: string; title: string; body: string }> = [
   {
     n: '1',
+    icon: 'receipt',
+    tone: 'badge-leaf',
     title: '検針票を手元に',
     body: '使うのは3か所だけ。「ご契約種別」「ご使用量」「ご契約容量」です。お手元になければ、1か月の電気料金だけでも試算できます'
   },
   {
     n: '2',
+    icon: 'pencil',
+    tone: 'badge-green',
     title: 'そのまま入力',
     body: '入力するそばから金額が出るので、検針票と見くらべられます'
   },
   {
     n: '3',
+    icon: 'coins',
+    tone: 'badge-teal',
     title: '1年分でくらべる',
     body: '1か月ではなく1年で。毎月変わる燃料費調整額も月ごとに計算します'
   }
@@ -45,10 +53,20 @@ export default function Home({ onStartInput, onStartSimple }: HomeProps) {
         </p>
         {/* 検針票が手元にあるかで最初に分ける。無い方をあきらめさせない */}
         <div style={{ display: 'grid', gap: '10px', marginTop: '22px' }}>
-          <button className="btn btn-gold btn-full" onClick={onStartInput}>
+          <button
+            className="btn btn-gold btn-full"
+            onClick={onStartInput}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+          >
+            <Icon name="receipt" size={20} />
             検針票から試算する
           </button>
-          <button className="btn btn-ghost btn-full" onClick={onStartSimple}>
+          <button
+            className="btn btn-ghost btn-full"
+            onClick={onStartSimple}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+          >
+            <Icon name="calculator" size={20} />
             検針票がない → かんたん試算
           </button>
         </div>
@@ -60,22 +78,8 @@ export default function Home({ onStartInput, onStartSimple }: HomeProps) {
       <ol className="card" style={{ listStyle: 'none', display: 'grid', gap: '18px' }}>
         {STEPS.map(s => (
           <li key={s.n} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-            <span
-              className="num"
-              style={{
-                flex: '0 0 26px',
-                height: '26px',
-                borderRadius: '999px',
-                background: 'var(--green-soft)',
-                color: 'var(--green-dark)',
-                fontWeight: 700,
-                fontSize: '13px',
-                display: 'grid',
-                placeItems: 'center',
-                marginTop: '4px'
-              }}
-            >
-              {s.n}
+            <span className={`badge-icon ${s.tone}`} style={{ marginTop: '2px' }}>
+              <Icon name={s.icon} size={20} />
             </span>
             <span>
               <span style={{ display: 'block', fontWeight: 700 }}>{s.title}</span>
@@ -86,7 +90,10 @@ export default function Home({ onStartInput, onStartSimple }: HomeProps) {
       </ol>
 
       <div className="card" style={{ background: 'transparent' }}>
-        <p className="card-title">お客様にお伝えしていること</p>
+        <div className="card-head" style={{ marginBottom: '6px' }}>
+          <span className="badge-icon badge-teal"><Icon name="check" size={20} /></span>
+          <p className="card-title">お客様にお伝えしていること</p>
+        </div>
         <ul className="note" style={{ paddingLeft: '18px', marginTop: '8px' }}>
           <li>料金の単価はJAでんきの公式資料そのままです。どの資料の何ページから取った数字か、画面で確かめられます</li>
           <li>毎月変わる燃料費調整額も、その月の実際の金額で計算します</li>

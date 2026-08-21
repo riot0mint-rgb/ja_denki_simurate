@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
+import Icon from '../components/Icon'
 import {
   DEFAULT_RATE_PERIOD,
+  calculateAnnual,
   SCENARIOS,
   calculateComparison,
   estimateUsage,
@@ -74,6 +76,15 @@ export default function SimpleInput({ onComplete, onBack, onSwitchToDetailed }: 
     [usage, scenarioId, period]
   )
 
+  // 年額は月額の12倍ではない。かんたん試算でも1年分を出す
+  const annual = useMemo(
+    () =>
+      usage && preview?.status === 'ok'
+        ? calculateAnnual(scenarioId, usage, preview.view.recommended.planId, { period })
+        : null,
+    [usage, preview, scenarioId, period]
+  )
+
   const canProceed = outcome?.status === 'ok' && preview?.status === 'ok'
 
   return (
@@ -85,7 +96,10 @@ export default function SimpleInput({ onComplete, onBack, onSwitchToDetailed }: 
 
       <div className="stack">
         <div className="card">
-          <label className="field-label" htmlFor="simple-scenario">いまのご契約プラン</label>
+          <div className="card-head" style={{ marginBottom: '4px' }}>
+            <span className="badge-icon badge-leaf"><Icon name="receipt" size={20} /></span>
+            <label className="field-label" htmlFor="simple-scenario">いまのご契約プラン</label>
+          </div>
           <select
             id="simple-scenario"
             className="select"
@@ -131,7 +145,10 @@ export default function SimpleInput({ onComplete, onBack, onSwitchToDetailed }: 
         </div>
 
         <div className="card">
-          <label className="field-label" htmlFor="simple-period">いつの電気料金ですか</label>
+          <div className="card-head" style={{ marginBottom: '4px' }}>
+            <span className="badge-icon badge-teal"><Icon name="calendar" size={20} /></span>
+            <label className="field-label" htmlFor="simple-period">いつの電気料金ですか</label>
+          </div>
           <select
             id="simple-period"
             className="select"
@@ -152,9 +169,12 @@ export default function SimpleInput({ onComplete, onBack, onSwitchToDetailed }: 
 
         {scenario.contract !== 'none' && (
           <div className="card">
-            <p className="card-title">
-              {scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}
-            </p>
+            <div className="card-head" style={{ marginBottom: '4px' }}>
+              <span className="badge-icon badge-green"><Icon name="bolt" size={20} /></span>
+              <p className="card-title">
+                {scenario.contract === 'kva' ? 'ご契約容量' : 'ご契約電力'}
+              </p>
+            </div>
             <p className="card-sub">
               わからない場合は、いちばん多い
               {scenario.contract === 'kva' ? ' 6kVA ' : ' 6kW '}
@@ -176,7 +196,10 @@ export default function SimpleInput({ onComplete, onBack, onSwitchToDetailed }: 
         )}
 
         <div className="card">
-          <label className="field-label" htmlFor="simple-bill">1か月の電気料金</label>
+          <div className="card-head" style={{ marginBottom: '4px' }}>
+            <span className="badge-icon badge-green"><Icon name="bolt" size={20} /></span>
+            <label className="field-label" htmlFor="simple-bill">1か月の電気料金</label>
+          </div>
           <p className="field-hint">
             口座振替のお知らせやクレジットカードの明細に出ている金額で結構です
           </p>
@@ -196,29 +219,58 @@ export default function SimpleInput({ onComplete, onBack, onSwitchToDetailed }: 
           </div>
         </div>
 
-        {outcome?.status === 'ok' && (
+        {outcome?.status === 'ok' && preview?.status === 'ok' && (
           <div className="card hero">
-            <p className="eyebrow">この金額から見たご使用量</p>
-            <p className="hero-figure" style={{ fontSize: '40px' }}>
-              およそ {outcome.estimate.kwh.toLocaleString()}
-              <span style={{ fontSize: '0.4em', marginLeft: '0.15em' }}>kWh</span>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon name="coins" size={18} />
+              {preview.view.recommended.planName} なら
             </p>
-            <p className="note">
-              {outcome.estimate.exact
-                ? `${formatCurrency(outcome.estimate.billYen)} ちょうどになるご使用量です。`
-                : `このご使用量だと ${formatCurrency(outcome.estimate.billYen)} になります（ご入力は ${formatCurrency(billYen)}）。`}
+
+            {/* いちばん大きいのは1年のおトク額。使用量はその根拠として下に小さく置く */}
+            {annual && (
+              <>
+                <p
+                  className={`figure-xl ${annual.savingsYen >= 0 ? 'figure-gain' : 'figure-loss'}`}
+                  style={{ margin: '10px 0 0' }}
+                >
+                  {formatCurrency(Math.abs(annual.savingsYen))}
+                  <span className="figure-word">
+                    {annual.savingsYen >= 0 ? 'おトク' : 'ご負担増'}
+                  </span>
+                </p>
+                <p className="note" style={{ marginTop: '2px' }}>1年あたり</p>
+              </>
+            )}
+
+            <p
+              className={`figure-lg ${
+                preview.view.recommended.monthlySavingsYen >= 0 ? 'figure-gain' : 'figure-loss'
+              }`}
+              style={{ marginTop: '16px' }}
+            >
+              {formatCurrency(Math.abs(preview.view.recommended.monthlySavingsYen))}
+              <span className="figure-word">
+                {preview.view.recommended.monthlySavingsYen >= 0 ? 'おトク' : 'ご負担増'}
+              </span>
+            </p>
+            <p className="note" style={{ marginTop: '2px' }}>1か月あたり</p>
+
+            <p
+              className="note"
+              style={{
+                marginTop: '18px',
+                paddingTop: '14px',
+                borderTop: '1px solid var(--field-line)'
+              }}
+            >
+              電気料金 {formatCurrency(billYen)} から、ご使用量を{' '}
+              <strong className="num">およそ {outcome.estimate.kwh.toLocaleString()} kWh</strong>{' '}
+              と見ています。
+              {!outcome.estimate.exact &&
+                `このご使用量だと ${formatCurrency(outcome.estimate.billYen)} になります。`}
               {outcome.estimate.rangeKwh.min !== outcome.estimate.rangeKwh.max &&
                 ` 同じ金額になるご使用量は ${outcome.estimate.rangeKwh.min}〜${outcome.estimate.rangeKwh.max} kWh の幅があります。`}
             </p>
-            {preview?.status === 'ok' && (
-              <p className="note" style={{ marginTop: '10px' }}>
-                <strong>{preview.view.recommended.planName}</strong> なら 月あたり{' '}
-                <strong className="num">
-                  {formatCurrency(Math.abs(preview.view.recommended.monthlySavingsYen))}
-                </strong>
-                {preview.view.recommended.monthlySavingsYen >= 0 ? 'おトク' : 'ご負担増'}です。
-              </p>
-            )}
           </div>
         )}
 

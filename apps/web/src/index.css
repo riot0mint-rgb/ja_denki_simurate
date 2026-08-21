@@ -5,9 +5,22 @@
    全体は白と淡い若草色で明るく保ち、金額の面だけを薄緑で起こす。
    グラデーション・強い影・浮き上がるホバーは使わない。
 
-   色はグループ会社（全農エネルギー「JAでんき」）のサイトに合わせる。
-   主色 #1f903b、注意まわりの黄 #f8b500、淡い若草 #eaf4e3 が向こうの地色。
-   ただし白地に置く文字と、白文字を載せる面だけは一段暗くする。
+   色はグループ会社（全農エネルギー「JAでんき」）のサイトに合わせ、
+   主色は JAグリーン #1f903b。ただし1色だけだと画面が単調になるため、
+   色相環で主色の両隣を借りて3色にする。
+
+     黄緑 #7ab648（H88） ← 主色 #1f903b（H136） → 青緑 #0e8f7e（H172）
+
+   類似色なので緑の印象は壊れない。役割は固定する。
+   - 黄緑: 比較の「現在」側、面の地色。暖かく後退させたいもの
+   - 主色: JAでんき側、操作、いちばん見せたい数字
+   - 青緑: 説明・内訳など、金額ではない補助情報
+
+   大きい面ほど彩度を落とし、小さい面ほど上げる（面積効果）。
+   淡い緑地に濃い緑の数字を置くと同時対比で数字がより濃く見えるので、
+   金額はこの組み合わせに置く。
+
+   白地に置く文字と白文字を載せる面だけは一段暗くする。
    #1f903b に白文字はコントラスト比 3.8 で、本文サイズでは読みにくい。
 
    和文は端末のフォントを使う（外部フォントを読み込まない）。
@@ -19,14 +32,14 @@
 
 :root {
   /* 紙とインク。ニュートラルはわずかに緑寄りにして主色となじませる */
-  --ink: #1d2419;
-  --ink-2: #5f6a58;
-  --ink-3: #929c8b;
+  --ink: #1b2418;
+  --ink-2: #5d6a56;
+  --ink-3: #909c89;
   --paper: #ffffff;
-  --paper-2: #f8faf6;
-  --paper-3: #eaf1e4;
-  --line: #e5ebe0;
-  --line-strong: #ccd8c4;
+  --paper-2: #f6faf2;
+  --paper-3: #e8f1e0;
+  --line: #e4ebdd;
+  --line-strong: #c9d7bd;
 
   /* 主色。操作と「JAでんき側」を指す（グループ会社サイトに合わせた若草色） */
   --green: #16702e;
@@ -34,10 +47,17 @@
   --green-soft: #eaf4e3;
 
   /* 金額を置く面。淡い若草のベタで、地の白から少しだけ起こす */
-  --field: #eaf4e3;
-  --field-line: #c2ddb2;
-  --green-deep: #0f5a24;
+  --field: #e8f5de;
+  --field-line: #c0dcaa;
+  --green-deep: #0d5c2a;
   --green-bright: #1f903b;
+
+  /* 主色の両隣。意味は持たせず、面と図の区別だけに使う */
+  --leaf: #7ab648;
+  --leaf-soft: #eaf4de;
+  --teal: #0e8f7e;
+  --teal-deep: #0a6c5f;
+  --teal-soft: #e2f2ef;
 
   /* 増減。赤緑だけに頼らず、符号と語で必ず併記する */
   --gain: #167a33;
@@ -378,7 +398,7 @@ summary:focus-visible {
 }
 
 .hero-figure {
-  font-size: 60px;
+  font-size: 56px;
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.035em;
@@ -541,6 +561,13 @@ summary:focus-visible {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   padding-left: 10px;
+  font-size: 16px;
+}
+
+/* 差額はこの表でいちばん見せたい数字。月額より強くする */
+.rate-table td:last-child {
+  font-weight: 700;
+  font-size: 17px;
 }
 
 .rate-table tr:last-child td {
@@ -596,8 +623,8 @@ details.card > summary::before {
   content: '';
   width: 7px;
   height: 7px;
-  border-right: 2px solid var(--ink-3);
-  border-bottom: 2px solid var(--ink-3);
+  border-right: 2px solid var(--teal);
+  border-bottom: 2px solid var(--teal);
   transform: rotate(-45deg);
   transition: transform 0.15s;
   flex: none;
@@ -651,7 +678,7 @@ details.card[open] > summary::before {
 }
 
 .hero-figures dd {
-  font-size: 21px;
+  font-size: 27px;
   font-weight: 700;
   margin-top: 2px;
   /* 「￥436お／トク」と語中で折れるのを止める */
@@ -679,7 +706,7 @@ details.card[open] > summary::before {
   }
 
   .hero-figure {
-    font-size: 52px;
+    font-size: 68px;
   }
 }
 
@@ -814,4 +841,75 @@ details.card[open] > summary::before {
   .logo {
     height: 20px;
   }
+}
+
+/* ── アイコン ─────────────────────────────────────────────── */
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+/* 見出しの頭に置く小さな丸のアイコン。役割ごとに色を変える */
+.badge-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.badge-green { background: var(--field); color: var(--green-deep); }
+.badge-leaf { background: var(--leaf-soft); color: #4b7a24; }
+.badge-teal { background: var(--teal-soft); color: var(--teal-deep); }
+.badge-warn { background: var(--warn-bg); color: var(--warn-ink); }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-head .card-title {
+  margin: 0;
+}
+
+/* ── 金額の見せ方 ─────────────────────────────────────────── */
+
+/*
+ * 数字の大きさは「見せたい順」に決める。
+ * いちばん大きいのは常におトク額で、使用量やその他の数値はそれより小さい。
+ */
+.figure-xl {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.figure-lg {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.figure-sub {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+/* おトク／ご負担増の語。金額より一段小さく、色は金額に合わせる */
+.figure-word {
+  font-size: 0.42em;
+  font-weight: 700;
+  margin-left: 0.15em;
 }

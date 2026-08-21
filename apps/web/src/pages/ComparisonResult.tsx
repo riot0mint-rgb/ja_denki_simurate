@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
+import Icon from '../components/Icon'
 import {
   AnnualView,
   GAS_SET_DISCOUNT_YEN,
@@ -77,7 +78,7 @@ function CompareBars({
       name: currentName,
       suffix: '（現在）',
       yen: currentYen,
-      color: 'var(--line-strong)',
+      color: 'var(--leaf)',
       chip: null as string | null,
       chipColor: ''
     },
@@ -154,7 +155,7 @@ function MonthlyBars({
             <div className="bar-slot">
               <span
                 className="bar"
-                style={{ height: `${(m.currentYen / max) * 100}%`, background: 'var(--line-strong)' }}
+                style={{ height: `${(m.currentYen / max) * 100}%`, background: 'var(--leaf)', opacity: 0.8 }}
               />
               <span
                 className="bar"
@@ -167,7 +168,7 @@ function MonthlyBars({
       </div>
       <div className="bar-legend">
         <span>
-          <span className="bar-swatch" style={{ background: 'var(--line-strong)' }} />
+          <span className="bar-swatch" style={{ background: 'var(--leaf)', opacity: 0.8 }} />
           {currentName}（現在）
         </span>
         <span>
@@ -253,7 +254,9 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
 
       {/* どこから来た使用量なのかを、画面にも紙にも必ず残す */}
       {estimate && (
-        <div className="note-warn" style={{ marginBottom: '14px' }}>
+        <div className="note-warn" style={{ marginBottom: '14px', display: 'flex', gap: '10px' }}>
+          <Icon name="calculator" size={19} style={{ marginTop: '3px', flex: 'none' }} />
+          <span>
           <strong>かんたん試算の結果です</strong>
           <br />
           1か月の電気料金 {formatCurrency(estimate.billYen)} から、ご使用量を
@@ -262,17 +265,20 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
           {!estimate.exact &&
             `（このご使用量での請求額は ${formatCurrency(estimate.estimatedBillYen)}）`}
           。実際のご使用量がわかる場合は、検針票から試算し直すと正確になります。
+          </span>
         </div>
       )}
 
       <section className="card hero">
         <div className="hero-grid">
           <div>
-            <p className="eyebrow">
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon name="coins" size={18} />
               {isSame ? '年間の料金は同額です' : `年間の想定${annualTone.word}額`}
             </p>
             <p className={`hero-figure ${annualTone.className}`}>
               <BigMoney yen={annualYen} />
+              {!isSame && <span className="figure-word">{annualTone.word}</span>}
             </p>
             <p className="note">
               <strong>{v.recommended.planName}</strong>
@@ -300,7 +306,14 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
               <div>
                 <dt className="note">月あたり</dt>
                 <dd className={`num ${monthTone.className}`}>
-                  {isSame ? '同額' : `${formatCurrency(Math.abs(savings))}${monthTone.word}`}
+                  {isSame ? (
+                    '同額'
+                  ) : (
+                    <>
+                      {formatCurrency(Math.abs(savings))}
+                      <span className="figure-word">{monthTone.word}</span>
+                    </>
+                  )}
                 </dd>
               </div>
               <div>
@@ -312,7 +325,7 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
                 </dt>
                 <dd className={`num ${toneOf(firstYearYen).className}`}>
                   {formatCurrency(Math.abs(firstYearYen))}
-                  {toneOf(firstYearYen).word}
+                  <span className="figure-word">{toneOf(firstYearYen).word}</span>
                 </dd>
               </div>
             </dl>
@@ -357,7 +370,10 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
       <div className="result-grid">
         <div className="stack">
           <section className="card">
-            <p className="card-title">料金比較表（月額）</p>
+            <div className="card-head" style={{ marginBottom: '6px' }}>
+              <span className="badge-icon badge-green"><Icon name="table" size={20} /></span>
+              <p className="card-title">料金比較表（月額）</p>
+            </div>
             <p className="card-sub">
               単価 {v.unitPriceEffectiveLabel} ／ 燃料費調整額・再エネ賦課金 {v.ratePeriodLabel}
             </p>
@@ -425,6 +441,7 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
           >
             <summary>
               {/* 紙では「表示」が操作の指示に読めてしまうので見出しに変える */}
+              <Icon name="calculator" size={19} style={{ color: 'var(--teal-deep)' }} />
               <span className="print-hide">計算の内訳を表示</span>
               <span className="print-only">計算の内訳</span>
             </summary>
@@ -451,7 +468,10 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
               あり／なしを明示的に選ばせる。既定は「なし」——既定を「あり」にすると、
               セット割に入っていないお客様に割引後の額を見せてしまう */}
           <section className="card print-hide gasset-card">
-            <p className="card-title">ガスとでんきのセット割</p>
+            <div className="card-head" style={{ marginBottom: '6px' }}>
+              <span className="badge-icon badge-leaf"><Icon name="tag" size={20} /></span>
+              <p className="card-title">ガスとでんきのセット割</p>
+            </div>
             <p className="card-sub">
               JAのガスとあわせてご契約の場合、電気料金が月{GAS_SET_DISCOUNT_YEN}円割引になります。
             </p>
@@ -483,7 +503,9 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
             {v.unitPriceEffectiveLabel}
           </p>
 
-          <div className="note-warn" style={{ marginTop: '14px' }}>
+          <div className="note-warn" style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
+            <Icon name="alert" size={19} style={{ marginTop: '3px' }} />
+            <span>
             <strong>ご確認ください</strong>
             <br />
             {v.unitPriceEffectiveLabel}の単価に、{v.ratePeriodLabel}の燃料費調整額・再エネ賦課金を
@@ -493,6 +515,7 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
             年額はご使用量が毎月同じだとした場合の目安です。
             検針票発行手数料（1契約55円）やポイント還元は含んでいません。
             正確な金額は営業担当までお問い合わせください。
+            </span>
           </div>
 
           <div className="btn-row section-gap print-hide">

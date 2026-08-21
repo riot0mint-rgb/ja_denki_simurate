@@ -32,11 +32,24 @@ describe('かんたん試算', () => {
     expect(labels).not.toContain('中国電力 ファミリータイムⅡ')
   })
 
-  it('電気料金を入れると、およその使用量を出す', async () => {
+  // いちばん大きく出すのはおトク額。使用量はその根拠として下に小さく置く
+  it('電気料金を入れると、おトク額を主役に、使用量を根拠として出す', async () => {
     const { user } = setup()
     await user.type(screen.getByLabelText('1か月の電気料金'), '10000')
-    expect(screen.getByText('この金額から見たご使用量')).toBeInTheDocument()
-    expect(screen.getByText(/およそ/)).toBeInTheDocument()
+    expect(screen.getByText('1か月あたり')).toBeInTheDocument()
+    expect(screen.getByText('1年あたり')).toBeInTheDocument()
+    expect(screen.getByText(/およそ .* kWh/)).toBeInTheDocument()
+  })
+
+  // 年額をいちばん大きく、月額をその次に。使用量は根拠として本文の大きさに置く
+  it('おトク額のほうが使用量より大きく表示される', async () => {
+    const { user } = setup()
+    await user.type(screen.getByLabelText('1か月の電気料金'), '10000')
+    const annual = screen.getByText('1年あたり').previousElementSibling as HTMLElement
+    const monthly = screen.getByText('1か月あたり').previousElementSibling as HTMLElement
+    expect(annual.className).toContain('figure-xl')
+    expect(monthly.className).toContain('figure-lg')
+    expect(screen.getByText(/およそ .* kWh/).tagName.toLowerCase()).toBe('strong')
   })
 
   // 1kWhあたり数十円動くので、入力額ぴったりにはならないことが多い。
@@ -44,7 +57,8 @@ describe('かんたん試算', () => {
   it('入力額とずれる場合は、その使用量での請求額を併記する', async () => {
     const { user } = setup()
     await user.type(screen.getByLabelText('1か月の電気料金'), '10000')
-    expect(screen.getByText(/になります（ご入力は|ちょうどになるご使用量です/)).toBeInTheDocument()
+    const note = screen.getByText(/と見ています/)
+    expect(note.textContent).toMatch(/電気料金 ￥10,000 から/)
   })
 
   it('未入力では次へ進めない', () => {
