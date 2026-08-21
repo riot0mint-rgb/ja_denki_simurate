@@ -189,6 +189,8 @@ export interface EconomyNightPlan extends PlanBase {
   /** 昼間時間の段階（0kWh起点） */
   dayTiers: Tier[];
   nightUnitPriceYenPerKwh: Decimal;
+  /** 使用量が0kWhの月は基本料金が半額になるか */
+  halveBaseWhenNoUsage: boolean;
 }
 
 export type RatePlan =

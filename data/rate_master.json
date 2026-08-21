@@ -125,6 +125,7 @@
         }
       ],
       "nightUnitPriceYenPerKwh": "30.34",
+      "halveBaseWhenNoUsage": true,
       "rounding": {
         "energyTotal": "none",
         "fuelSubtotal": "none",
@@ -145,6 +146,13 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "中国電力 電気料金計算シミュレーション「時間帯別電灯（エコノミーナイト）」計算結果",
+          "locator": "6kVA・0kWh → 789円 ／ 6kVA・昼間100kWh + 夜間1,000kWh → 26,578円（2026年8月単価）",
+          "effectiveFrom": "2026-08",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-21"
         }
       ]
     },
@@ -400,7 +408,7 @@
       "baseChargePerKwOver10": null,
       "minimumMonthly": {
         "threshold": "1844.7",
-        "bill": "1845"
+        "bill": "1844"
       },
       "unitPrices": {
         "dayOther": "46.98",
@@ -447,7 +455,7 @@
       "side": "other",
       "unitPriceYenPerKwh": "38.21",
       "minimumMonthlyThreshold": "1844.7",
-      "minimumMonthlyBill": "1845",
+      "minimumMonthlyBill": "1844",
       "rounding": {
         "energyTotal": "none",
         "fuelSubtotal": "none",

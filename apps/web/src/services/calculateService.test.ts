@@ -391,13 +391,13 @@ describe('按分が負の値になる入力', () => {
 describe('ナイトホリデー（最低月額料金型）', () => {
   it('73kWh は最低月額料金 1,845円', () => {
     const v = ok('chugoku_night_holiday', { contractKw: 6, tou: { night: 73 } })
-    expect(v.current.monthlyChargeYen).toBe(1845)
+    expect(v.current.monthlyChargeYen).toBe(1844)
     expect(v.current.notes.some(n => n.includes('最低月額料金'))).toBe(true)
   })
 
   it('74kWh から通常計算になる', () => {
     const v = ok('chugoku_night_holiday', { contractKw: 6, tou: { night: 74 } })
-    expect(v.current.monthlyChargeYen).toBeGreaterThan(1845)
+    expect(v.current.monthlyChargeYen).toBeGreaterThan(1844)
     expect(v.current.notes).toEqual([])
   })
 

@@ -202,7 +202,7 @@ describe('ナイトホリデー → JAでんき夜トクプラン', () => {
 
   it('最低月額料金が効く低使用量でも計算できる', () => {
     const current = bill(F.chugokuNightHoliday, tou(0, 5, 0), JULY);
-    expect(current.total.toNumber()).toBe(1845);
+    expect(current.total.toNumber()).toBe(1844);
   });
 
   /**

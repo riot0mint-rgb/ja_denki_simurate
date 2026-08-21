@@ -114,6 +114,22 @@ const OFFICIAL_TARIFF_AU: RateSource = {
  * 対象は 従量電灯A・従量電灯B・従量電灯S・低圧電力 の4メニュー。
  * 夜トクプランは対象外（定義書も2024年4月版のまま）。
  */
+/**
+ * 中国電力の公式シミュレーションの出力。
+ *
+ * ④の入力が全て0のため、時間帯別電灯には元資料に金額の突合点が無かった。
+ * 実使用量を入れた計算結果を2件もらい、回帰テストに固定した。
+ * ここで **使用量0kWhのとき基本料金が半額**になることも判明している
+ * （元資料の④にはこの分岐が無く、実装にも入っていなかった）。
+ */
+const CHUGOKU_SIMULATOR_ECONOMY_NIGHT: RateSource = {
+  document: '中国電力 電気料金計算シミュレーション「時間帯別電灯（エコノミーナイト）」計算結果',
+  locator: '6kVA・0kWh → 789円 ／ 6kVA・昼間100kWh + 夜間1,000kWh → 26,578円（2026年8月単価）',
+  effectiveFrom: '2026-08',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-08-21'
+}
+
 const OFFICIAL_JA_DENKI_DEFINITION_2026_10: RateSource = {
   document:
     '家庭⑦-1【中国】ＪＡでんき料金メニュー定義書（家庭用）＜20261001＞.pdf / 家庭⑦-2 従量電灯Ｓ＜20261001＞.pdf',
@@ -185,7 +201,10 @@ export const chugokuSimple: FlatRatePlan = {
   side: 'other',
   unitPriceYenPerKwh: new Decimal('38.21'),
   minimumMonthlyThreshold: new Decimal('1844.7'),
-  minimumMonthlyBill: new Decimal('1845'),
+  // 請求額は 1,844円（円未満切り捨て）。①明細の式は 1845 だが、
+  // 約款の「合計金額は1円未満切り捨て」が正しいことをJAに確認済み（2026-08-21）。
+  // 1845 だと使用量が減るほど請求額が1円上がる不連続が生じる
+  minimumMonthlyBill: new Decimal('1844'),
   rounding: CHUGOKU_ROUNDING,
   sources: [
     src(DOC.juryoA, '基本項目!E52:E55（自由料金）'),
@@ -427,7 +446,8 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
   // ASSUMPTIONS.md「ナイトホリデーの最低月額料金」に確認依頼として記録。
   minimumMonthly: {
     threshold: new Decimal('1844.7'),
-    bill: new Decimal('1845')
+    // 同上。円未満切り捨てで 1,844円（2026-08-21 確認）
+    bill: new Decimal('1844')
   },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true,
@@ -527,8 +547,13 @@ export const chugokuEconomyNight: EconomyNightPlan = {
     { tierNumber: 3, startKwh: 220, endKwh: null, unitPriceYenPerKwh: new Decimal('44.86') }
   ],
   nightUnitPriceYenPerKwh: new Decimal('30.34'),
+  halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.family, "'時間帯別結果'!I7, F8, F11:F14"), OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION]
+  sources: [
+    src(DOC.family, "'時間帯別結果'!I7, F8, F11:F14"),
+    OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION,
+    CHUGOKU_SIMULATOR_ECONOMY_NIGHT
+  ]
 }
 
 // ─────────────────────────────────────────────

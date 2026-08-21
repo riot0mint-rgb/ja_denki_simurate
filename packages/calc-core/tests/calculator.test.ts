@@ -168,10 +168,10 @@ describe('時間帯別型（電化Style / 夜トク）', () => {
 
     // 判定は (従量料金 + 燃料費調整額) で行うため、境界は燃調の改定で動く。
     // 26年7月適用: (34.65 - 9.57) × 使用量 < 1844.7 → ナイトのみなら 73kWh まで
-    it('73kWh までは最低月額料金 1,845円', () => {
+    it('73kWh までは最低月額料金 1,844円', () => {
       for (const kwh of [0, 1, 50, 73]) {
         const b = bill(F.chugokuNightHoliday, usage({ night: kwh }));
-        expect(b.total.toNumber()).toBe(1845);
+        expect(b.total.toNumber()).toBe(1844);
         expect(b.notes.some(n => n.includes('最低月額料金'))).toBe(true);
       }
     });
@@ -179,7 +179,7 @@ describe('時間帯別型（電化Style / 夜トク）', () => {
     it('74kWh から通常計算に切り替わる', () => {
       const b = bill(F.chugokuNightHoliday, usage({ night: 74 }));
       expect(b.notes).toEqual([]);
-      expect(b.total.toNumber()).toBeGreaterThan(1845);
+      expect(b.total.toNumber()).toBeGreaterThan(1844);
     });
 
     it('電化Styleより昼間が高く夜間も高い（乗り換え提案の前提）', () => {
@@ -246,10 +246,10 @@ describe('契約電力＋一律単価型（深夜電力B）', () => {
 describe('一律単価型（シンプルコース）', () => {
   // 判定は (従量料金 + 燃料費調整額) で行うため、閾値を跨ぐ使用量は燃調の改定で動く。
   // 26年7月適用: (38.21 - 9.57) × 使用量 < 1844.7 → 64kWh まで最低月額料金
-  it('64kWh までは最低月額料金 1,845円', () => {
+  it('64kWh までは最低月額料金 1,844円', () => {
     for (const kwh of [0, 10, 50, 64]) {
       const b = bill(F.chugokuSimple, { totalKwh: kwh });
-      expect(b.total.toNumber()).toBe(1845);
+      expect(b.total.toNumber()).toBe(1844);
       expect(b.notes.length).toBe(1);
     }
   });
@@ -280,7 +280,7 @@ describe('一律単価型（シンプルコース）', () => {
   it('65kWh から通常計算に切り替わる', () => {
     const b = bill(F.chugokuSimple, { totalKwh: 65 });
     expect(b.notes).toEqual([]);
-    expect(b.total.toNumber()).toBeGreaterThan(1845);
+    expect(b.total.toNumber()).toBeGreaterThan(1844);
   });
 });
 

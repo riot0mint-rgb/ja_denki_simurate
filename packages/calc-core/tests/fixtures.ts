@@ -77,7 +77,7 @@ export const chugokuSmart: TieredMinimumPlan = {
 export const chugokuSimple: FlatRatePlan = {
   structure: 'flat_rate', planId: 'chugoku_simple', planName: '中国電力 シンプルコース', side: 'other',
   unitPriceYenPerKwh: new Decimal('38.21'),
-  minimumMonthlyThreshold: new Decimal('1844.7'), minimumMonthlyBill: new Decimal('1845'),
+  minimumMonthlyThreshold: new Decimal('1844.7'), minimumMonthlyBill: new Decimal('1844'),
   rounding: CHUGOKU_ROUNDING, sources: [src(D1, '基本項目!E52:E55')]
 };
 export const auMPlan: TieredMinimumPlan = {
@@ -133,7 +133,7 @@ export const chugokuNightHoliday: TimeOfUsePlan = {
   baseChargeUpTo10Kw: null, baseChargePerKwOver10: null,
   // 中国電力の公式単価表で、ナイトホリデーコースだけ最低月額料金型と確認済み。
   // ただし請求額 1,845 円は推定（rates.ts のコメント参照）。
-  minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1845') },
+  minimumMonthly: { threshold: new Decimal('1844.7'), bill: new Decimal('1844') },
   unitPrices: touPrices('46.98', '49.44', '34.65', '34.65'),
   halveBaseWhenNoUsage: true, allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING, sources: [src(D3, '基本項目!S62:S65')]
@@ -200,5 +200,6 @@ export const chugokuEconomyNight: EconomyNightPlan = {
     { tierNumber: 3, startKwh: 220, endKwh: null, unitPriceYenPerKwh: new Decimal('44.86') }
   ],
   nightUnitPriceYenPerKwh: new Decimal('30.34'),
+  halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING, sources: [src(D4, "'時間帯別結果'!I7,F8,F11:F14")]
 };

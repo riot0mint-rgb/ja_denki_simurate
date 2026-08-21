@@ -213,3 +213,68 @@ describe('2026年10月改定', () => {
     }
   })
 })
+
+/**
+ * 時間帯別電灯（エコノミーナイト）の突合。
+ *
+ * ④の入力が全て0のため、元資料には金額の突合点が無かった。
+ * 中国電力の公式シミュレーションの出力2件を期待値に据える。
+ * 出典: 中国電力 電気料金計算シミュレーション（2026年8月単価）
+ */
+describe('時間帯別電灯（エコノミーナイト）— 中国電力公式シミュレーションとの突合', () => {
+  const AUG = { year: 2026, month: 8 }
+  const bill = (dayKwh: number, nightKwh: number, contractKva = 6) => {
+    const plan = ALL_PLANS.find(p => p.planId === 'chugoku_economy_night')!
+    const fuel = lookupFuelAdjustment(AUG)!
+    const levy = lookupRenewableLevy(AUG)!
+    const r = new BillingCalculator().calculate({
+      usage: { contractKva, economyNight: { dayKwh, nightKwh } },
+      plan,
+      fuelAdjustment: fuel.value,
+      renewableLevy: levy.value
+    })
+    if (r.status !== 'ok') throw new Error(r.reason)
+    return r.bill
+  }
+
+  // 6kVA・0kWh → 789円。基本料金 ((1,578.72 + 0) × 1/2) = 789.36 → 789
+  it('0kWh は 789円（基本料金が半額）', () => {
+    const b = bill(0, 0)
+    expect(b.baseCharge.toNumber()).toBe(789.36)
+    expect(b.total.toNumber()).toBe(789)
+  })
+
+  // 6kVA・昼間100kWh（第1段階90 + 第2段階10）+ 夜間1,000kWh → 26,578円
+  it('昼間100kWh + 夜間1,000kWh は 26,578円', () => {
+    const b = bill(100, 1000)
+    expect(b.baseCharge.toNumber()).toBe(1578.72)
+    // 昼間 38.22×90 + 43.82×10 + 44.86×0 = 3,878.00
+    expect(b.lines[0].amount.toNumber()).toBeCloseTo(3439.8, 6)
+    expect(b.lines[1].amount.toNumber()).toBeCloseTo(438.2, 6)
+    expect(b.lines[2].amount.toNumber()).toBe(0)
+    // 夜間 30.34×1,000 = 30,340.00
+    expect(b.lines[3].amount.toNumber()).toBeCloseTo(30340, 6)
+    // 燃調 -12.56×1,100 / 再エネ 4.18×1,100（円未満切り捨て）
+    expect(b.fuelAdjustment.toNumber()).toBeCloseTo(-13816, 6)
+    expect(b.renewableLevy.toNumber()).toBe(4598)
+    expect(b.total.toNumber()).toBe(26578)
+  })
+})
+
+// 最低月額料金を下回ったときの請求額は 1,844円（円未満切り捨て）。
+// ①明細の式は 1845 だが、約款どおりの切り捨てが正しいとJAに確認済み（2026-08-21）
+describe('最低月額料金の請求額', () => {
+  it('ナイトホリデーもシンプルコースも 1,844円', () => {
+    const nightHoliday = ALL_PLANS.find(p => p.planId === 'chugoku_night_holiday')! as {
+      minimumMonthly: { threshold: { toString(): string }; bill: { toString(): string } }
+    }
+    const simple = ALL_PLANS.find(p => p.planId === 'chugoku_simple')! as {
+      minimumMonthlyThreshold: { toString(): string }
+      minimumMonthlyBill: { toString(): string }
+    }
+    expect(nightHoliday.minimumMonthly.threshold.toString()).toBe('1844.7')
+    expect(nightHoliday.minimumMonthly.bill.toString()).toBe('1844')
+    expect(simple.minimumMonthlyThreshold.toString()).toBe('1844.7')
+    expect(simple.minimumMonthlyBill.toString()).toBe('1844')
+  })
+})

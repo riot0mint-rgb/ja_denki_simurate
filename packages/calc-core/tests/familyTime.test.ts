@@ -194,7 +194,14 @@ describe('時間帯別電灯（エコノミーナイト）', () => {
   });
 
   it('基本料金は 1,578.72円（10kVAまで）', () => {
-    expect(bill(F.chugokuEconomyNight, usage(0, 0), CASE_PERIOD).baseCharge.toNumber()).toBe(1578.72);
+    expect(bill(F.chugokuEconomyNight, usage(0, 10), CASE_PERIOD).baseCharge.toNumber()).toBe(1578.72);
+  });
+
+  // 中国電力の公式シミュレーション: 6kVA・0kWh → 789円（((1)+(2))×1/2 = 789.36）
+  it('使用量が0kWhの月は基本料金が半額', () => {
+    const b = bill(F.chugokuEconomyNight, usage(0, 0), CASE_PERIOD);
+    expect(b.baseCharge.toNumber()).toBe(789.36);
+    expect(b.notes).toContain('使用量が0kWhのため基本料金が半額です');
   });
 
   it('10kVA超過分が基本料金に加算される', () => {
