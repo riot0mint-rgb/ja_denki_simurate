@@ -1,7 +1,7 @@
 {
-  "name": "JAでんき料金比較シミュレーター",
+  "name": "JAでんき料金比較シミュレーター（JA職員向け）",
   "short_name": "JAでんき料金比較",
-  "description": "中国電力とJAでんきの料金をかんたん比較。月額・年額削減額を自動計算",
+  "description": "中国電力・auでんきとJAでんきの料金を比較し、1年ぶんの差額を出します。JA職員向けの社内ツールです",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

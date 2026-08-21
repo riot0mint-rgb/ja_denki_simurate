@@ -8,7 +8,7 @@ import type { UsageInput } from '@ja-denki-simulator/calc-core'
 type Complete = (id: string, usage: UsageInput, period: { year: number; month: number }) => void
 
 function setup() {
-  const onComplete = vi.fn<Parameters<Complete>, void>()
+  const onComplete = vi.fn<Complete>()
   const onBack = vi.fn()
   render(<ManualInput onComplete={onComplete} onBack={onBack} />)
   return { onComplete, onBack, user: userEvent.setup() }

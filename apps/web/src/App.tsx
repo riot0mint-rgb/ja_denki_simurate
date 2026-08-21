@@ -53,7 +53,7 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <Logo />
-          <span className="topbar-sub">中国電力エリア・低圧</span>
+          <span className="topbar-sub">JA職員向け ／ 中国電力エリア・低圧</span>
         </div>
       </header>
       {currentPage === 'home' && (
@@ -97,6 +97,16 @@ export default function App() {
           onBack={() => setCurrentPage(lastInputPage)}
         />
       )}
+      {/*
+        認証をかけていない＝URLを知っていれば誰でも開ける。
+        お客様の画面に映ることもあるので、誰向けの道具なのかを画面にも書いておく（フェーズ9）
+      */}
+      <footer className="sitefoot">
+        <p>
+          JA職員向けの試算ツールです。表示金額は目安であり、請求額を保証するものではありません。
+        </p>
+        <p>入力した数字はこの端末の中だけで計算され、どこにも送信・保存されません。</p>
+      </footer>
     </div>
   )
 }

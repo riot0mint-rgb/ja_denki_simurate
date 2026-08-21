@@ -87,6 +87,23 @@
   padding: 20px 20px 40px;
 }
 
+/*
+ * 画面の末尾に置く但し書き。認証をかけない配布なので、
+ * 誰向けの道具で、数字がどこへ行くのかを常に画面に残す（フェーズ9）
+ */
+.sitefoot {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 20px 32px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-3);
+}
+
+.sitefoot p + p {
+  margin-top: 2px;
+}
+
 .page-title {
   font-size: 21px;
   margin-bottom: 4px;

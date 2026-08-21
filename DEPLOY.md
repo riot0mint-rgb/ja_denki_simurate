@@ -501,15 +501,63 @@ git push origin main
 
 ---
 
-## セキュリティ・チェックリスト
+## リリース前チェックリスト（フェーズ9で確定）
 
-デプロイ前に以下を確認：
+### 1. コマンドで確かめる
 
-- [ ] HTTPS のみ（HTTPリダイレクト有効）
-- [ ] CSP（Content Security Policy）ヘッダー設定
-- [ ] localStorage に個人情報なし
-- [ ] API キー等が環境変数（.env）に外出しなし
-- [ ] コンソールから個人情報出力なし（console.log削除）
+```bash
+npm ci
+npm install --no-save playwright        # 8・9 に必要（初回のみ）
+
+npm run test:coverage                   # 1. テスト552件とカバレッジ閾値
+npm run type-check                      # 2. 型
+npm run rate-master:check               # 3. 料金マスターJSONの同期
+npm run rate-intake                     # 4. 元資料との突合（archive/ がある場合）
+npm run build                           # 5. ビルド
+npm run security:check                  # 6. 端末の外に出る経路が無いこと（静的）
+npm audit --omit=dev --audit-level=low  # 7. 本番依存の脆弱性
+npm run security:runtime                # 8. 実機で外部通信・保存が無いこと
+npm run accept                          # 9. 受け入れテスト13項目
+```
+
+1〜7 は CI でも毎回走ります。**8・9 はリリース前に手元で1回**（ブラウザの取得が重いため）。
+
+### 2. 人が確かめる
+
+`docs/ACCEPTANCE_TEST.md` の第2部を業務担当が実施してください。
+**実際の検針票との突合**が最重要項目です。
+
+### 3. 配信時のヘッダ（ホスティング側で設定）
+
+認証をかけない配布なので、サーバー側の設定まで含めて初めて成立します。
+
+```
+X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+Referrer-Policy: no-referrer
+Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
+```
+
+- `connect-src 'self'` は、**将来うっかり外部通信を足してもブラウザが止める**二重の関門
+- `style-src` の `'unsafe-inline'` は、金額バーの幅など計算結果に応じた `style` 属性のため
+- HTML の `<meta name="robots">` には強制力がないので、`X-Robots-Tag` を必ず付けること
+
+### 4. ドメインの選び方
+
+⚠️ **見慣れないドメインは社内プロキシに弾かれます**（実際に claude.ai が弾かれました）。
+**JAの既存ドメイン配下**に置くのが最も安全です。`github.io` は公開かつ弾かれる可能性があります。
+
+HTTPS は必須です（Service Worker の要件。オフライン動作と更新バナーが死にます）。
+
+### 5. ローンチ前に片付いている必要があること
+
+- [ ] 2026年10月・11月分の燃料費調整額の収録
+- [ ] JA側と中国電力側で燃調が分かれるかの確認（10月改定で基準が変わるため）
+- [ ] ファミリータイムⅠ/Ⅱ の0kWh半額ルールの確認
+- [ ] 配布先（ホスティング）の決定
+- [ ] 上記ヘッダの設定
 
 ---
 
