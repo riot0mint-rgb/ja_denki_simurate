@@ -396,35 +396,37 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
                 ))}
               </ul>
 
-              <table className="rate-table diff-table" aria-label="差額の内訳" style={{ marginTop: '16px' }}>
-                <thead>
-                  <tr>
-                    <th>内訳</th>
-                    <th>{v.current.planName}</th>
-                    <th>{v.explanation.planName}</th>
-                    <th>差</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {v.explanation.parts.map(part => (
-                    <tr key={part.label}>
-                      <td className="plan-name">{part.label}</td>
-                      <td>{part.currentYen === null ? '—' : formatCurrency(part.currentYen)}</td>
-                      <td>{part.candidateYen === null ? '—' : formatCurrency(part.candidateYen)}</td>
-                      <td
-                        style={{
-                          color: `var(--${
-                            part.differenceYen > 0 ? 'gain' : part.differenceYen < 0 ? 'loss' : 'ink-3'
-                          })`
-                        }}
-                      >
-                        {part.differenceYen > 0 ? '−' : '+'}
-                        {formatCurrency(Math.abs(part.differenceYen))}
-                      </td>
+              <div className="table-scroll" style={{ marginTop: '16px' }}>
+                <table className="rate-table diff-table" aria-label="差額の内訳">
+                  <thead>
+                    <tr>
+                      <th>内訳</th>
+                      <th>{v.current.planName}</th>
+                      <th>{v.explanation.planName}</th>
+                      <th>差</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {v.explanation.parts.map(part => (
+                      <tr key={part.label}>
+                        <td className="plan-name">{part.label}</td>
+                        <td>{part.currentYen === null ? '—' : formatCurrency(part.currentYen)}</td>
+                        <td>{part.candidateYen === null ? '—' : formatCurrency(part.candidateYen)}</td>
+                        <td
+                          style={{
+                            color: `var(--${
+                              part.differenceYen > 0 ? 'gain' : part.differenceYen < 0 ? 'loss' : 'ink-3'
+                            })`
+                          }}
+                        >
+                          {part.differenceYen > 0 ? '−' : '+'}
+                          {formatCurrency(Math.abs(part.differenceYen))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <p className="note" style={{ marginTop: '12px' }}>
                 この表の差を足すと、月額の差{' '}
                 <strong className="num">
@@ -449,43 +451,45 @@ export default function ComparisonResult({ scenarioId, usage, period, estimate, 
             <p className="card-sub">
               単価 {v.unitPriceEffectiveLabel} ／ 燃料費調整額・再エネ賦課金 {v.ratePeriodLabel}
             </p>
-            <table className="rate-table" aria-label="料金比較表">
-              <thead>
-                <tr>
-                  <th>プラン</th>
-                  <th>月額</th>
-                  <th>差額</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="is-current">
-                  <td className="plan-name">{v.current.planName}（現在）</td>
-                  <td style={{ fontWeight: 700 }}>{formatCurrency(v.current.monthlyChargeYen)}</td>
-                  <td>—</td>
-                </tr>
-                {v.candidates.map(c => {
-                  // 削減にならないプランを「推奨」と表示しない。候補が1件しかない
-                  // シナリオ（ナイトホリデー→夜トクなど）では、最安＝唯一の候補が
-                  // 現行より高いことがある。
-                  const rec = c.planId === v.recommended.planId && isSaving
-                  return (
-                    <tr key={c.planId}>
-                      <td className="plan-name">
-                        <span style={{ fontWeight: rec ? 700 : 400 }}>{c.planName}</span>
-                        {rec && <span className="tag">おすすめ</span>}
-                      </td>
-                      <td style={{ fontWeight: 700 }}>{formatCurrency(c.monthlyChargeYen)}</td>
-                      <td style={{ color: `var(--${c.monthlySavingsYen > 0 ? 'gain' : c.monthlySavingsYen < 0 ? 'loss' : 'ink-3'})` }}>
-                        {/* 同額のときに「+￥0」を赤で出すと、高くなったように読める */}
-                        {c.monthlySavingsYen === 0
-                          ? '同額'
-                          : `${c.monthlySavingsYen > 0 ? '−' : '+'}${formatCurrency(Math.abs(c.monthlySavingsYen))}`}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table className="rate-table" aria-label="料金比較表">
+                <thead>
+                  <tr>
+                    <th>プラン</th>
+                    <th>月額</th>
+                    <th>差額</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="is-current">
+                    <td className="plan-name">{v.current.planName}（現在）</td>
+                    <td style={{ fontWeight: 700 }}>{formatCurrency(v.current.monthlyChargeYen)}</td>
+                    <td>—</td>
+                  </tr>
+                  {v.candidates.map(c => {
+                    // 削減にならないプランを「推奨」と表示しない。候補が1件しかない
+                    // シナリオ（ナイトホリデー→夜トクなど）では、最安＝唯一の候補が
+                    // 現行より高いことがある。
+                    const rec = c.planId === v.recommended.planId && isSaving
+                    return (
+                      <tr key={c.planId}>
+                        <td className="plan-name">
+                          <span style={{ fontWeight: rec ? 700 : 400 }}>{c.planName}</span>
+                          {rec && <span className="tag">おすすめ</span>}
+                        </td>
+                        <td style={{ fontWeight: 700 }}>{formatCurrency(c.monthlyChargeYen)}</td>
+                        <td style={{ color: `var(--${c.monthlySavingsYen > 0 ? 'gain' : c.monthlySavingsYen < 0 ? 'loss' : 'ink-3'})` }}>
+                          {/* 同額のときに「+￥0」を赤で出すと、高くなったように読める */}
+                          {c.monthlySavingsYen === 0
+                            ? '同額'
+                            : `${c.monthlySavingsYen > 0 ? '−' : '+'}${formatCurrency(Math.abs(c.monthlySavingsYen))}`}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
             <p className="note" style={{ marginTop: '14px' }}>
               {isSaving ? (
                 <>

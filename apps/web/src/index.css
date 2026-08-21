@@ -300,6 +300,18 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+/*
+ * ただし「検針票がない → かんたん試算」は 320px のボタン幅に入らず、
+ * nowrap のままだと末尾が切れる。狭い画面では語の切れ目で折り返す
+ */
+@media (max-width: 400px) {
+  .btn {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}
+
 .btn-primary {
   background: var(--green);
   color: #fff;
@@ -424,7 +436,12 @@ summary:focus-visible {
   display: inline-block;
   padding-bottom: 6px;
   border-bottom: 4px solid var(--gold-500);
-  font-size: 56px;
+  /*
+   * 桁数は事業所向けプランだと7桁まで伸びる（年間・低圧電力など）。
+   * 固定サイズだと .hero の overflow: hidden で金額が黙って切れるので、
+   * 画面幅に比例させ、狭い画面では小さく組む
+   */
+  font-size: clamp(34px, 11vw, 56px);
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.035em;
@@ -466,6 +483,23 @@ summary:focus-visible {
   font-size: 13px;
   color: var(--ink-2);
   min-width: 0;
+}
+
+/*
+ * 金額と差額チップで右列が 180px ほど占め、狭い画面ではプラン名の列が
+ * 50px 程度しか残らない（「JAでん／き／低圧／電力」と縦に割れる）。
+ * 480px 以下では名前と金額を上下に積む
+ */
+@media (max-width: 480px) {
+  .compare-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .compare-name,
+  .compare-amount {
+    grid-column: 1 / -1;
+  }
 }
 
 .compare-amount {
@@ -553,6 +587,15 @@ summary:focus-visible {
 }
 
 /* ── 比較表 ───────────────────────────────────────────────── */
+
+/*
+ * 表は横に逃がす。桁の多い金額でカードを突き破ると、ページ全体が
+ * 横スクロールになって他の要素まで読めなくなる
+ */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 .rate-table {
   width: 100%;
@@ -704,7 +747,7 @@ details.card[open] > summary::before {
 }
 
 .hero-figures dd {
-  font-size: 27px;
+  font-size: clamp(22px, 7vw, 27px);
   font-weight: 700;
   margin-top: 2px;
   /* 「￥436お／トク」と語中で折れるのを止める */
@@ -724,6 +767,22 @@ details.card[open] > summary::before {
  */
 .compare-name > span {
   white-space: normal;
+}
+
+/*
+ * 折り返しは語の切れ目で起こす。keep-all だけだと「時間帯別電灯（エコノミー
+ * ナイト）」のような長い語が枠を超えるので、あふれるときだけ任意位置で折る
+ */
+.compare-name > span,
+.plan-name,
+.plan-name > span:first-child,
+h1,
+h2,
+h3,
+.card-title,
+.eyebrow {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 720px) {
@@ -918,7 +977,7 @@ details.card[open] > summary::before {
  * いちばん大きいのは常におトク額で、使用量やその他の数値はそれより小さい。
  */
 .figure-xl {
-  font-size: 46px;
+  font-size: clamp(30px, 9.5vw, 46px);
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.03em;
@@ -948,6 +1007,29 @@ details.card[open] > summary::before {
   font-size: 0.42em;
   font-weight: 700;
   margin-left: 0.15em;
+}
+
+/*
+ * 狭い画面では語を金額の下に落とす。横に並べたままだと、桁の多い金額で
+ * 行が枠を超え、.hero の overflow: hidden に金額の頭が食われる
+ */
+@media (max-width: 480px) {
+  .hero-figure .figure-word,
+  .figure-xl .figure-word,
+  .hero-figures dd .figure-word {
+    display: block;
+    margin-left: 0;
+    font-size: 0.34em;
+  }
+
+  /*
+   * 「月あたり」「初年度」を2列に割ると、1列 150px 前後しか取れない。
+   * 7桁の金額が入らないので、狭い画面では縦に積む
+   */
+  .hero-figures {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 /* ── 差額の内訳の表 ───────────────────────────────────────── */
