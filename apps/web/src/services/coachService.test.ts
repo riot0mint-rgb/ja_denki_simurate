@@ -13,7 +13,10 @@ import {
   preemptiveObjectionIds,
   orderedObjections,
   situationSummary,
-  shouldStandDown
+  shouldStandDown,
+  closingDecision,
+  STOP_TODAY_OBJECTIONS,
+  PROCEED_OBJECTIONS
 } from './coachService'
 
 const answers = (partial: Partial<HearingAnswers> = {}): HearingAnswers => ({
@@ -214,5 +217,79 @@ describe('台本そのものの決まり', () => {
     for (const pii of ['お名前', '氏名', 'ご住所', '電話', 'メール', 'お客様番号']) {
       expect(asks).not.toContain(pii)
     }
+  })
+})
+
+describe('お手続きのご案内へ進んでよいか', () => {
+  it('反論が出ていなければ、そのまま進む', () => {
+    const d = closingDecision([], false)
+    expect(d.skip).toBe(false)
+    expect(d.reason).toBeNull()
+  })
+
+  it('「検討します」と言われたら、手続きの案内を飛ばす', () => {
+    // ここで申込書を出すのが、素人がいちばんやる失敗
+    const d = closingDecision(['think'], false)
+    expect(d.skip).toBe(true)
+    expect(d.reason).toContain('検討します')
+    expect(d.instead).toContain('資料をお渡しして引きます')
+  })
+
+  it('今日は決まらない反論を、すべて拾う', () => {
+    for (const id of STOP_TODAY_OBJECTIONS) {
+      expect(closingDecision([id], false).skip).toBe(true)
+    }
+  })
+
+  it('複数出ていたら、理由を全部出す', () => {
+    const d = closingDecision(['no_need', 'busy'], false)
+    expect(d.reason).toContain('いまのままでよい')
+    expect(d.reason).toContain('お時間が取れない')
+  })
+
+  it('前向きな質問が出ていれば、後ろ向きな反論があっても進める', () => {
+    // 買う気のない人は解約金の質問をしない
+    const d = closingDecision(['think', 'cancel_fee'], false)
+    expect(d.skip).toBe(false)
+    for (const id of PROCEED_OBJECTIONS) {
+      expect(closingDecision(['no_need', id], false).skip).toBe(false)
+    }
+  })
+
+  it('高くなる結果なら、反論が無くても飛ばす', () => {
+    const d = closingDecision([], true)
+    expect(d.skip).toBe(true)
+    expect(d.reason).toContain('お安い結果')
+  })
+
+  it('高くなる結果は、前向きな質問が出ていても飛ばす', () => {
+    // 勧めてはいけない話であって、確度の話ではない
+    expect(closingDecision(['cancel_fee'], true).skip).toBe(true)
+  })
+
+  it('飛ばすときは、必ず理由と代わりにやることを出す', () => {
+    const d = closingDecision(['suspicious'], false)
+    expect(d.reason).not.toBeNull()
+    expect(d.instead).not.toBeNull()
+  })
+})
+
+describe('次の段階', () => {
+  it('ふだんは順番どおり', () => {
+    expect(nextStage('objection')).toBe('closing')
+    expect(nextStage('explain')).toBe('objection')
+  })
+
+  it('今日は決まらないと分かっていれば、手続きを飛ばしてふりかえりへ', () => {
+    expect(nextStage('objection', { skipClosing: true })).toBe('review')
+  })
+
+  it('飛ばすのは不安の段階からだけ（他の段階の順番は変えない）', () => {
+    expect(nextStage('explain', { skipClosing: true })).toBe('objection')
+    expect(nextStage('closing', { skipClosing: true })).toBe('review')
+  })
+
+  it('最後の段階には次が無い', () => {
+    expect(nextStage('review', { skipClosing: true })).toBeNull()
   })
 })

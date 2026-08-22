@@ -1,9 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import SalesCoach from './SalesCoach'
+import SalesCoach, { emphasize } from './SalesCoach'
 
-function show(annualSavingsYen: number | null = null, totalKwh = 348) {
+function show(
+  annualSavingsYen: number | null = null,
+  totalKwh = 348,
+  monthlySavingsYen: number | null = null
+) {
   const onOpenEstimate = vi.fn()
   const onBack = vi.fn()
   render(
@@ -18,12 +22,30 @@ function show(annualSavingsYen: number | null = null, totalKwh = 348) {
               scenarioId: 'chugoku_juryo_a',
               totalKwh,
               annualSavingsYen,
+              monthlySavingsYen: monthlySavingsYen ?? null,
+              currentPlanName: '中国電力 従量電灯A',
+              recommendedPlanName: 'JAでんき 従量電灯A',
+              annualCurrentYen: 231624,
+              annualRecommendedYen: 231624 - annualSavingsYen,
+              highlights: ['第1段階の単価が 1.39円 安いこと'],
+              annualMethod: 'flat',
               period: { year: 2026, month: 8 }
             }
       }
     />
   )
   return { onOpenEstimate, onBack }
+}
+
+/**
+ * 反論カードを開く。
+ * jsdom は details の toggle イベントを非同期に投げるので、React に届くまで待つ
+ */
+async function openSaid(said: RegExp) {
+  await userEvent.click(screen.getByText(said))
+  await waitFor(() =>
+    expect(screen.getByText(said).closest('details')).toHaveAttribute('open')
+  )
 }
 
 /** 段階の帯から直接その段階へ飛ぶ */
@@ -165,7 +187,7 @@ describe('説明', () => {
     show(5231)
     await goTo('説明')
     expect(screen.queryByText(/お勧めしないでください/)).not.toBeInTheDocument()
-    expect(screen.getByText('試算結果の伝え方')).toBeInTheDocument()
+    expect(screen.getByText('今日の試算を、そのまま読む')).toBeInTheDocument()
   })
 
   it('高くなる結果からは、そのまま読める言葉へ飛べる', async () => {
@@ -173,6 +195,142 @@ describe('説明', () => {
     await goTo('説明')
     await userEvent.click(screen.getByRole('button', { name: 'その言葉を見る' }))
     expect(screen.getByText(/「（試算の結果）高くなるのですね」/)).toBeInTheDocument()
+  })
+})
+
+describe('試算の結果を台本に反映する', () => {
+  it('説明の段階に、そのまま読める金額の言葉が出る', async () => {
+    // 「1年でこちら」と書いてあっても、いくらかは画面を見比べないと分からない
+    show(13428, 600, 1119)
+    await goTo('説明')
+    expect(screen.getByText('今日の試算を、そのまま読む')).toBeInTheDocument()
+    const body = document.body.textContent ?? ''
+    expect(body).toContain('231,624円')
+    expect(body).toContain('13,428円')
+    expect(body).toContain('1,119円')
+  })
+
+  it('まだ試算していなければ、その旨と試算への導線を出す', async () => {
+    show(null)
+    await goTo('説明')
+    expect(screen.getByText('まだ試算していません')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '試算へもどる' }))
+    expect(screen.getByText('どのプランで試算するか')).toBeInTheDocument()
+  })
+
+  it('「なぜ安くなるのか」の答えを、内訳からそのまま出す', async () => {
+    show(13428, 600, 1119)
+    await goTo('説明')
+    expect(screen.getByText('「なぜ安くなるのか」と聞かれたら')).toBeInTheDocument()
+    expect(screen.getByText(/第1段階の単価が/, { selector: '.say-line' })).toBeInTheDocument()
+  })
+
+  it('気がかりを聞けていれば、それに合わせた台本もあとに続ける', async () => {
+    show(13428, 600, 1119)
+    await goTo('聞く')
+    await userEvent.click(screen.getByRole('button', { name: '手続きが面倒そう' }))
+    await goTo('説明')
+    expect(screen.getByText('お客様の気がかりに合わせて足す')).toBeInTheDocument()
+    expect(screen.getByText('今日の試算を、そのまま読む')).toBeInTheDocument()
+  })
+
+  it('気がかりが未回答なら、同じことを言う共通文は出さない', async () => {
+    // 実数の台本と中身が重なるだけで、読む場所が増える
+    show(13428, 600, 1119)
+    await goTo('説明')
+    expect(screen.queryByText('お客様の気がかりに合わせて足す')).not.toBeInTheDocument()
+  })
+
+  it('どの段階にいても、いまいくらの話かが帯に出る', async () => {
+    show(13428, 600, 1119)
+    expect(screen.getByText(/年間 13,428円 おトク/)).toBeInTheDocument()
+    await goTo('聞く')
+    expect(screen.getByText(/年間 13,428円 おトク/)).toBeInTheDocument()
+  })
+
+  it('試算の段階に戻ると、いまの試算の要点が出る', async () => {
+    show(13428, 600, 1119)
+    await goTo('試算')
+    expect(screen.getByText('いまの試算')).toBeInTheDocument()
+    expect(screen.getByText(/600 kWh/)).toBeInTheDocument()
+  })
+
+  it('解約金を聞かれたら、分かっている差額の側から話す', async () => {
+    show(13428, 600, 1119)
+    await goTo('不安')
+    await openSaid(/「解約金がかかるのでは」/)
+    expect(screen.getByText(/1年で取り返せる/)).toBeInTheDocument()
+  })
+
+  it('高くなる結果なら、帯にもそう出る', async () => {
+    show(-9504)
+    expect(screen.getByText(/いまのご契約のほうが年間 9,504円 お安い/)).toBeInTheDocument()
+  })
+})
+
+describe('今日は決まらないと分かったら、手続きを飛ばす', () => {
+  it('「検討します」が出たら、進まない場面だと出す', async () => {
+    show(13428, 600, 1119)
+    await goTo('不安')
+    await openSaid(/検討します／家族に相談します/)
+    expect(
+      screen.getByText('今日はお手続きに進まない場面です')
+    ).toBeInTheDocument()
+  })
+
+  it('次へのボタンが、ふりかえりへ変わる', async () => {
+    show(13428, 600, 1119)
+    await goTo('不安')
+    expect(screen.getByRole('button', { name: 'お手続きのご案内へ' })).toBeInTheDocument()
+    await openSaid(/「今のままでいい」/)
+    expect(screen.queryByRole('button', { name: 'お手続きのご案内へ' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'ふりかえりへ' }))
+    expect(screen.getByText('今日のふりかえり')).toBeInTheDocument()
+  })
+
+  it('その場からふりかえりへ進める', async () => {
+    show(13428, 600, 1119)
+    await goTo('不安')
+    await openSaid(/「今忙しい」/)
+    await userEvent.click(screen.getByRole('button', { name: 'ふりかえりへ進む' }))
+    expect(screen.getByText('今日のふりかえり')).toBeInTheDocument()
+  })
+
+  it('それでも見たいときは、手続きの案内へ行ける（禁止はしない）', async () => {
+    show(13428, 600, 1119)
+    await goTo('不安')
+    await openSaid(/検討します／家族に相談します/)
+    await userEvent.click(screen.getByRole('button', { name: 'それでもお手続きの案内を見る' }))
+    expect(screen.getByText('お手続き前の確認')).toBeInTheDocument()
+    // 来てしまったときも、理由は出しておく
+    expect(screen.getByText('今日は決まらない場面です')).toBeInTheDocument()
+  })
+
+  it('解約金の質問が出ていれば、飛ばさない', async () => {
+    // 買う気のない人は解約金の質問をしない
+    show(13428, 600, 1119)
+    await goTo('不安')
+    await openSaid(/検討します／家族に相談します/)
+    await openSaid(/「解約金がかかるのでは」/)
+    expect(
+      screen.queryByText('今日はお手続きに進まない場面です')
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'お手続きのご案内へ' })).toBeInTheDocument()
+  })
+
+  it('高くなる結果なら、反論が出ていなくても飛ばす', async () => {
+    show(-9504)
+    await goTo('不安')
+    expect(
+      screen.getByText('今日はお手続きに進まない場面です')
+    ).toBeInTheDocument()
+  })
+
+  it('進んでよい場面では、最後にもう一度だけ数字を言わせる', async () => {
+    show(13428, 600, 1119)
+    await goTo('手続き')
+    expect(screen.getByText('最後にもう一度だけ言う数字')).toBeInTheDocument()
+    expect(screen.getByText(/13,428円/, { selector: '.say-line' })).toBeInTheDocument()
   })
 })
 
@@ -195,7 +353,7 @@ describe('ご不安・ご質問', () => {
   it('開くと、そのまま読める言葉と理由が出る', async () => {
     show()
     await goTo('不安')
-    await userEvent.click(screen.getByText(/「解約金がかかるのでは」/))
+    await openSaid(/「解約金がかかるのでは」/)
     expect(screen.getByText(/こちらで断定できませんので/)).toBeInTheDocument()
     expect(screen.getByText(/確認せずに「かかりません」と答えること/)).toBeInTheDocument()
   })
@@ -233,7 +391,8 @@ describe('お手続きのご案内', () => {
   it('高くなる結果だったときは、手続きに進ませない', async () => {
     show(-9504)
     await goTo('手続き')
-    expect(screen.getByText(/お手続きに進まないでください/)).toBeInTheDocument()
+    expect(screen.getByText('高くなる結果でした')).toBeInTheDocument()
+    expect(screen.getByText(/お安い結果でした/)).toBeInTheDocument()
   })
 })
 
@@ -300,7 +459,7 @@ describe('確度と次の一手', () => {
   it('前回どこで止まったかを、次に行くときの口実にする', async () => {
     show(5231)
     await goTo('不安')
-    await userEvent.click(screen.getByText(/「解約金がかかるのでは」/))
+    await openSaid(/「解約金がかかるのでは」/)
     await goTo('振返')
     expect(screen.getByText('次に行くときの口実')).toBeInTheDocument()
     expect(screen.getByText(/確認してまいりました/)).toBeInTheDocument()
@@ -361,7 +520,7 @@ describe('商談の記録', () => {
   it('開いた反論が「出た反論」として控えられる', async () => {
     show(5231)
     await goTo('不安')
-    await userEvent.click(screen.getByText(/「解約金がかかるのでは」/))
+    await openSaid(/「解約金がかかるのでは」/)
     await goTo('振返')
     expect(screen.getByLabelText('書き出す記録').textContent).toContain('cancel_fee')
   })
@@ -399,5 +558,36 @@ describe('いつでも見える戒め', () => {
     await userEvent.click(screen.getByText('今日ぜったいに言わないこと'))
     expect(screen.getByText(/「絶対に」「必ず」安くなる/)).toBeInTheDocument()
     expect(screen.getByText(/高くなると分かっているのに勧めること/)).toBeInTheDocument()
+  })
+})
+
+describe('台本の強調', () => {
+  const render_ = (text: string) =>
+    emphasize(text)
+      .map(node => (typeof node === 'string' ? node : `[${(node as any).props.children}]`))
+      .join('')
+
+  it('**〜** を強調に組み直す', () => {
+    // 素のままだと、いちばん読ませたい一文にアスタリスクが並ぶ
+    expect(render_('ここが**大事**です')).toBe('ここが[大事]です')
+  })
+
+  it('強調が複数あっても組み直す', () => {
+    expect(render_('**A**と**B**')).toBe('[A]と[B]')
+  })
+
+  it('強調が無ければそのまま', () => {
+    expect(render_('ふつうの文')).toBe('ふつうの文')
+  })
+
+  it('閉じていないアスタリスクは、そのまま出す（勝手に消さない）', () => {
+    expect(render_('**閉じていない')).toBe('**閉じていない')
+    expect(render_('2 ** 3 の話')).toBe('2 ** 3 の話')
+  })
+
+  it('画面でもアスタリスクが見えない', async () => {
+    show(13428, 600, 1119)
+    await goTo('説明')
+    expect(document.body.textContent).not.toContain('**')
   })
 })

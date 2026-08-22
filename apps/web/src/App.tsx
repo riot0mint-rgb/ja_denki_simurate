@@ -7,6 +7,7 @@ import ComparisonResult from './pages/ComparisonResult'
 import SalesCoach from './pages/SalesCoach'
 import UpdateBanner from './components/UpdateBanner'
 import Logo from './components/Logo'
+import { EstimateSummary } from './services/estimateTalk'
 import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
@@ -33,12 +34,7 @@ export default function App() {
    * 直近の試算の要点。商談ナビが「高くなる結果なら勧めない」に倒すのと、
    * 商談の記録に使う。null は「まだ試算していない」
    */
-  const [lastEstimate, setLastEstimate] = useState<{
-    scenarioId: string
-    totalKwh: number
-    annualSavingsYen: number | null
-    period: { year: number; month: number }
-  } | null>(null)
+  const [lastEstimate, setLastEstimate] = useState<EstimateSummary | null>(null)
   /** 試算から戻るときに商談ナビへ返すか */
   const [cameFromCoach, setCameFromCoach] = useState(false)
 

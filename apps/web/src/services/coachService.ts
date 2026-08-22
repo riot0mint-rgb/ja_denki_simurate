@@ -32,7 +32,9 @@ export function stageIndex(stage: Stage): number {
   return STAGES.findIndex(s => s.id === stage)
 }
 
-export function nextStage(stage: Stage): Stage | null {
+export function nextStage(stage: Stage, options: { skipClosing?: boolean } = {}): Stage | null {
+  // 今日は決まらないと分かっているのに、お手続きの案内へ進ませない
+  if (stage === 'objection' && options.skipClosing) return 'review'
   const i = stageIndex(stage)
   return i >= 0 && i < STAGES.length - 1 ? STAGES[i + 1].id : null
 }
@@ -169,4 +171,67 @@ export function situationSummary(answers: HearingAnswers): string {
  */
 export function shouldStandDown(annualSavingsYen: number | null): boolean {
   return annualSavingsYen !== null && annualSavingsYen < 0
+}
+
+/**
+ * 今日は決まらないと分かる反論。
+ *
+ * ここを取り違えて手続きの案内に進むのが、素人がいちばんやる失敗。
+ * 「検討します」と言われた直後に申込書を出すのは、話を聞いていないのと同じで、
+ * 次の機会そのものを失う。
+ */
+export const STOP_TODAY_OBJECTIONS = ['no_need', 'suspicious', 'busy', 'think']
+
+/**
+ * 前向きな反論。これが出ていれば、他に後ろ向きな反論があっても進めてよい。
+ * 手続きや解約金の質問は、買う前提でしか出ない（confidence.ts と同じ考え方）。
+ */
+export const PROCEED_OBJECTIONS = ['cancel_fee']
+
+const STOP_REASONS: Record<string, string> = {
+  no_need: '「いまのままでよい」とおっしゃっています',
+  suspicious: '警戒されている様子です',
+  busy: 'お時間が取れないご様子です',
+  think: '「検討します」「家族に相談します」とおっしゃっています'
+}
+
+export interface ClosingDecision {
+  /** お手続きのご案内を飛ばすか */
+  skip: boolean
+  /** なぜ飛ばすのか。判断を鵜呑みにさせないため、必ず理由を出す */
+  reason: string | null
+  /** 代わりに今日やること */
+  instead: string | null
+}
+
+/**
+ * お手続きのご案内へ進んでよいか。
+ *
+ * **進ませない側に倒すのが既定。** 進める判断は営業がその場でできるが、
+ * 「引く」判断は誰も止めてくれないので、こちらで用意しておく。
+ */
+export function closingDecision(
+  objections: string[],
+  standDown: boolean
+): ClosingDecision {
+  if (standDown) {
+    return {
+      skip: true,
+      reason: 'いまのご契約のほうがお安い結果でした',
+      instead: '今日は資料をお渡しして引きます。ふりかえりへ進んでください'
+    }
+  }
+  // 前向きな質問が出ていれば、後ろ向きな反論があっても進めてよい
+  if (objections.some(o => PROCEED_OBJECTIONS.includes(o))) {
+    return { skip: false, reason: null, instead: null }
+  }
+  const stops = objections.filter(o => STOP_TODAY_OBJECTIONS.includes(o))
+  if (stops.length === 0) return { skip: false, reason: null, instead: null }
+  return {
+    skip: true,
+    reason: stops.map(o => STOP_REASONS[o]).join('／'),
+    instead:
+      '今日は資料をお渡しして引きます。' +
+      'ここで申込書を出すと、話を聞いていないと受け取られ、次の機会そのものが無くなります'
+  }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { ReactNode, useMemo, useState } from 'react'
 import Icon from '../components/Icon'
 import {
   HearingAnswers,
@@ -28,6 +28,14 @@ import {
   headerRow
 } from '../services/visitLog'
 import {
+  EstimateSummary,
+  estimateTalk,
+  estimateHeadline,
+  estimateRecap,
+  reasonLine,
+  breakEvenLine
+} from '../services/estimateTalk'
+import {
   Stage,
   STAGES,
   stageIndex,
@@ -41,7 +49,8 @@ import {
   orderedObjections,
   preemptiveObjectionIds,
   situationSummary,
-  shouldStandDown
+  shouldStandDown,
+  closingDecision
 } from '../services/coachService'
 
 interface SalesCoachProps {
@@ -49,12 +58,7 @@ interface SalesCoachProps {
   onOpenEstimate: (kind: 'detailed' | 'simple') => void
   onBack: () => void
   /** 直近の試算の要点。まだ試算していなければ null */
-  lastEstimate: {
-    scenarioId: string
-    totalKwh: number
-    annualSavingsYen: number | null
-    period: { year: number; month: number }
-  } | null
+  lastEstimate: EstimateSummary | null
   /** 今日の日付。テストから固定できるようにしておく */
   today?: string
 }
@@ -78,11 +82,23 @@ function SayBlock({ lines }: { lines: string[] }) {
 }
 
 /** なぜそう言うのか。台本だけ渡すと棒読みになるので必ず添える */
+/**
+ * 台本の「なぜ」には **強調** が書いてある。React の要素に組み直して出す。
+ *
+ * 生HTMLは差し込まない（XSSの経路になるうえ、CIの `no-raw-html` が落とす）。
+ * 素の文字のままだと、いちばん読ませたい一文にアスタリスクが並んで読みにくい。
+ */
+export function emphasize(text: string): ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*)/).map((part, i) =>
+    /^\*\*[^*]+\*\*$/.test(part) ? <strong key={i}>{part.slice(2, -2)}</strong> : part
+  )
+}
+
 function WhyBlock({ text }: { text: string }) {
   return (
     <p className="why">
       <strong>なぜ：</strong>
-      {text}
+      {emphasize(text)}
     </p>
   )
 }
@@ -138,6 +154,14 @@ export default function SalesCoach({
   const objections = useMemo(() => orderedObjections(answers), [answers])
   const preemptive = useMemo(() => preemptiveObjectionIds(answers), [answers])
   const standDown = shouldStandDown(lastEstimate?.annualSavingsYen ?? null)
+  /** 試算の結果をそのまま読める言葉に。まだ試算していなければ null */
+  const talk = useMemo(() => estimateTalk(lastEstimate), [lastEstimate])
+  const headline = estimateHeadline(lastEstimate)
+  /** お手続きのご案内へ進んでよいか。進ませない側に倒すのが既定 */
+  const closing = useMemo(
+    () => closingDecision(usedObjections, standDown),
+    [usedObjections, standDown]
+  )
 
   const confidence = useMemo(
     () =>
@@ -237,6 +261,14 @@ export default function SalesCoach({
         </p>
       )}
 
+      {/* どの段階にいても、いまいくらの話をしているかが見えるようにする */}
+      {headline && (
+        <p className={`situation situation-figure${standDown ? ' is-warn' : ''}`}>
+          <Icon name="coins" size={14} />
+          {headline}
+        </p>
+      )}
+
       {/* ───────────── 準備 ───────────── */}
       {stage === 'prepare' && (
         <>
@@ -327,6 +359,20 @@ export default function SalesCoach({
       {/* ───────────── 試算 ───────────── */}
       {stage === 'estimate' && (
         <>
+          {estimateRecap(lastEstimate).length > 0 && (
+            <div className="card">
+              <p className="card-title">いまの試算</p>
+              <ul className="checklist">
+                {estimateRecap(lastEstimate).map(line => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+              <p className="note" style={{ marginTop: '10px' }}>
+                条件を変えて出し直すこともできます。説明の段階に、
+                <strong>この数字をそのまま読める言葉</strong>を用意しています。
+              </p>
+            </div>
+          )}
           <ScriptCard script={BEFORE_ESTIMATE} title="検針票を見せていただく" />
           <div className="card">
             <p className="card-title">どのプランで試算するか</p>
@@ -369,7 +415,43 @@ export default function SalesCoach({
               </button>
             </div>
           ) : (
-            <ScriptCard script={explainFor(answers)} title="試算結果の伝え方" />
+            <>
+              {talk ? (
+                <>
+                  <ScriptCard script={talk} title="今日の試算を、そのまま読む" />
+                  {reasonLine(lastEstimate) && (
+                    <div className="card">
+                      <p className="card-title">「なぜ安くなるのか」と聞かれたら</p>
+                      <SayBlock lines={[reasonLine(lastEstimate)!]} />
+                      <WhyBlock
+                        text={
+                          'これは試算の内訳から出た事実で、営業の説明ではない。' +
+                          '結果画面の「差が出ている理由」に、費目ごとの差額まで出ている。'
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="card">
+                  <p className="card-title">まだ試算していません</p>
+                  <p className="note">
+                    先に試算をすると、ここに<strong>そのまま読める金額の言葉</strong>が出ます。
+                  </p>
+                  <button
+                    className="btn btn-primary"
+                    style={{ marginTop: '12px' }}
+                    onClick={() => go('estimate')}
+                  >
+                    試算へもどる
+                  </button>
+                </div>
+              )}
+              {/* 気がかりが未回答のときの共通文は、上の実数の台本と同じことを言うだけ */}
+              {answers.concern && (
+                <ScriptCard script={explainFor(answers)} title="お客様の気がかりに合わせて足す" />
+              )}
+            </>
           )}
           <div className="card">
             <p className="card-title">伝え方の型</p>
@@ -407,23 +489,84 @@ export default function SalesCoach({
               </summary>
               <div style={{ marginTop: '12px' }}>
                 <SayBlock lines={o.script.say} />
+                {/* 今日の試算から言えることがあれば、台本のあとに足す */}
+                {o.id === 'cancel_fee' && breakEvenLine(lastEstimate) && (
+                  <>
+                    <p className="note" style={{ marginTop: '12px' }}>今日の試算から言えること</p>
+                    <SayBlock lines={[breakEvenLine(lastEstimate)!]} />
+                  </>
+                )}
+                {o.id === 'not_cheaper' && standDown && headline && (
+                  <>
+                    <p className="note" style={{ marginTop: '12px' }}>今日の試算から言えること</p>
+                    <SayBlock
+                      lines={[
+                        `${headline.replace(/^試算：/, '')}という結果でした。無理にお勧めはいたしません。`
+                      ]}
+                    />
+                  </>
+                )}
                 <WhyBlock text={o.script.why} />
                 <AvoidBlock items={o.script.avoid} />
               </div>
             </details>
           ))}
+
+          {closing.skip && (
+            <div className="card card-warn">
+              <p className="card-title">
+                <Icon name="alert" size={18} /> 今日はお手続きに進まない場面です
+              </p>
+              <p className="say-line" style={{ fontSize: '16px' }}>{closing.reason}</p>
+              <p className="note" style={{ marginTop: '10px' }}>{closing.instead}</p>
+              <WhyBlock
+                text={
+                  '**素人がいちばんやる失敗が、ここで申込書を出すこと。**' +
+                  '「検討します」と言われた直後に手続きの話をすると、' +
+                  '話を聞いていないと受け取られ、次の機会そのものが無くなる。' +
+                  '引くと決めた商談ほど、次に呼ばれる。'
+                }
+              />
+              <div className="btn-row" style={{ marginTop: '14px' }}>
+                <button className="btn btn-primary" onClick={() => go('review')}>
+                  ふりかえりへ進む
+                </button>
+                <button className="btn btn-ghost" onClick={() => go('closing')}>
+                  それでもお手続きの案内を見る
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
       {/* ───────────── クロージング ───────────── */}
       {stage === 'closing' && (
         <>
-          {standDown && (
+          {closing.skip && (
             <div className="card card-warn">
               <p className="card-title">
-                <Icon name="alert" size={18} /> 高くなる結果でした
+                <Icon name="alert" size={18} />{' '}
+                {standDown ? '高くなる結果でした' : '今日は決まらない場面です'}
               </p>
-              <p className="note">お手続きに進まないでください。今日は資料をお渡しして引きます。</p>
+              <p className="say-line" style={{ fontSize: '16px' }}>{closing.reason}</p>
+              <p className="note" style={{ marginTop: '10px' }}>{closing.instead}</p>
+              <button className="btn btn-ghost" style={{ marginTop: '12px' }} onClick={() => go('review')}>
+                ふりかえりへ進む
+              </button>
+            </div>
+          )}
+          {/* 安くなる試算なら、金額をもう一度だけ言う。決める直前が効く */}
+          {!closing.skip && headline && (
+            <div className="card">
+              <p className="card-title">最後にもう一度だけ言う数字</p>
+              <SayBlock lines={[`${headline.replace(/^試算：/, '')}、という試算でした。`]} />
+              <WhyBlock
+                text={
+                  'お決めになる直前に、覚えていただきたい数字をもう一度だけ置く。' +
+                  '**増やさない。** ここで削減率や月額を足すと、判断の材料が増えて決められなくなる。'
+                }
+              />
             </div>
           )}
           <ScriptCard script={CLOSING} title="お手続きのご案内" />
@@ -631,9 +774,12 @@ export default function SalesCoach({
         >
           {stageIndex(stage) === 0 ? 'ホームへ' : 'ひとつ戻る'}
         </button>
-        {nextStage(stage) && (
-          <button className="btn btn-primary" onClick={() => go(nextStage(stage))}>
-            {STAGES[stageIndex(stage) + 1].label}へ
+        {nextStage(stage, { skipClosing: closing.skip }) && (
+          <button
+            className="btn btn-primary"
+            onClick={() => go(nextStage(stage, { skipClosing: closing.skip }))}
+          >
+            {STAGES[stageIndex(nextStage(stage, { skipClosing: closing.skip })!)].label}へ
           </button>
         )}
       </div>

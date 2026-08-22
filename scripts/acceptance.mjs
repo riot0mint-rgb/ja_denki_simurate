@@ -613,6 +613,94 @@ async function runDetailed(page, scenario, usage = '348', period) {
   await ctx.close()
 }
 
+// ───────────────────────────────────────────────────────────
+// A15: 試算 → ナビに戻ったあと、台本が試算の数字を使っているか
+//      と、決まらない場面で手続きを飛ばすか
+// ───────────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } })
+  const page = await ctx.newPage()
+
+  // 商談ナビ → 試算（600kWh）→ ナビに戻る
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  const talkRail = page.getByRole('navigation', { name: '商談の進み方' })
+  await talkRail.getByRole('button', { name: '試算' }).click()
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: '検針票から試算する' }).click()
+  await page.waitForTimeout(250)
+  await page.selectOption('#scenario', 'chugoku_juryo_a')
+  await page.waitForTimeout(200)
+  for (const el of await page.$$('input[type=number]:visible')) {
+    if (!(await el.inputValue())) await el.fill('600')
+  }
+  await page.getByRole('button', { name: '詳しい結果を見る' }).click()
+  await page.waitForSelector('.hero-figure')
+  await page.getByRole('button', { name: '商談ナビにもどる' }).click()
+  await page.waitForTimeout(300)
+
+  // 帯に金額が出ているか（どの段階にいても分かる）
+  check('A15', '戻った先の帯に、試算の金額が出る', /年間 13,428円 おトク/.test(await page.innerText('body')))
+
+  // 説明の台本が、実際の金額を読める形で持っているか
+  await talkRail.getByRole('button', { name: '説明' }).click()
+  await page.waitForTimeout(250)
+  const explain = await page.innerText('body')
+  check(
+    'A15b',
+    '説明の台本に、試算の実数が入っている',
+    /今日の試算を、そのまま読む/.test(explain) &&
+      explain.includes('231,624円') &&
+      explain.includes('13,428円'),
+    explain.includes('231,624円') ? '年額・差額とも一致' : '年間の料金が出ていない'
+  )
+
+  // 解約金を聞かれたときに、差額の側から話せるか
+  await talkRail.getByRole('button', { name: '不安' }).click()
+  await page.waitForTimeout(200)
+  await page.getByText('「解約金がかかるのでは」').click()
+  await page.waitForTimeout(250)
+  check(
+    'A15c',
+    '解約金の反論に、今日の差額から言える一言が出る',
+    /1年で取り返せる/.test(await page.innerText('body'))
+  )
+  // 前向きな質問が出ているので、手続きへは進める
+  check(
+    'A15d',
+    '解約金の質問が出ていれば、手続きへ進める',
+    (await page.getByRole('button', { name: 'お手続きのご案内へ' }).count()) > 0
+  )
+
+  // 「検討します」だけの商談では、手続きを飛ばす
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  await talkRail.getByRole('button', { name: '不安' }).click()
+  await page.waitForTimeout(200)
+  await page.getByText('「検討します／家族に相談します」').click()
+  await page.waitForTimeout(250)
+  const objected = await page.innerText('body')
+  check(
+    'A15e',
+    '「検討します」が出たら、手続きに進まない場面だと出す',
+    /今日はお手続きに進まない場面です/.test(objected)
+  )
+  check(
+    'A15f',
+    '次へのボタンが、手続きを飛ばしてふりかえりへ変わる',
+    (await page.getByRole('button', { name: 'お手続きのご案内へ' }).count()) === 0 &&
+      (await page.getByRole('button', { name: 'ふりかえりへ' }).count()) > 0
+  )
+  await page.getByRole('button', { name: 'ふりかえりへ進む' }).click()
+  await page.waitForTimeout(250)
+  check('A15g', 'その場からふりかえりへ進める', /今日のふりかえり/.test(await page.innerText('body')))
+  await ctx.close()
+}
+
 await browser.close()
 server.close()
 

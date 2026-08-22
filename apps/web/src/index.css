@@ -1083,6 +1083,34 @@ details.card[open] > summary::before {
   color: var(--green-deep);
 }
 
+/*
+ * 注意カードの見出し。アイコンを行頭に固定する。
+ * インラインのままだと、長い見出しが折り返したときにアイコンが文中に紛れる
+ */
+.card-warn .card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card-warn .card-title svg {
+  flex: none;
+  margin-top: 4px;
+}
+
+/*
+ * 帯に出す試算の一文。どの段階にいても、いまいくらの話をしているかを見せる。
+ * 台本を読んでいる最中に金額を思い出せないのが、素人がいちばん詰まるところ
+ */
+.situation-figure {
+  font-weight: 700;
+  color: var(--green-deep);
+}
+
+.situation-figure.is-warn {
+  color: var(--warn-ink);
+}
+
 .confidence-rank {
   display: inline-grid;
   place-items: center;

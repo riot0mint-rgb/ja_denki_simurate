@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import Icon from '../components/Icon'
 import { DEMAND_PROFILE } from '../data/demandProfile'
+import { EstimateSummary } from '../services/estimateTalk'
 import {
   AnnualView,
   GAS_SET_DISCOUNT_YEN,
@@ -22,12 +23,7 @@ interface ComparisonResultProps {
    * 試算の要点を外へ知らせる。商談ナビが「高くなるなら勧めない」に倒すのと、
    * 商談の記録に使う。個人にたどり着く値は渡さない
    */
-  onEstimateSummary?: (summary: {
-    scenarioId: string;
-    totalKwh: number;
-    annualSavingsYen: number | null;
-    period: { year: number; month: number };
-  }) => void;
+  onEstimateSummary?: (summary: EstimateSummary) => void;
   /** 商談ナビから来たときだけ。試算のあと台本へ戻る導線 */
   onReturnToCoach?: () => void;
   onBack: () => void;
@@ -312,14 +308,36 @@ export default function ComparisonResult({
   // （月 -50円 でもセット割 +110円/月 で年間は +720円）。年額の符号は年額で判断する
   const annualYen = annual ? annual.savingsYen : v.annualSavingsYen
 
-  // 商談ナビへ知らせる。描画中に親を更新しないよう、描画後に渡す
-  useEffect(() => {
-    onEstimateSummary?.({ scenarioId, totalKwh: v.totalKwh, annualSavingsYen: annualYen, period })
-  }, [scenarioId, v.totalKwh, annualYen, period, onEstimateSummary])
   const firstYearYen = annual ? annual.firstYearSavingsYen : v.firstYearSavingsYen
   const annualTone = toneOf(annualYen)
   const monthTone = toneOf(savings)
   const rollup = annual?.basis === 'rollup'
+
+  /*
+   * 商談ナビへ知らせる。描画中に親を更新しないよう、描画後に渡す。
+   *
+   * 台本で読み上げる数字は、ここで計算し直さず**画面に出ている値をそのまま**渡す。
+   * ナビ側で年額を12で割ったりすると、画面と台本で1円ずれる（ルール2）。
+   */
+  const summary: EstimateSummary = useMemo(
+    () => ({
+      scenarioId,
+      totalKwh: v.totalKwh,
+      annualSavingsYen: annualYen,
+      monthlySavingsYen: savings,
+      currentPlanName: v.current.planName,
+      recommendedPlanName: v.recommended.planName,
+      annualCurrentYen: annual ? annual.currentYen : null,
+      annualRecommendedYen: annual ? annual.candidateYen - annual.gasSetDiscountYen : null,
+      highlights: v.explanation?.comparable ? v.explanation.highlights : [],
+      annualMethod: annual && rollup ? annual.method : null,
+      period
+    }),
+    [scenarioId, v, annualYen, savings, annual, rollup, period]
+  )
+  useEffect(() => {
+    onEstimateSummary?.(summary)
+  }, [summary, onEstimateSummary])
   // 「いちばん差が大きい月」は、差がほぼ一定のプランでは意味を持たない
   // （同じ燃調を使う相手なら差額は単価の差だけで動かない）。
   // 幅として示すほうが、月ごとにどれだけ振れるかが伝わる
