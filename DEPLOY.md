@@ -835,7 +835,7 @@ npm run build                           # 5. ビルド
 npm run security:check                  # 6. 端末の外に出る経路が無いこと（静的）
 npm audit --omit=dev --audit-level=low  # 7. 本番依存の脆弱性
 npm run security:runtime                # 8. 実機で外部通信・保存が無いこと
-npm run accept                          # 9. 受け入れテスト30項目
+npm run accept                          # 9. 受け入れテスト36項目
 ```
 
 1〜7 は CI でも毎回走ります。**8・9 はリリース前に手元で1回**（ブラウザの取得が重いため）。
@@ -844,6 +844,9 @@ npm run accept                          # 9. 受け入れテスト30項目
 
 `docs/ACCEPTANCE_TEST.md` の第2部を業務担当が実施してください。
 **実際の検針票との突合**が最重要項目です。
+
+配ったあとの動作確認だけなら `docs/SMOKE_TEST.md`（15〜20分・検針票不要）を
+使ってください。決まった数字を入れて決まった数字が出るかを確かめるシートです。
 
 ### 3. 配信時のヘッダ（ホスティング側で設定）
 

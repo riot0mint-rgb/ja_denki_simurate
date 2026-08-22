@@ -514,6 +514,105 @@ async function runDetailed(page, scenario, usage = '348', period) {
   await ctx.close()
 }
 
+// ───────────────────────────────────────────────────────────
+// A14: 動作確認シート（docs/SMOKE_TEST.md）の期待値が、まだ本当か
+//
+// あのシートは「決まった数字を入れて決まった数字が出るか」を人が確かめる
+// ためのもの。単価が変わったのにシートが古いままだと、現場が「不具合だ」と
+// 報告してくる。改定のときに必ずここが落ちるようにしておく。
+// ───────────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } })
+  const page = await ctx.newPage()
+  const hero = () => page.locator('.hero-figure').first().innerText()
+  const flat = t => t.replace(/\s+/g, '')
+
+  // 2-1 従量電灯A / 2026年4月 / 348kWh
+  await runDetailed(page, 'chugoku_juryo_a', '348', '2026-4')
+  check('A14', 'SMOKE 2-1 の年間おトク額', flat(await hero()).includes('5,230'), flat(await hero()))
+
+  // 2-2 見積もり方の切り替え（既定の検針月・600kWh）
+  await runDetailed(page, 'chugoku_juryo_a', '600')
+  const smokeFlatYen = flat(await hero())
+  await page.getByRole('button', { name: '季節で変わる' }).click()
+  await page.waitForTimeout(300)
+  const smokeSeasonal = flat(await hero())
+  check(
+    'A14b',
+    'SMOKE 2-2 の毎月おなじ／季節で変わる',
+    smokeFlatYen.includes('13,428') && smokeSeasonal.includes('10,184'),
+    `${smokeFlatYen} / ${smokeSeasonal}`
+  )
+
+  // 2-3 auでんき / 2026年7月 / 348kWh
+  await runDetailed(page, 'au_m_plan', '348', '2026-7')
+  check('A14c', 'SMOKE 2-3 のご負担増の額', flat(await hero()).includes('9,504'), flat(await hero()))
+
+  // 2-4 かんたん試算 8,000円
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: /かんたん試算/ }).click()
+  await page.waitForTimeout(250)
+  await page.fill('#simple-bill', '8000')
+  await page.getByRole('button', { name: '詳しい結果を見る' }).click()
+  await page.waitForSelector('.hero-figure')
+  const simpleBody = await page.innerText('body')
+  check(
+    'A14d',
+    'SMOKE 2-4 の推定使用量とおトク額',
+    /275\s*kWh/.test(simpleBody) && flat(await hero()).includes('3,252'),
+    flat(await hero())
+  )
+
+  // 3-2 確度（600kWhで試算した直後は C、約束を控えると A）
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  const smokeRail = page.getByRole('navigation', { name: '商談の進み方' })
+  await smokeRail.getByRole('button', { name: '試算' }).click()
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: '検針票から試算する' }).click()
+  await page.waitForTimeout(250)
+  await page.selectOption('#scenario', 'chugoku_juryo_a')
+  await page.waitForTimeout(200)
+  for (const el of await page.$$('input[type=number]:visible')) {
+    if (!(await el.inputValue())) await el.fill('600')
+  }
+  await page.getByRole('button', { name: '詳しい結果を見る' }).click()
+  await page.waitForSelector('.hero-figure')
+  await page.getByRole('button', { name: '商談ナビにもどる' }).click()
+  await page.waitForTimeout(300)
+  await smokeRail.getByRole('button', { name: '振返' }).click()
+  await page.waitForTimeout(250)
+  const rank = () => page.locator('.card-title').filter({ hasText: '確度' }).first().innerText()
+  const before = await rank()
+  await page.getByRole('button', { name: /次回うかがう話ができた/ }).click()
+  await page.waitForTimeout(250)
+  const after = await rank()
+  check(
+    'A14e',
+    'SMOKE 3-2 の確度（C → 約束を控えると A）',
+    /確度\s*C/.test(before) && /確度\s*A/.test(after),
+    `${flat(before)} → ${flat(after)}`
+  )
+
+  // 4-2 サンプルデータを貼ったときの集計
+  const sample = readFileSync(resolve(ROOT, 'docs/samples/visit-log-sample.tsv'), 'utf-8').trim()
+  await page.goto(`${origin}/admin.html`)
+  await page.waitForSelector('textarea')
+  await page.fill('textarea', sample)
+  await page.waitForTimeout(400)
+  const adminBody = await page.innerText('body')
+  check(
+    'A14f',
+    'SMOKE 4-2 のサンプル集計（33件・36.4%）',
+    /商談 33 件/.test(adminBody) && /36\.4/.test(adminBody),
+    (adminBody.match(/商談 \d+ 件/) ?? ['件数が出ない'])[0]
+  )
+  await ctx.close()
+}
+
 await browser.close()
 server.close()
 
