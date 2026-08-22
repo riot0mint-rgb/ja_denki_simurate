@@ -239,13 +239,13 @@ npm run build
 **前提**：
 - JA が保有する VM（Linux + nginx、または Windows Server + IIS）
 - 職員のスマートフォンから届くネットワーク（社内網 / VPN / 閉域）
-- HTTPS の証明書（Service Worker は HTTPS でないと動きません）
+- **HTTPS の証明書**（Service Worker の要件であり、かつ 3-5 の合言葉を平文で流さないため）
 
 配るのは `apps/web/dist/` の中身だけです。サーバー側で動くプログラムは
 ありません（Phase A はブラウザ内計算のため、アプリのための DB・API・
 実行環境はいずれも不要です）。
 
-**手順（nginx の例）**：
+**手順**：
 
 1. ビルドする
    ```bash
@@ -258,9 +258,40 @@ npm run build
    rsync -av --delete apps/web/dist/ user@vm:/var/www/ja-denki/
    ```
 
-3. nginx の設定（`/etc/nginx/conf.d/ja-denki.conf`）
+3. 共通ヘッダの断片を作る（`/etc/nginx/snippets/ja-denki-headers.conf`）
+
+   ```bash
+   sudo mkdir -p /etc/nginx/snippets
+   ```
+
    ```nginx
+   # SECURITY.md「配信時に付けるヘッダ」と同じもの
+   add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'" always;
+   add_header X-Robots-Tag "noindex, nofollow, noarchive, nosnippet" always;
+   add_header X-Content-Type-Options nosniff always;
+   add_header Referrer-Policy no-referrer always;
+   add_header Strict-Transport-Security "max-age=31536000" always;
+   add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()" always;
+   ```
+
+   ⚠️ **断片に切り出して、`add_header` を書く location すべてで `include` してください。**
+   nginx の `add_header` は「その階層に1つでも `add_header` があれば、上の階層のものを
+   引き継がない」仕様です。`location` の中で Cache-Control を足すと、**サーバー階層に
+   書いた CSP などが黙って消えます。**
+
+4. nginx の設定（`/etc/nginx/conf.d/ja-denki.conf`）
+
+   ```nginx
+   # 平文で来たものは、中身を返さずHTTPSへ送る（合言葉を平文で流さないため）
    server {
+     listen 80;
+     server_name ja-denki.example.local;
+     return 301 https://$host$request_uri;
+   }
+
+   server {
+     # http2 は 1.25.1 以降なら別行の `http2 on;` に書き換えられます。
+     # ディストリの nginx はたいてい 1.20〜1.24 なので、この書き方にしています
      listen 443 ssl http2;
      server_name ja-denki.example.local;
 
@@ -269,21 +300,39 @@ npm run build
 
      root /var/www/ja-denki;
 
-     # SECURITY.md「配信時に付けるヘッダ」と同じものを付ける
-     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'" always;
-     add_header X-Content-Type-Options nosniff always;
-     add_header Referrer-Policy no-referrer always;
-     add_header Strict-Transport-Security "max-age=31536000" always;
+     include /etc/nginx/snippets/ja-denki-headers.conf;
 
      # 中身が変わったら必ず取り直させる。古い単価で試算されるのを防ぐ
-     location = /index.html { add_header Cache-Control "no-cache" always; }
-     location = /sw.js      { add_header Cache-Control "no-cache" always; }
-     location /assets/      { add_header Cache-Control "public, max-age=31536000, immutable" always; }
+     location = /index.html {
+       include /etc/nginx/snippets/ja-denki-headers.conf;
+       add_header Cache-Control "no-cache" always;
+     }
+     location = /sw.js {
+       include /etc/nginx/snippets/ja-denki-headers.conf;
+       add_header Cache-Control "no-cache" always;
+     }
 
-     # 管理者向けの集計画面。下の 3-5 を必ず設定すること
+     # ── 管理者向け（3-5）。ここだけ合言葉が要る ────────────────
      location = /admin.html {
-       # ここに制限を書く（3-5）
+       include /etc/nginx/snippets/ja-denki-headers.conf;
+       add_header Cache-Control "no-store" always;
+       auth_basic "JA denki kanri";
+       auth_basic_user_file /etc/nginx/.htpasswd-admin;
        try_files $uri =404;
+     }
+     # JavaScript も同じ扱い。HTMLだけ塞いでも中身は読める
+     location ~ ^/assets/admin- {
+       include /etc/nginx/snippets/ja-denki-headers.conf;
+       add_header Cache-Control "no-store" always;
+       auth_basic "JA denki kanri";
+       auth_basic_user_file /etc/nginx/.htpasswd-admin;
+     }
+     # ──────────────────────────────────────────────
+
+     # ハッシュ付きの名前なので、中身が変われば別URLになる
+     location /assets/ {
+       include /etc/nginx/snippets/ja-denki-headers.conf;
+       add_header Cache-Control "public, max-age=31536000, immutable" always;
      }
 
      location / { try_files $uri $uri/ /index.html; }
@@ -294,7 +343,11 @@ npm run build
    ファイル（`admin.html`・`assets/*`）を先に返し、無いパスだけ
    `index.html` に落とします。
 
-4. 反映する
+   `location ~ ^/assets/admin-` は正規表現なので、`location /assets/` より
+   **先に**評価されます（nginx の照合順序: `=` → `^~` → 正規表現 → 最長前方一致）。
+   管理者向けの JS が、認証なしのキャッシュ設定に吸われることはありません。
+
+5. 反映する
    ```bash
    sudo nginx -t && sudo systemctl reload nginx
    ```
@@ -302,8 +355,8 @@ npm run build
 **更新のたびに確かめること**：
 
 ```bash
-# 職員向けの画面に、集計のコードが混ざっていないこと
-grep -rl "いくら安くなると決まるのか" /var/www/ja-denki/assets/index-*.js && echo "NG"
+# 職員向けの画面に、集計のコードが混ざっていないこと（何も出なければ正常）
+grep -l "いくら安くなると決まるのか" /var/www/ja-denki/assets/index-*.js
 
 # Service Worker が admin をキャッシュしていないこと
 grep -c "admin" /var/www/ja-denki/sw.js   # 0 であること
@@ -334,171 +387,150 @@ grep -c "admin" /var/www/ja-denki/sw.js   # 0 であること
 | **単価・料金の正しさ** | 無関係。この画面は計算をしません |
 
 つまり **「個人情報保護のための認証」ではなく「経営情報を社外に出さないための仕切り」** です。
-だから、たとえば「職員一人ひとりのIDで認証し、誰がいつ見たかを記録する」ところまでは
-要りません。**社外から見えなければ目的は足ります。**
+だから「職員一人ひとりのIDで認証し、誰がいつ見たかを記録する」ところまでは要りません。
+**社外から見えなければ目的は足ります。**
 
-逆に、**制限が無いまま社内網の外に置くのは駄目**です。URL は必ずどこかから漏れます
-（メールの転送、ブラウザの履歴、肩越しの盗み見）。
+##### ✅ 採用：Basic 認証（合言葉）— 2026-08-22 決定
 
-##### 3案の比較
+検討した3案は次のとおりです。**Basic 認証で進めます。**
 
-| | 1. 社内IdP / SSO | 2. 接続元IPの制限 | 3. Basic認証 |
+| | 1. 社内IdP / SSO | 2. 接続元IPの制限 | **3. Basic認証（採用）** |
 |---|---|---|---|
-| **何で判定するか** | 誰か（職員ID） | どこからか（LANのIP） | 合言葉（ID+パスワード） |
-| **要る前提** | AD / Entra ID などが既にあり、連携できる担当がいる | 本店・企画部のLANが固定IPで、そこからしか見ない | なし |
-| **設定の手間** | 大（情シスとの調整が要る） | 小（nginx 3行） | 小（htpasswd + nginx 4行） |
-| **運用の手間** | ほぼ無し（人事異動はIdP側で片付く） | 小（拠点やVPNが増えたら追記） | **中（パスワードの配り直しが要る）** |
-| **在宅・出張から見られるか** | 見られる | **見られない**（VPN経由なら可） | 見られる |
-| **漏れる失敗の仕方** | ほぼ無い | 拠点追加のときに `allow` を広げすぎる | **パスワードが人づてに広まる。異動しても消えない** |
-| **見た記録が残るか** | 残る（誰が） | 残らない（IPだけ） | 残らない（同じIDを共有するため） |
-| **HTTPS必須か** | 必須 | 望ましい | **必須**（平文だとパスワードが流れる） |
+| 何で判定するか | 誰か（職員ID） | どこからか（LANのIP） | 合言葉（ID+パスワード） |
+| 要る前提 | AD / Entra ID と情シスの工数 | 拠点が固定IPで、そこからしか見ない | **なし** |
+| 在宅・出張から | 見られる | 見られない | **見られる** |
+| 見た記録 | 残る | 残らない | 残らない（ID共有） |
+| **弱点** | — | 拠点追加で広げすぎる | **合言葉が人づてに広まる。異動しても消えない** |
 
-##### 選び方
+**Basic 認証の弱点は、設定ではなく運用でしか埋まりません。** 下の
+「合言葉の運用ルール」を決めないまま始めると、半年後には誰でも見られる
+状態になっていて、しかも**誰も気づきません**。ここだけは省略しないでください。
 
-```
-社内に AD / SSO があり、情シスに繋いでもらえる？
-   ├─ はい ────────────────────────→ 【1】IdP認証
-   └─ いいえ
-        └ 見るのは本店・企画部の LAN からだけ？
-             ├─ はい ──────────────→ 【2】IP制限   ★おすすめ
-             └─ いいえ（在宅や支店からも見たい）
-                  └ VPN で本店LANに入れる？
-                       ├─ はい ─────→ 【2】IP制限（VPNのIP帯も allow）
-                       └─ いいえ ───→ 【3】Basic認証
-```
+##### 設定手順
 
-**当面のおすすめは【2】IP制限です。** 理由は3つ。
-
-- 見るのは支店長・企画担当だけで、**訪問先から見る必要がない**
-- 設定が3行で済み、情シスの工数を待たずに今日出せる
-- **失敗が「見られない」側に倒れる。** パスワード式は失敗が「見られてしまう」側に倒れます
-
-【1】が使えるなら【1】が最善ですが、それを待って画面を出せないより、
-【2】で先に運用を始めて、あとから【1】に差し替えるほうが早いです
-（アプリ側の変更は不要で、nginx の `location` を書き換えるだけです）。
-
-##### 【1】社内IdP / リバースプロキシでの認証
-
-既に AD / Entra ID / SSO が入っているなら、いちばんきれいです。
-リバースプロキシ（nginx + `auth_request`、Azure AD Application Proxy、
-Keycloak の gatekeeper など）で `/admin.html` の前段に認証を挟みます。
-
-```nginx
-location = /admin.html {
-  auth_request /_auth;          # 認証プロキシへ問い合わせ
-  try_files $uri =404;
-}
-location ~ ^/assets/admin- {
-  auth_request /_auth;
-}
-location = /_auth {
-  internal;
-  proxy_pass http://127.0.0.1:4180/oauth2/auth;   # 例: oauth2-proxy
-  proxy_pass_request_body off;
-  proxy_set_header Content-Length "";
-}
-```
-
-情シスに依頼するときの伝え方：
-
-> 静的HTMLが1枚あります。`https://<ホスト>/admin.html` と
-> `https://<ホスト>/assets/admin-*.js` に、社内アカウントでの認証をかけてください。
-> グループは「企画部」「支店長」で足ります。アプリ側の改修は要りません。
-
-##### 【2】接続元IPの制限
-
-```nginx
-# 管理者向けの画面。本店・企画部のLANからだけ
-location = /admin.html {
-  allow 10.20.30.0/24;   # 本店LAN         ← 実際の帯に置き換える
-  allow 10.20.40.0/24;   # 企画部          ← 不要なら消す
-  allow 10.99.0.0/16;    # VPN払い出し帯   ← 在宅から見るなら
-  deny all;
-  try_files $uri =404;
-}
-
-# JavaScript も同じ扱い。HTMLだけ塞いでも中身は読める
-location ~ ^/assets/admin- {
-  allow 10.20.30.0/24;
-  allow 10.20.40.0/24;
-  allow 10.99.0.0/16;
-  deny all;
-}
-```
-
-⚠️ **リバースプロキシやロードバランサが前段にいる場合**、`allow` が見るのは
-プロキシのIPになってしまい、**全員が通ってしまいます**。その場合は
-`real_ip_header X-Forwarded-For;` と `set_real_ip_from <プロキシのIP>;` を
-先に設定してください。設定後は必ず下の確認手順で塞がっていることを見ます。
-
-⚠️ **`allow` を広げるときは、必ず誰かに確認してもらってください。**
-この方式のいちばんの失敗は、拠点を足すときに `10.0.0.0/8` のように
-広く書いてしまい、実質ザルになることです。
-
-##### 【3】Basic認証
-
-上の2つがすぐ用意できないときの選択肢です。
+**① パスワードファイルを作る**
 
 ```bash
-# パスワードファイルを作る（-c は初回のみ。2人目以降は -c を付けない）
-sudo htpasswd -c /etc/nginx/.htpasswd-admin kikaku
-sudo chown root:nginx /etc/nginx/.htpasswd-admin
+# ツールが無ければ入れる
+sudo apt install apache2-utils     # Debian / Ubuntu
+sudo dnf install httpd-tools       # RHEL / Rocky / AlmaLinux
+
+# 作成（-B = bcrypt。-c は初回のみ。2人目以降は -c を付けない＝上書きされる）
+sudo htpasswd -B -c /etc/nginx/.htpasswd-admin kikaku
+
+# nginx だけが読める状態にする
+sudo chown root:nginx /etc/nginx/.htpasswd-admin   # Debian系は root:www-data
 sudo chmod 640 /etc/nginx/.htpasswd-admin
 ```
 
-```nginx
-location = /admin.html {
-  auth_basic "JA denki - kanri";
-  auth_basic_user_file /etc/nginx/.htpasswd-admin;
-  try_files $uri =404;
-}
-location ~ ^/assets/admin- {
-  auth_basic "JA denki - kanri";
-  auth_basic_user_file /etc/nginx/.htpasswd-admin;
-}
+`htpasswd` をどうしても入れられない場合は openssl でも作れます。
+ただし `-apr1` は bcrypt より弱いので、可能なら `htpasswd -B` を使ってください。
+
+```bash
+printf 'kikaku:%s\n' "$(openssl passwd -apr1)" | sudo tee /etc/nginx/.htpasswd-admin
 ```
 
-運用で決めておくこと：
+⚠️ **パスワードファイルを nginx が読めないと、合言葉が正しくても 500 になります。**
+（合言葉なしの 401 は正しく出るので、「塞げている」と誤認しやすい失敗です。）
+所有者とパーミッションを必ず確認してください。
 
-- [ ] パスワードを**誰が配るか**（メールで平文を送らない。口頭か社内の秘密管理）
-- [ ] **異動・退職のときに変えるか**（共有パスワードは、変えない限り消えません）
-- [ ] **何か月ごとに変えるか**（決めないと未来永劫そのままになります）
-- [ ] HTTPS が有効か（**平文HTTPだとパスワードがそのまま流れます**）
+利用者名（上の例の `kikaku`）は**役割の名前**にしてください。個人名にすると、
+異動のたびに作り直しが必要になります（そして誰もやりません）。
 
-##### IIS の場合
+**② パスワードを決める**
+
+サーバー上で作って、その場で控えます。**人が考えた文字列は使わないでください。**
+
+```bash
+# 単語をつなぐ形。口頭で伝えられて、かつ十分に長い
+tr -dc 'a-z' </dev/urandom | fold -w 5 | head -n 4 | paste -sd- -
+# 例: kotra-mesbi-untal-rewof
+```
+
+**③ nginx に組み込む**
+
+3-4 の設定例に、既に `auth_basic` の2ブロックが入っています。
+そのまま使う場合は追加の作業はありません。既存の設定に足す場合は、
+`location = /admin.html` と `location ~ ^/assets/admin-` の**両方**に
+次の2行を入れてください。
+
+```nginx
+auth_basic "JA denki kanri";
+auth_basic_user_file /etc/nginx/.htpasswd-admin;
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**④ IIS の場合**
 
 `admin.html` と `assets/admin-*.js` を別のアプリケーションに切り出し、
-どちらかを割り当てます。
-
-- **Windows 認証**（【1】に相当）: 「認証」→ Windows認証を有効、匿名認証を無効
-- **IPアドレスとドメインの制限**（【2】に相当）: 「IP アドレスとドメインの制限」機能を
-  追加し、既定を「拒否」にして本店LANの帯だけ許可
+「認証」→ **基本認証**を有効、匿名認証を無効にします。
+Windows アカウントと紐づくため、共有アカウントを1つ作るか、
+可能であれば**Windows 認証**（案1相当）に切り替えるほうが運用は楽です。
 
 ⚠️ 3-3 の URL Rewrite 規則に「実在するファイルでないとき」の条件が
 付いていることを必ず確認してください。条件が無いと `/admin.html` への要求が
 `index.html` に化け、**制限をかけたつもりの画面が職員向けの画面として開きます**。
 
-##### 設定できたことの確認（どの案でも共通）
+##### 設定できたことの確認
 
-社内LANの外（スマートフォンのモバイル回線など）から実行します。
+**社内LANの外**（スマートフォンのモバイル回線など）から実行します。
 
 ```bash
-# 1. 職員向けは開ける（200 であること）
+# 1. 職員向けは合言葉なしで開ける（200 であること）
 curl -o /dev/null -s -w "%{http_code}\n" https://<ホスト>/
 
-# 2. 管理者向けは開けない（403 か 401 であること。200 なら失敗）
+# 2. 管理者向けは合言葉なしでは開けない（401 であること。200 なら失敗）
 curl -o /dev/null -s -w "%{http_code}\n" https://<ホスト>/admin.html
 
-# 3. JavaScript も開けない（403 か 401 であること）
-#    ファイル名はビルドごとに変わるので、dist/admin.html から拾う
+# 3. JavaScript も開けない（401 であること）★これを飛ばさない
 grep -o 'assets/admin-[^"]*\.js' apps/web/dist/admin.html
 curl -o /dev/null -s -w "%{http_code}\n" https://<ホスト>/assets/admin-XXXX.js
+
+# 4. 合言葉を入れれば開ける（200 であること。-u は利用者名だけ書いて対話入力する）
+curl -o /dev/null -s -w "%{http_code}\n" -u kikaku https://<ホスト>/admin.html
+
+# 5. 平文HTTPは中身を返さずHTTPSへ送られる（301 であること）
+#    ここが 200 だと、合言葉が平文で流れます
+curl -o /dev/null -s -w "%{http_code} %{redirect_url}\n" http://<ホスト>/admin.html
 ```
 
 **3 を飛ばさないでください。** HTML だけ塞いで JavaScript が素通しなのが、
 この手の設定でいちばん多い失敗です。集計の画面はほぼ全部が JavaScript の中にあります。
 
-社内LANの中からも、**開けること**を1回確かめておきます（塞ぎすぎの検出）。
+> 上の設定例は、実際に nginx 1.24 で `nginx -t` を通し、ビルド済みの `dist/` を
+> 配って動かして確認済みです（2026-08-22）。確認した結果:
+> 職員向け 200 ／ 管理者向け 401 ／ `assets/admin-*.js` 401 ／
+> 合言葉ありで 200 ／ 平文HTTP 301 ／ 存在しないパスは `index.html` に戻る。
+> ブラウザでも、合言葉なしでは管理者向けの画面が開かず、
+> 合言葉ありなら集計が動くことを確認しています。
+> CSP などのヘッダが全ての location で消えていないことも確認しました。
+
+⚠️ `curl -u kikaku:パスワード` のように**コマンドラインに直接書かないでください**。
+シェルの履歴に残ります。上のように利用者名だけ書けば、curl が対話で聞いてきます。
+
+##### 合言葉の運用ルール（ここを決めてから始める）
+
+Basic 認証は**共有の合言葉**です。誰が見たかは残らず、渡した相手を後から
+取り消すこともできません。だから次を先に決めてください。
+
+- [ ] **管理者を1人決める**（合言葉を作る人・配る人・変える人）
+- [ ] **配り方**：口頭、または社内の秘密管理の仕組み。
+      **メール・チャットに平文で書かない**（転送されたら終わりです）
+- [ ] **渡す範囲**：支店長と企画担当まで。「見たい」と言われて足さない
+- [ ] **変えるとき**：
+      - 渡した人が異動・退職したとき（**必ず**。共有パスワードは変えない限り消えません）
+      - 少なくとも**半年に1回**
+      - 「誰かに教えたかもしれない」と思ったとき
+- [ ] **変更の記録**：いつ変えたか・誰に配ったかを1行残す（名簿と同じ場所で構いません）
+- [ ] **共用PCで開いたら、ブラウザを閉じる**。Basic 認証はタブを閉じただけでは
+      合言葉が残ります（画面自体は `Cache-Control: no-store` でディスクに残しません）
+
+⚠️ **合言葉が広まった疑いがあれば、その日のうちに変えてください。**
+`sudo htpasswd -B /etc/nginx/.htpasswd-admin kikaku` で上書きし、
+`sudo systemctl reload nginx` で即座に効きます（`-c` は付けない）。
 
 ##### 制限をかけても、置いてよいものは変わりません
 
@@ -777,7 +809,7 @@ git push origin main
 **システム管理者向け**:
 - 月次更新（燃料費調整・再エネ賦課金）
 - 料金改定時の対応
-- `/admin.html` のアクセス制限の維持（3-5。拠点追加時に `allow` を広げすぎない）
+- `/admin.html` の Basic 認証の維持（3-5。**異動・退職のたびに合言葉を変える**）
 - エラーログの確認
 
 **開発チーム向け**:
@@ -844,8 +876,9 @@ HTTPS は必須です（Service Worker の要件。オフライン動作と更�
 - [ ] ファミリータイムⅠ/Ⅱ の0kWh半額ルールの確認
 - [x] 配布先（ホスティング）の決定 — **JA保有のオンプレミス VM**（3-4）
 - [ ] 上記ヘッダの設定
-- [ ] **`/admin.html` と `/assets/admin-*.js` のアクセス制限**（3-5）。
-      設定できたことを社内LANの外から `curl` で確認するところまで
+- [ ] **`/admin.html` と `/assets/admin-*.js` に Basic 認証**（3-5）。
+      社内LANの外から `curl` で 401 になることを確認するところまで
+- [ ] 合言葉の管理者・配り方・変更周期の決定（3-5「合言葉の運用ルール」）
 - [ ] 「訪問はご遠慮したい」の手順を支店へ周知
       （[docs/VISIT_REFUSAL_PROCEDURE.md](./docs/VISIT_REFUSAL_PROCEDURE.md)）
 
