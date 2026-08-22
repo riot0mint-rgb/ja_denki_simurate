@@ -323,51 +323,188 @@ grep -c "admin" /var/www/ja-denki/sw.js   # 0 であること
 | Service Worker | キャッシュする | **しない**（オフラインで開けない） |
 | バンドル | 集計のコードは1バイトも入らない | 試算のコードは入らない |
 
-**アクセス制限はこのサーバー側でかけてください。** 画面の中で判定しても、
-JavaScript は誰でも読めるので意味がありません。VM を持っているので、
-次のどれかが使えます（上から順に望ましい）：
+##### 何から守るのか（先に整理しておく）
 
-1. **社内 IdP / リバースプロキシでの認証**（既に Active Directory や
-   SSO が入っているなら、これが一番きれいです）
+ここを取り違えると、要らない厳しさを選んでしまいます。
 
-2. **接続元 IP の制限**（本店・企画部の LAN からだけ）
-   ```nginx
-   location = /admin.html {
-     allow 10.20.30.0/24;   # 本店LAN
-     deny all;
-     try_files $uri =404;
-   }
-   location ~ ^/assets/admin- {
-     allow 10.20.30.0/24;
-     deny all;
-   }
-   ```
+| 守る対象 | この画面での状況 |
+|---|---|
+| **個人情報** | **もともと入りません。** 貼る表に個人を特定できる列が作れない（`assertNoIdentifyingColumn`）。制限が外れても漏れるものがない |
+| **JAの営業成績** | **これを守ります。** 何件回って何件決まったか、どの支店が弱いかは、外に出したくない経営情報 |
+| **単価・料金の正しさ** | 無関係。この画面は計算をしません |
 
-3. **Basic 認証**（上の2つがすぐ用意できないとき）
-   ```bash
-   sudo htpasswd -c /etc/nginx/.htpasswd-admin kikaku
-   ```
-   ```nginx
-   location = /admin.html {
-     auth_basic "kanri";
-     auth_basic_user_file /etc/nginx/.htpasswd-admin;
-     try_files $uri =404;
-   }
-   location ~ ^/assets/admin- {
-     auth_basic "kanri";
-     auth_basic_user_file /etc/nginx/.htpasswd-admin;
-   }
-   ```
+つまり **「個人情報保護のための認証」ではなく「経営情報を社外に出さないための仕切り」** です。
+だから、たとえば「職員一人ひとりのIDで認証し、誰がいつ見たかを記録する」ところまでは
+要りません。**社外から見えなければ目的は足ります。**
 
-`/assets/admin-*.js` にも同じ制限をかけてください。HTML だけ塞いでも、
-JavaScript を直接読まれれば中身は分かります。
+逆に、**制限が無いまま社内網の外に置くのは駄目**です。URL は必ずどこかから漏れます
+（メールの転送、ブラウザの履歴、肩越しの盗み見）。
 
-IIS の場合は、`admin.html` を別のアプリケーションに切り出して
-「IP アドレスとドメインの制限」または「Windows 認証」を割り当てます。
+##### 3案の比較
 
-**制限をかけても、置いてよいものは変わりません。** この画面に貼るのは
-`docs/VISIT_LOG_DESIGN.md` の列だけです。氏名・住所・電話番号を足した表を
-貼ってはいけません（貼っても送信はされませんが、画面に映ります）。
+| | 1. 社内IdP / SSO | 2. 接続元IPの制限 | 3. Basic認証 |
+|---|---|---|---|
+| **何で判定するか** | 誰か（職員ID） | どこからか（LANのIP） | 合言葉（ID+パスワード） |
+| **要る前提** | AD / Entra ID などが既にあり、連携できる担当がいる | 本店・企画部のLANが固定IPで、そこからしか見ない | なし |
+| **設定の手間** | 大（情シスとの調整が要る） | 小（nginx 3行） | 小（htpasswd + nginx 4行） |
+| **運用の手間** | ほぼ無し（人事異動はIdP側で片付く） | 小（拠点やVPNが増えたら追記） | **中（パスワードの配り直しが要る）** |
+| **在宅・出張から見られるか** | 見られる | **見られない**（VPN経由なら可） | 見られる |
+| **漏れる失敗の仕方** | ほぼ無い | 拠点追加のときに `allow` を広げすぎる | **パスワードが人づてに広まる。異動しても消えない** |
+| **見た記録が残るか** | 残る（誰が） | 残らない（IPだけ） | 残らない（同じIDを共有するため） |
+| **HTTPS必須か** | 必須 | 望ましい | **必須**（平文だとパスワードが流れる） |
+
+##### 選び方
+
+```
+社内に AD / SSO があり、情シスに繋いでもらえる？
+   ├─ はい ────────────────────────→ 【1】IdP認証
+   └─ いいえ
+        └ 見るのは本店・企画部の LAN からだけ？
+             ├─ はい ──────────────→ 【2】IP制限   ★おすすめ
+             └─ いいえ（在宅や支店からも見たい）
+                  └ VPN で本店LANに入れる？
+                       ├─ はい ─────→ 【2】IP制限（VPNのIP帯も allow）
+                       └─ いいえ ───→ 【3】Basic認証
+```
+
+**当面のおすすめは【2】IP制限です。** 理由は3つ。
+
+- 見るのは支店長・企画担当だけで、**訪問先から見る必要がない**
+- 設定が3行で済み、情シスの工数を待たずに今日出せる
+- **失敗が「見られない」側に倒れる。** パスワード式は失敗が「見られてしまう」側に倒れます
+
+【1】が使えるなら【1】が最善ですが、それを待って画面を出せないより、
+【2】で先に運用を始めて、あとから【1】に差し替えるほうが早いです
+（アプリ側の変更は不要で、nginx の `location` を書き換えるだけです）。
+
+##### 【1】社内IdP / リバースプロキシでの認証
+
+既に AD / Entra ID / SSO が入っているなら、いちばんきれいです。
+リバースプロキシ（nginx + `auth_request`、Azure AD Application Proxy、
+Keycloak の gatekeeper など）で `/admin.html` の前段に認証を挟みます。
+
+```nginx
+location = /admin.html {
+  auth_request /_auth;          # 認証プロキシへ問い合わせ
+  try_files $uri =404;
+}
+location ~ ^/assets/admin- {
+  auth_request /_auth;
+}
+location = /_auth {
+  internal;
+  proxy_pass http://127.0.0.1:4180/oauth2/auth;   # 例: oauth2-proxy
+  proxy_pass_request_body off;
+  proxy_set_header Content-Length "";
+}
+```
+
+情シスに依頼するときの伝え方：
+
+> 静的HTMLが1枚あります。`https://<ホスト>/admin.html` と
+> `https://<ホスト>/assets/admin-*.js` に、社内アカウントでの認証をかけてください。
+> グループは「企画部」「支店長」で足ります。アプリ側の改修は要りません。
+
+##### 【2】接続元IPの制限
+
+```nginx
+# 管理者向けの画面。本店・企画部のLANからだけ
+location = /admin.html {
+  allow 10.20.30.0/24;   # 本店LAN         ← 実際の帯に置き換える
+  allow 10.20.40.0/24;   # 企画部          ← 不要なら消す
+  allow 10.99.0.0/16;    # VPN払い出し帯   ← 在宅から見るなら
+  deny all;
+  try_files $uri =404;
+}
+
+# JavaScript も同じ扱い。HTMLだけ塞いでも中身は読める
+location ~ ^/assets/admin- {
+  allow 10.20.30.0/24;
+  allow 10.20.40.0/24;
+  allow 10.99.0.0/16;
+  deny all;
+}
+```
+
+⚠️ **リバースプロキシやロードバランサが前段にいる場合**、`allow` が見るのは
+プロキシのIPになってしまい、**全員が通ってしまいます**。その場合は
+`real_ip_header X-Forwarded-For;` と `set_real_ip_from <プロキシのIP>;` を
+先に設定してください。設定後は必ず下の確認手順で塞がっていることを見ます。
+
+⚠️ **`allow` を広げるときは、必ず誰かに確認してもらってください。**
+この方式のいちばんの失敗は、拠点を足すときに `10.0.0.0/8` のように
+広く書いてしまい、実質ザルになることです。
+
+##### 【3】Basic認証
+
+上の2つがすぐ用意できないときの選択肢です。
+
+```bash
+# パスワードファイルを作る（-c は初回のみ。2人目以降は -c を付けない）
+sudo htpasswd -c /etc/nginx/.htpasswd-admin kikaku
+sudo chown root:nginx /etc/nginx/.htpasswd-admin
+sudo chmod 640 /etc/nginx/.htpasswd-admin
+```
+
+```nginx
+location = /admin.html {
+  auth_basic "JA denki - kanri";
+  auth_basic_user_file /etc/nginx/.htpasswd-admin;
+  try_files $uri =404;
+}
+location ~ ^/assets/admin- {
+  auth_basic "JA denki - kanri";
+  auth_basic_user_file /etc/nginx/.htpasswd-admin;
+}
+```
+
+運用で決めておくこと：
+
+- [ ] パスワードを**誰が配るか**（メールで平文を送らない。口頭か社内の秘密管理）
+- [ ] **異動・退職のときに変えるか**（共有パスワードは、変えない限り消えません）
+- [ ] **何か月ごとに変えるか**（決めないと未来永劫そのままになります）
+- [ ] HTTPS が有効か（**平文HTTPだとパスワードがそのまま流れます**）
+
+##### IIS の場合
+
+`admin.html` と `assets/admin-*.js` を別のアプリケーションに切り出し、
+どちらかを割り当てます。
+
+- **Windows 認証**（【1】に相当）: 「認証」→ Windows認証を有効、匿名認証を無効
+- **IPアドレスとドメインの制限**（【2】に相当）: 「IP アドレスとドメインの制限」機能を
+  追加し、既定を「拒否」にして本店LANの帯だけ許可
+
+⚠️ 3-3 の URL Rewrite 規則に「実在するファイルでないとき」の条件が
+付いていることを必ず確認してください。条件が無いと `/admin.html` への要求が
+`index.html` に化け、**制限をかけたつもりの画面が職員向けの画面として開きます**。
+
+##### 設定できたことの確認（どの案でも共通）
+
+社内LANの外（スマートフォンのモバイル回線など）から実行します。
+
+```bash
+# 1. 職員向けは開ける（200 であること）
+curl -o /dev/null -s -w "%{http_code}\n" https://<ホスト>/
+
+# 2. 管理者向けは開けない（403 か 401 であること。200 なら失敗）
+curl -o /dev/null -s -w "%{http_code}\n" https://<ホスト>/admin.html
+
+# 3. JavaScript も開けない（403 か 401 であること）
+#    ファイル名はビルドごとに変わるので、dist/admin.html から拾う
+grep -o 'assets/admin-[^"]*\.js' apps/web/dist/admin.html
+curl -o /dev/null -s -w "%{http_code}\n" https://<ホスト>/assets/admin-XXXX.js
+```
+
+**3 を飛ばさないでください。** HTML だけ塞いで JavaScript が素通しなのが、
+この手の設定でいちばん多い失敗です。集計の画面はほぼ全部が JavaScript の中にあります。
+
+社内LANの中からも、**開けること**を1回確かめておきます（塞ぎすぎの検出）。
+
+##### 制限をかけても、置いてよいものは変わりません
+
+この画面に貼るのは `docs/VISIT_LOG_DESIGN.md` の列だけです。
+氏名・住所・電話番号を足した表を貼ってはいけません
+（貼っても送信はされませんが、画面に映ります）。
 
 ### 4. PWA としてのスマートフォン追加
 
@@ -628,10 +765,19 @@ git push origin main
 - シミュレーターの起動方法
 - 基本的な操作フロー
 - よくあるご質問への回答
+- 商談ナビの使い方（準備→導入→おうかがい→試算→説明→ご不安→お手続き→ふりかえり）
+- **「訪問はご遠慮したい」と言われたときの手順** →
+  [docs/VISIT_REFUSAL_PROCEDURE.md](./docs/VISIT_REFUSAL_PROCEDURE.md)
+  （**配属時に必ず1回読ませてください。**取りこぼしがJA全体の信用に響きます）
+
+**支店で訪問先を割り当てる担当向け**:
+- リストを配る前に「訪問不可」を除外する（同上の手順書「4. 訪問先を割り当てるとき」）
+- 月に一度、訪問不可の件数と実際の訪問を突き合わせる
 
 **システム管理者向け**:
 - 月次更新（燃料費調整・再エネ賦課金）
 - 料金改定時の対応
+- `/admin.html` のアクセス制限の維持（3-5。拠点追加時に `allow` を広げすぎない）
 - エラーログの確認
 
 **開発チーム向け**:
@@ -649,7 +795,7 @@ git push origin main
 npm ci
 npm install --no-save playwright        # 8・9 に必要（初回のみ）
 
-npm run test:coverage                   # 1. テスト552件とカバレッジ閾値
+npm run test:coverage                   # 1. テスト737件とカバレッジ閾値
 npm run type-check                      # 2. 型
 npm run rate-master:check               # 3. 料金マスターJSONの同期
 npm run rate-intake                     # 4. 元資料との突合（archive/ がある場合）
@@ -657,7 +803,7 @@ npm run build                           # 5. ビルド
 npm run security:check                  # 6. 端末の外に出る経路が無いこと（静的）
 npm audit --omit=dev --audit-level=low  # 7. 本番依存の脆弱性
 npm run security:runtime                # 8. 実機で外部通信・保存が無いこと
-npm run accept                          # 9. 受け入れテスト13項目
+npm run accept                          # 9. 受け入れテスト30項目
 ```
 
 1〜7 は CI でも毎回走ります。**8・9 はリリース前に手元で1回**（ブラウザの取得が重いため）。
@@ -696,8 +842,12 @@ HTTPS は必須です（Service Worker の要件。オフライン動作と更�
 - [ ] 2026年10月・11月分の燃料費調整額の収録
 - [ ] JA側と中国電力側で燃調が分かれるかの確認（10月改定で基準が変わるため）
 - [ ] ファミリータイムⅠ/Ⅱ の0kWh半額ルールの確認
-- [ ] 配布先（ホスティング）の決定
+- [x] 配布先（ホスティング）の決定 — **JA保有のオンプレミス VM**（3-4）
 - [ ] 上記ヘッダの設定
+- [ ] **`/admin.html` と `/assets/admin-*.js` のアクセス制限**（3-5）。
+      設定できたことを社内LANの外から `curl` で確認するところまで
+- [ ] 「訪問はご遠慮したい」の手順を支店へ周知
+      （[docs/VISIT_REFUSAL_PROCEDURE.md](./docs/VISIT_REFUSAL_PROCEDURE.md)）
 
 ---
 
