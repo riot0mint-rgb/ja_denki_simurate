@@ -5,14 +5,13 @@ import ManualInput from './pages/ManualInput'
 import SimpleInput, { SimpleEstimate } from './pages/SimpleInput'
 import ComparisonResult from './pages/ComparisonResult'
 import SalesCoach from './pages/SalesCoach'
-import SalesInsights from './pages/SalesInsights'
 import UpdateBanner from './components/UpdateBanner'
 import Logo from './components/Logo'
 import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
 
-type PageType = 'home' | 'simple' | 'input' | 'result' | 'coach' | 'insights'
+type PageType = 'home' | 'simple' | 'input' | 'result' | 'coach'
 
 interface Query {
   scenarioId: string
@@ -38,6 +37,7 @@ export default function App() {
     scenarioId: string
     totalKwh: number
     annualSavingsYen: number | null
+    period: { year: number; month: number }
   } | null>(null)
   /** 試算から戻るときに商談ナビへ返すか */
   const [cameFromCoach, setCameFromCoach] = useState(false)
@@ -83,7 +83,6 @@ export default function App() {
             setCameFromCoach(true)
             setCurrentPage('coach')
           }}
-          onStartInsights={() => setCurrentPage('insights')}
         />
       )}
       {/*
@@ -128,7 +127,6 @@ export default function App() {
           />
         </div>
       )}
-      {currentPage === 'insights' && <SalesInsights onBack={() => setCurrentPage('home')} />}
       {currentPage === 'result' && (
         <ComparisonResult
           scenarioId={query.scenarioId}

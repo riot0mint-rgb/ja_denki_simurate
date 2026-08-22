@@ -26,6 +26,9 @@ const log = (partial: Partial<VisitLog> = {}): VisitLog => ({
   savingsBand: '3千〜1万円',
   objections: ['think'],
   outcome: 'applied',
+  confidence: 'B',
+  nextVisit: '1〜2週間のうちに',
+  stoppedAt: '検討します／家族に相談します',
   ...partial
 })
 

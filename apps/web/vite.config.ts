@@ -43,7 +43,10 @@ function serviceWorkerManifest(): Plugin {
     },
     generateBundle(_options, bundle) {
       for (const file of Object.keys(bundle)) {
-        if (file !== 'sw.js') precache.add('/' + file)
+        // 管理者向けの画面は職員の端末にキャッシュしない。
+        // 職員が使わないものを配って持たせる理由がない
+        if (file === 'sw.js' || /(^|\/)admin[-.]/.test(file)) continue
+        precache.add('/' + file)
       }
     },
     closeBundle() {
@@ -71,6 +74,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser'
+    minify: 'terser',
+    rollupOptions: {
+      /*
+       * 職員向け（index）と管理者向け（admin）でエントリを分ける。
+       * 実務に要らない集計を職員の画面に置くと、お客様の前で開いてしまう。
+       * 分けておけば職員側のバンドルに集計のコードが1バイトも入らず、
+       * アクセス制限も配信サーバーのパス単位でかけられる。
+       */
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        admin: resolve(__dirname, 'admin.html')
+      }
+    }
   }
 })

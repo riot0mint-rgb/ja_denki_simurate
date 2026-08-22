@@ -13,14 +13,22 @@ import { Stage } from './coachService'
  * この画面が「もう一つの顧客名簿」になってはいけない（docs/VISIT_LOG_DESIGN.md）。
  */
 
-export type Outcome = 'applied' | 'considering' | 'declined' | 'not_suitable' | 'absent'
+export type Outcome =
+  | 'applied'
+  | 'considering'
+  | 'declined'
+  | 'not_suitable'
+  | 'absent'
+  | 'refused_future'
 
 export const OUTCOMES: Array<{ value: Outcome; label: string; note: string }> = [
   { value: 'applied', label: 'お申し込みいただいた', note: '' },
   { value: 'considering', label: 'ご検討中', note: '資料をお渡しした' },
   { value: 'declined', label: '見送り', note: 'お客様のご意向' },
   { value: 'not_suitable', label: 'こちらから見送り', note: '高くなるため勧めなかった' },
-  { value: 'absent', label: 'ご不在', note: '' }
+  { value: 'absent', label: 'ご不在', note: '' },
+  // 取りこぼすと、他の職員が再訪してJA全体の信用を落とす。いちばん大事な記録
+  { value: 'refused_future', label: '今後の訪問はご遠慮したい', note: '名簿に「訪問不可」を' }
 ]
 
 export interface VisitLog {
@@ -41,6 +49,12 @@ export interface VisitLog {
   /** 実際に出た反論 */
   objections: string[]
   outcome: Outcome | null
+  /** 確度（A〜E）。判定の根拠は画面に出す */
+  confidence: string | null
+  /** 次にいつ行くか */
+  nextVisit: string | null
+  /** 前回どこで止まったか。次回の入りに使う */
+  stoppedAt: string | null
 }
 
 /**
@@ -84,7 +98,10 @@ export const LOG_COLUMNS: Array<{ key: keyof VisitLog; label: string }> = [
   { key: 'usageBand', label: '使用量帯' },
   { key: 'savingsBand', label: '年間差額帯' },
   { key: 'objections', label: '出た反論' },
-  { key: 'outcome', label: '結果' }
+  { key: 'outcome', label: '結果' },
+  { key: 'confidence', label: '確度' },
+  { key: 'nextVisit', label: '次回の目安' },
+  { key: 'stoppedAt', label: '前回の止まり' }
 ]
 
 /** 個人にたどり着ける列を足していないことを、書き出しのたびに確かめる */
@@ -202,6 +219,8 @@ export interface Summary {
   bySavingsBand: Tally[]
   byScenario: Tally[]
   byReached: Tally[]
+  /** 確度ごとの実際の申込率。判定が当たっているかの検証に使う */
+  byConfidence: Tally[]
 }
 
 export function summarize(rows: Array<Record<string, string>>): Summary {
@@ -216,6 +235,7 @@ export function summarize(rows: Array<Record<string, string>>): Summary {
     byObjection: tally(rows, '出た反論'),
     bySavingsBand: tally(rows, '年間差額帯'),
     byScenario: tally(rows, '現在の契約'),
-    byReached: tally(rows, '到達段階')
+    byReached: tally(rows, '到達段階'),
+    byConfidence: tally(rows, '確度')
   }
 }

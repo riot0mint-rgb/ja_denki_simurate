@@ -5,6 +5,10 @@ import {
   scanBundle,
   scanHtml,
   scanServiceWorker,
+  scanAdminSeparation,
+  scanPrecache,
+  isAdminAsset,
+  ADMIN_ONLY_MARKERS,
   renderReport,
   hasBlocking
 } from './securityCheck'
@@ -155,6 +159,51 @@ describe('scanServiceWorker — 他オリジンに触らない', () => {
   it('判定が無ければ落とす', () => {
     const found = scanServiceWorker({ path: 'sw.js', content: 'fetch(request)' })
     expect(found[0].rule).toBe('sw-same-origin')
+  })
+})
+
+describe('職員向けと管理者向けの切り離し', () => {
+  const marker = ADMIN_ONLY_MARKERS[0]
+
+  it('管理者向けの成果物をファイル名で見分ける', () => {
+    expect(isAdminAsset('apps/web/dist/admin.html')).toBe(true)
+    expect(isAdminAsset('apps/web/dist/assets/admin-a1b2c3.js')).toBe(true)
+    expect(isAdminAsset('apps/web/dist/assets/index-a1b2c3.js')).toBe(false)
+    // 「admin」を含むだけの別物を巻き込まない
+    expect(isAdminAsset('apps/web/dist/assets/administrator.js')).toBe(false)
+  })
+
+  it('職員向けのバンドルに集計が混ざっていたら落とす', () => {
+    // import を1本足せば簡単に元へ戻ってしまうので、機械で止める
+    const found = scanAdminSeparation(file('dist/assets/index-a1.js', `x="${marker}"`))
+    expect(found[0].rule).toBe('admin-separated')
+    expect(found[0].detail).toContain(marker)
+  })
+
+  it('共有チャンクに漏れても落とす', () => {
+    const found = scanAdminSeparation(file('dist/assets/vendor-a1.js', marker))
+    expect(found).toHaveLength(1)
+  })
+
+  it('管理者向けの成果物には入っていてよい', () => {
+    expect(scanAdminSeparation(file('dist/assets/admin-a1.js', marker))).toEqual([])
+    expect(scanAdminSeparation(file('dist/admin.html', marker))).toEqual([])
+  })
+
+  it('職員向けの成果物がそのままなら通す', () => {
+    expect(scanAdminSeparation(file('dist/assets/index-a1.js', 'const a=1'))).toEqual([])
+  })
+
+  it('Service Worker が管理者向けを先読みしていたら落とす', () => {
+    // 職員が使わないものを、職員の端末に持たせる理由がない
+    const sw = { path: 'dist/sw.js', content: 'const P=["/index.html","/admin.html"]' }
+    const found = scanPrecache(sw)
+    expect(found[0].rule).toBe('admin-not-precached')
+    expect(found[0].detail).toContain('admin.html')
+  })
+
+  it('先読み一覧に管理者向けが無ければ通す', () => {
+    expect(scanPrecache({ path: 'dist/sw.js', content: 'const P=["/index.html"]' })).toEqual([])
   })
 })
 

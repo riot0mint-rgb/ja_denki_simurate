@@ -375,6 +375,145 @@ async function runDetailed(page, scenario, usage = '348', period) {
   await ctx.close()
 }
 
+// ───────────────────────────────────────────────────────────
+// A11: 商談ナビ → 試算 → 商談ナビ が一周する（戻れないと商談が止まる）
+// ───────────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } })
+  const page = await ctx.newPage()
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  const rail = page.getByRole('navigation', { name: '商談の進み方' })
+
+  await rail.getByRole('button', { name: '試算' }).click()
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: '検針票から試算する' }).click()
+  await page.waitForTimeout(250)
+  await page.selectOption('#scenario', 'chugoku_juryo_a')
+  await page.waitForTimeout(150)
+  for (const el of await page.$$('input[type=number]:visible')) {
+    if (!(await el.inputValue())) await el.fill('600')
+  }
+  await page.getByRole('button', { name: '詳しい結果を見る' }).click()
+  await page.waitForSelector('.hero-figure')
+
+  const back = page.getByRole('button', { name: '商談ナビにもどる' })
+  check('A11', '試算のあと商談ナビに戻れる', (await back.count()) > 0)
+  await back.click()
+  await page.waitForTimeout(300)
+
+  // 戻ってきた先で、試算の結果が確度に効いているか
+  await rail.getByRole('button', { name: '振返' }).click()
+  await page.waitForTimeout(200)
+  const review = await page.innerText('body')
+  check('A11b', 'ふりかえりに確度と次にいつ行くかが出る', /確度/.test(review) && /次に行くのは/.test(review))
+  check('A11c', '次に行くときの口実が出る', /次に行くときの口実/.test(review))
+
+  // 書き出す1行に、名簿へ書き写すぶんが入っているか
+  const row = await page.locator('[aria-label="書き出す記録"]').innerText()
+  const pii = ['様', '町', '丁目', '@']
+  check('A11d', '書き出す1行に個人を特定できるものが入らない',
+    pii.every(w => !row.includes(w)) && !row.includes('600'), row.slice(0, 60))
+
+  // お断りを選んだら、点数に関係なく打ち切るか
+  await page.getByRole('button', { name: /今後の訪問はご遠慮したい/ }).click()
+  await page.waitForTimeout(200)
+  const refused = await page.innerText('body')
+  check('A11e', '訪問をお断りされたら、再訪の口実を出さない',
+    /訪問不可/.test(refused) && !/次に行くときの口実/.test(refused))
+  await ctx.close()
+}
+
+// ───────────────────────────────────────────────────────────
+// A12: 集計は管理者向けに切り離されている（お客様の前で開かない）
+// ───────────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } })
+  const page = await ctx.newPage()
+  const requested = []
+  page.on('request', r => requested.push(r.url()))
+
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  const staff = await page.innerText('body')
+  check('A12', '職員向けの画面から集計へ行けない',
+    !/営業の集計/.test(staff) && (await page.locator('a[href*="admin"]').count()) === 0)
+  check('A12b', '職員向けの画面が admin のコードを読み込まない',
+    requested.every(u => !/admin/.test(u)))
+
+  // 管理者向けは単独で開き、職員向けとは別の名乗りをする
+  await page.goto(`${origin}/admin.html`)
+  await page.waitForSelector('textarea')
+  const admin = await page.innerText('body')
+  check('A12c', '管理者向けの画面はそれと分かる名乗りをする',
+    /管理者向け/.test(admin) && !/JA職員向け/.test(admin))
+  check('A12d', '管理者向けの画面から職員向けの試算へ行けない',
+    !/試算をはじめる/.test(admin) && !/商談ナビをひらく/.test(admin))
+
+  // Service Worker が職員の端末に管理者向けを持たせていないこと
+  const sw = await (await fetch(`${origin}/sw.js`)).text()
+  check('A12e', 'Service Worker が管理者向けを先読みしない', !/admin/.test(sw))
+  await ctx.close()
+}
+
+// ───────────────────────────────────────────────────────────
+// A13: 商談ナビと集計も 320px で崩れない
+// ───────────────────────────────────────────────────────────
+{
+  const measure = async page => {
+    for (const d of await page.$$('details')) await d.evaluate(x => (x.open = true))
+    await page.waitForTimeout(200)
+    return page.evaluate(() => {
+      const de = document.documentElement
+      const scrollable = el => {
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const ox = getComputedStyle(p).overflowX
+          if (ox === 'auto' || ox === 'scroll') return true
+        }
+        return false
+      }
+      let clipped = 0
+      for (const el of document.querySelectorAll('body *')) {
+        if (el.children.length) continue
+        const cs = getComputedStyle(el)
+        if (cs.overflowX === 'auto' || cs.overflowX === 'scroll' || cs.textOverflow === 'ellipsis') continue
+        if (!scrollable(el) && el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0) clipped++
+      }
+      return { page: de.scrollWidth > de.clientWidth, clipped }
+    })
+  }
+
+  const ctx = await browser.newContext({ viewport: { width: 320, height: 800 } })
+  const page = await ctx.newPage()
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  const rail = page.getByRole('navigation', { name: '商談の進み方' })
+  const bad = []
+  for (const stage of ['聞く', '説明', '不安', '手続き', '振返']) {
+    await rail.getByRole('button', { name: stage }).click()
+    await page.waitForTimeout(200)
+    const o = await measure(page)
+    if (o.page || o.clipped > 0) bad.push(`${stage}(横${o.page ? 'あり' : 'なし'}/切れ${o.clipped})`)
+  }
+  check('A13', '商談ナビが 320px で崩れない', bad.length === 0, bad.join(' '))
+
+  await page.goto(`${origin}/admin.html`)
+  await page.waitForSelector('textarea')
+  await page.fill('textarea', [
+    '日付\t到達段階\t年間差額帯\t確度\t結果',
+    ...Array.from({ length: 6 }, () => '2026-08-22\tclosing\t3千〜1万円\tB\tapplied')
+  ].join('\n'))
+  await page.waitForTimeout(300)
+  const o = await measure(page)
+  check('A13b', '集計が 320px で崩れない', !o.page && o.clipped === 0,
+    `横スクロール ${o.page ? 'あり' : 'なし'} / 文字切れ ${o.clipped} 箇所`)
+  await ctx.close()
+}
+
 await browser.close()
 server.close()
 

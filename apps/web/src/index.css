@@ -1083,6 +1083,37 @@ details.card[open] > summary::before {
   color: var(--green-deep);
 }
 
+.confidence-rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.card-warn .confidence-rank {
+  background: var(--warn-ink);
+}
+
+.revisit + .revisit {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.revisit-when {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-600);
+  margin-bottom: 8px;
+}
+
 /* ── 1年ぶんの見積もり方の切り替え ─────────────────────────── */
 
 .method-switch {

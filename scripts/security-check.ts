@@ -16,6 +16,8 @@ import {
   scanBundle,
   scanHtml,
   scanServiceWorker,
+  scanAdminSeparation,
+  scanPrecache,
   renderReport,
   hasBlocking
 } from './securityCheck.js'
@@ -60,6 +62,16 @@ if (existsSync(dist)) {
   const html = resolve(dist, 'index.html')
   if (existsSync(html)) findings.push(...scanHtml(load([html])[0]))
   console.log(`配布物 ${bundles.length} ファイルと index.html を検査`)
+
+  // 4. 管理者向けの集計が職員向けに混ざっていないこと
+  const shipped = load([
+    ...walk(join(dist, 'assets'), p => p.endsWith('.js')),
+    ...walk(dist, p => p.endsWith('.html'))
+  ])
+  findings.push(...scanAdminSeparation(shipped))
+  const builtSw = resolve(dist, 'sw.js')
+  if (existsSync(builtSw)) findings.push(...scanPrecache(load([builtSw])[0]))
+  console.log('職員向けと管理者向けの切り離しを確認')
 } else {
   console.log('※ apps/web/dist が無いため、配布物の検査は省略しました')
 }

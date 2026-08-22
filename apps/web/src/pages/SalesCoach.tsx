@@ -10,8 +10,14 @@ import {
   BEFORE_SIGNING,
   REVIEW,
   NEVER_SAY,
+  OBJECTIONS,
   Script
 } from '../data/playbook'
+import {
+  judgeConfidence,
+  NEXT_ACTIONS,
+  revisitReasons
+} from '../services/confidence'
 import {
   VisitLog,
   OUTCOMES,
@@ -47,6 +53,7 @@ interface SalesCoachProps {
     scenarioId: string
     totalKwh: number
     annualSavingsYen: number | null
+    period: { year: number; month: number }
   } | null
   /** 今日の日付。テストから固定できるようにしておく */
   today?: string
@@ -122,15 +129,53 @@ export default function SalesCoach({
   const [usedObjections, setUsedObjections] = useState<string[]>([])
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [copied, setCopied] = useState(false)
+  /** 確度の判定に使う、商談で観測できたこと */
+  const [nextVisitAgreed, setNextVisitAgreed] = useState(false)
+  const [materialsAccepted, setMaterialsAccepted] = useState(false)
+  const [feel, setFeel] = useState<'good' | 'neutral' | 'poor' | null>(null)
 
   const hint = useMemo(() => estimateHint(answers), [answers])
   const objections = useMemo(() => orderedObjections(answers), [answers])
   const preemptive = useMemo(() => preemptiveObjectionIds(answers), [answers])
   const standDown = shouldStandDown(lastEstimate?.annualSavingsYen ?? null)
 
+  const confidence = useMemo(
+    () =>
+      judgeConfidence({
+        reached: stage,
+        annualSavingsYen: lastEstimate?.annualSavingsYen ?? null,
+        objections: usedObjections,
+        nextVisitAgreed,
+        materialsAccepted,
+        feel,
+        refusedFutureVisits: outcome === 'refused_future'
+      }),
+    [stage, lastEstimate, usedObjections, nextVisitAgreed, materialsAccepted, feel, outcome]
+  )
+  const nextAction = NEXT_ACTIONS[confidence.rank]
+
+  /** 次回の入りに使う「前回どこで止まったか」。出た反論の1つ目を使う */
+  const stoppedAt = useMemo(() => {
+    const first = usedObjections[0]
+    return first ? OBJECTIONS.find(o => o.id === first)?.said ?? null : null
+  }, [usedObjections])
+
+  /** 記録の日付と、再訪の口実の基準日。どちらも同じ日を見る */
+  const day = today ?? new Date().toISOString().slice(0, 10)
+  const todayYm = { year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) }
+
+  // D・E は追いかけないと決めた相手。口実を出すと、その決定が形骸化する
+  const reasons = useMemo(
+    () =>
+      confidence.rank === 'E' || confidence.rank === 'D'
+        ? []
+        : revisitReasons(lastEstimate?.period ?? null, todayYm, stoppedAt),
+    [confidence.rank, lastEstimate, todayYm.year, todayYm.month, stoppedAt]
+  )
+
   const log: VisitLog = useMemo(
     () => ({
-      date: today ?? new Date().toISOString().slice(0, 10),
+      date: day,
       reached: stage,
       interest: answers.interest,
       household: answers.household,
@@ -141,9 +186,12 @@ export default function SalesCoach({
       usageBand: usageBand(lastEstimate?.totalKwh ?? null),
       savingsBand: savingsBand(lastEstimate?.annualSavingsYen ?? null),
       objections: usedObjections,
-      outcome
+      outcome,
+      confidence: confidence.rank,
+      nextVisit: nextAction.when,
+      stoppedAt
     }),
-    [today, stage, answers, lastEstimate, usedObjections, outcome]
+    [day, stage, answers, lastEstimate, usedObjections, outcome, confidence, nextAction, stoppedAt]
   )
 
   const go = (next: Stage | null) => {
@@ -420,6 +468,92 @@ export default function SalesCoach({
               <WhyBlock text={r.why} />
             </div>
           ))}
+
+          <div className="card">
+            <p className="card-title">起きたことを控える</p>
+            <p className="note">
+              確度は感触ではなく、起きた事実から判定します。感触は参考程度にしか効かせません。
+            </p>
+            <div className="choice-grid" style={{ marginTop: '12px' }}>
+              <button
+                type="button"
+                className={`choice-btn${nextVisitAgreed ? ' is-on' : ''}`}
+                aria-pressed={nextVisitAgreed}
+                onClick={() => setNextVisitAgreed(v => !v)}
+              >
+                次回うかがう話ができた
+                <span className="choice-note">日が決まっていなくても</span>
+              </button>
+              <button
+                type="button"
+                className={`choice-btn${materialsAccepted ? ' is-on' : ''}`}
+                aria-pressed={materialsAccepted}
+                onClick={() => setMaterialsAccepted(v => !v)}
+              >
+                資料をお受け取りいただけた
+              </button>
+            </div>
+            <p className="note" style={{ marginTop: '14px' }}>手応え（参考程度）</p>
+            <div className="choice-grid">
+              {(
+                [
+                  { value: 'good', label: 'あった' },
+                  { value: 'neutral', label: 'ふつう' },
+                  { value: 'poor', label: '薄かった' }
+                ] as const
+              ).map(f => (
+                <button
+                  key={f.value}
+                  type="button"
+                  className={`choice-btn${feel === f.value ? ' is-on' : ''}`}
+                  aria-pressed={feel === f.value}
+                  onClick={() => setFeel(f.value)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={`card${confidence.rank === 'E' ? ' card-warn' : ''}`}>
+            <p className="card-title">
+              確度 <span className="confidence-rank">{confidence.rank}</span> — {nextAction.label}
+            </p>
+            <p className="say-line" style={{ fontSize: '16px' }}>
+              次に行くのは：<strong>{nextAction.when}</strong>
+            </p>
+            <ul className="checklist" style={{ marginTop: '12px' }}>
+              {nextAction.todo.map(t => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+            {confidence.reasons.length > 0 && (
+              <details style={{ marginTop: '12px' }}>
+                <summary className="note">この確度になった理由</summary>
+                <ul className="checklist" style={{ marginTop: '8px' }}>
+                  {confidence.reasons.map(r => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+
+          {reasons.length > 0 && (
+            <div className="card">
+              <p className="card-title">次に行くときの口実</p>
+              <p className="note">
+                「その後いかがですか」では入りにくいので、こちらから連絡する理由を用意します。
+              </p>
+              {reasons.map(r => (
+                <div key={r.say} className="revisit">
+                  <p className="revisit-when">{r.when}</p>
+                  <SayBlock lines={[r.say]} />
+                  <WhyBlock text={r.why} />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="card">
             <p className="card-title">今日の結果</p>

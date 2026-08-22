@@ -11,9 +11,9 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
-      // main.tsx は ReactDOM への受け渡しだけ、rates.ts はデータ定義。
-      // どちらもテスト対象の振る舞いを持たない。
-      exclude: ['src/main.tsx', 'src/test/**', 'src/data/rates.ts'],
+      // main.tsx / admin.tsx は ReactDOM への受け渡しだけ、rates.ts はデータ定義。
+      // どちらもテスト対象の振る舞いを持たない（中身は AdminApp.tsx 側にある）。
+      exclude: ['src/main.tsx', 'src/admin.tsx', 'src/test/**', 'src/data/rates.ts'],
       thresholds: {
         lines: 80,
         functions: 80,

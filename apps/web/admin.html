@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="JAでんき料金比較シミュレーター 営業の集計（管理者向け）" />
+    <meta name="theme-color" content="#17875e" />
+    <!--
+      職員向けの画面（index.html）とはビルドを分けてある。
+      職員のアプリからここへのリンクは無く、集計のコードも職員側の
+      バンドルに入らない。アクセス制限は配信するサーバー側でかける
+      （DEPLOY.md「管理者向け画面の切り離し」）。
+    -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="referrer" content="no-referrer" />
+    <title>営業の集計（管理者向け）｜JAでんき料金比較</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/admin.tsx"></script>
+  </body>
+</html>

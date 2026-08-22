@@ -4,6 +4,8 @@ import { parseTsv, summarize, Tally, MIN_SAMPLE, headerRow } from '../services/v
 
 interface SalesInsightsProps {
   onBack: () => void
+  /** 管理者向けの単独画面では「閉じる」になる */
+  backLabel?: string
 }
 
 /**
@@ -42,7 +44,7 @@ function TallyTable({ title, rows, note }: { title: string; rows: Tally[]; note?
   )
 }
 
-export default function SalesInsights({ onBack }: SalesInsightsProps) {
+export default function SalesInsights({ onBack, backLabel = 'ホームへ' }: SalesInsightsProps) {
   const [text, setText] = useState('')
   const parsed = useMemo(() => (text.trim() === '' ? null : parseTsv(text)), [text])
   const summary = useMemo(
@@ -118,6 +120,11 @@ export default function SalesInsights({ onBack }: SalesInsightsProps) {
             note="ここがいちばん効きます。差額がいくらから決まりやすいかで、訪問先の選び方が変わります。"
           />
           <TallyTable
+            title="確度の判定は当たっているか"
+            rows={summary.byConfidence}
+            note="確度ごとの実際の申込率です。AよりBのほうが高いなど順序が崩れていたら、判定の重みを見直します。"
+          />
+          <TallyTable
             title="どこで止まったか"
             rows={summary.byReached}
             note="到達段階の分布。特定の段階に固まっていれば、そこに台本の弱いところがあります。"
@@ -135,7 +142,7 @@ export default function SalesInsights({ onBack }: SalesInsightsProps) {
 
       <div className="btn-row" style={{ marginTop: '18px' }}>
         <button className="btn btn-ghost" onClick={onBack}>
-          ホームへ
+          {backLabel}
         </button>
       </div>
     </main>

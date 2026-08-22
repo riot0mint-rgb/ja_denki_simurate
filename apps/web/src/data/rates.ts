@@ -386,6 +386,19 @@ export function planForPeriod(plan: RatePlan, period: { year: number; month: num
   return applied
 }
 
+/**
+ * 料金改定の一覧。再訪の口実に使う。
+ *
+ * 「その後いかがですか」しか言えないのが、素人がいちばん困るところ。
+ * 改定は**こちらから連絡する正当な理由**になる。
+ */
+export const RATE_REVISIONS: Array<{ fromPeriod: string; summary: string }> = [
+  {
+    fromPeriod: '2026-11',
+    summary: 'JAでんきの従量電灯A・S・B・低圧電力が値下げ（2026年11月検針分から）'
+  }
+]
+
 /** 改定後の単価を持つプラン。監査と料金マスターの生成に使う。 */
 export const REVISED_PLANS: RatePlan[] = Object.values(PLAN_REVISIONS)
   .flatMap(rs => rs.map(r => r.plan))

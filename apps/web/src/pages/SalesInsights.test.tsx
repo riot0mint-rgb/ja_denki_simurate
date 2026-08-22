@@ -93,10 +93,35 @@ describe('営業の集計', () => {
     expect(screen.getByText(/件に満たないため割合は出していません/)).toBeInTheDocument()
   })
 
+  it('確度の判定が当たっているかを、確度別の申込率で出す', async () => {
+    // 判定は仮説なので、外れていることを見つけられる形にしておく
+    render(<SalesInsights onBack={vi.fn()} />)
+    await paste(
+      sheet([
+        ...Array(6).fill(row({ 確度: 'B' })),
+        ...Array(6).fill(row({ 確度: 'D', 結果: 'declined' }))
+      ])
+    )
+    expect(screen.getByText('確度の判定は当たっているか')).toBeInTheDocument()
+    const table = screen.getByText('確度の判定は当たっているか').closest('.card')!
+    const cells = [...table.querySelectorAll('.tally-row')].map(r => r.textContent)
+    expect(cells.some(t => t?.includes('B') && t?.includes('100%'))).toBe(true)
+    expect(cells.some(t => t?.includes('D') && t?.includes('0%'))).toBe(true)
+  })
+
   it('ホームへ戻れる', async () => {
     const onBack = vi.fn()
     render(<SalesInsights onBack={onBack} />)
     await userEvent.click(screen.getByRole('button', { name: 'ホームへ' }))
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('戻り先が無い画面では、ボタンの文言を変えられる', async () => {
+    // 管理者向けの単独画面には戻り先が無い
+    const onBack = vi.fn()
+    render(<SalesInsights onBack={onBack} backLabel="閉じる" />)
+    expect(screen.queryByRole('button', { name: 'ホームへ' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '閉じる' }))
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 })

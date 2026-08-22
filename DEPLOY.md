@@ -218,7 +218,12 @@ npm run build
    - インバウンドルール追加
    - パターン: ^(.*)$
    - アクション: index.html にリライト
+   - 条件: {REQUEST_FILENAME} が「ファイルでない」場合のみ
    ```
+
+   > **条件を必ず付けてください。** 条件なしで全部を `index.html` に
+   > 送ると、実在する `admin.html`（管理者向けの集計画面）や
+   > `assets/*.js` まで職員向けの画面に化けます。
 
 6. HTTPS 設定
    - SSL 証明書をバインディングに割り当て
@@ -228,6 +233,141 @@ npm run build
    ```
    https://[domain]/ja-denki/
    ```
+
+#### 3-4. オンプレミス VM へのデプロイ（現在の想定構成）
+
+**前提**：
+- JA が保有する VM（Linux + nginx、または Windows Server + IIS）
+- 職員のスマートフォンから届くネットワーク（社内網 / VPN / 閉域）
+- HTTPS の証明書（Service Worker は HTTPS でないと動きません）
+
+配るのは `apps/web/dist/` の中身だけです。サーバー側で動くプログラムは
+ありません（Phase A はブラウザ内計算のため、アプリのための DB・API・
+実行環境はいずれも不要です）。
+
+**手順（nginx の例）**：
+
+1. ビルドする
+   ```bash
+   npm run build -w @ja-denki-simulator/calc-core
+   npm run build -w @ja-denki-simulator/web
+   ```
+
+2. VM へ配置する
+   ```bash
+   rsync -av --delete apps/web/dist/ user@vm:/var/www/ja-denki/
+   ```
+
+3. nginx の設定（`/etc/nginx/conf.d/ja-denki.conf`）
+   ```nginx
+   server {
+     listen 443 ssl http2;
+     server_name ja-denki.example.local;
+
+     ssl_certificate     /etc/ssl/certs/ja-denki.crt;
+     ssl_certificate_key /etc/ssl/private/ja-denki.key;
+
+     root /var/www/ja-denki;
+
+     # SECURITY.md「配信時に付けるヘッダ」と同じものを付ける
+     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'" always;
+     add_header X-Content-Type-Options nosniff always;
+     add_header Referrer-Policy no-referrer always;
+     add_header Strict-Transport-Security "max-age=31536000" always;
+
+     # 中身が変わったら必ず取り直させる。古い単価で試算されるのを防ぐ
+     location = /index.html { add_header Cache-Control "no-cache" always; }
+     location = /sw.js      { add_header Cache-Control "no-cache" always; }
+     location /assets/      { add_header Cache-Control "public, max-age=31536000, immutable" always; }
+
+     # 管理者向けの集計画面。下の 3-5 を必ず設定すること
+     location = /admin.html {
+       # ここに制限を書く（3-5）
+       try_files $uri =404;
+     }
+
+     location / { try_files $uri $uri/ /index.html; }
+   }
+   ```
+
+   `try_files $uri $uri/ /index.html;` の順番が大事です。実在する
+   ファイル（`admin.html`・`assets/*`）を先に返し、無いパスだけ
+   `index.html` に落とします。
+
+4. 反映する
+   ```bash
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+**更新のたびに確かめること**：
+
+```bash
+# 職員向けの画面に、集計のコードが混ざっていないこと
+grep -rl "いくら安くなると決まるのか" /var/www/ja-denki/assets/index-*.js && echo "NG"
+
+# Service Worker が admin をキャッシュしていないこと
+grep -c "admin" /var/www/ja-denki/sw.js   # 0 であること
+```
+
+#### 3-5. 管理者向け画面の切り離し
+
+集計画面（`/admin.html`）は**支店長・企画担当が見るもので、訪問中の職員は
+使いません**。実務に要らない画面を職員のアプリに置くと、お客様の前で開いて
+しまう事故が起きます。そこでビルドから分けてあります。
+
+| | 職員向け | 管理者向け |
+|---|---|---|
+| URL | `/`（`index.html`） | `/admin.html` |
+| 中身 | 試算・商談ナビ | 営業の集計 |
+| 相互リンク | 無し | 無し |
+| Service Worker | キャッシュする | **しない**（オフラインで開けない） |
+| バンドル | 集計のコードは1バイトも入らない | 試算のコードは入らない |
+
+**アクセス制限はこのサーバー側でかけてください。** 画面の中で判定しても、
+JavaScript は誰でも読めるので意味がありません。VM を持っているので、
+次のどれかが使えます（上から順に望ましい）：
+
+1. **社内 IdP / リバースプロキシでの認証**（既に Active Directory や
+   SSO が入っているなら、これが一番きれいです）
+
+2. **接続元 IP の制限**（本店・企画部の LAN からだけ）
+   ```nginx
+   location = /admin.html {
+     allow 10.20.30.0/24;   # 本店LAN
+     deny all;
+     try_files $uri =404;
+   }
+   location ~ ^/assets/admin- {
+     allow 10.20.30.0/24;
+     deny all;
+   }
+   ```
+
+3. **Basic 認証**（上の2つがすぐ用意できないとき）
+   ```bash
+   sudo htpasswd -c /etc/nginx/.htpasswd-admin kikaku
+   ```
+   ```nginx
+   location = /admin.html {
+     auth_basic "kanri";
+     auth_basic_user_file /etc/nginx/.htpasswd-admin;
+     try_files $uri =404;
+   }
+   location ~ ^/assets/admin- {
+     auth_basic "kanri";
+     auth_basic_user_file /etc/nginx/.htpasswd-admin;
+   }
+   ```
+
+`/assets/admin-*.js` にも同じ制限をかけてください。HTML だけ塞いでも、
+JavaScript を直接読まれれば中身は分かります。
+
+IIS の場合は、`admin.html` を別のアプリケーションに切り出して
+「IP アドレスとドメインの制限」または「Windows 認証」を割り当てます。
+
+**制限をかけても、置いてよいものは変わりません。** この画面に貼るのは
+`docs/VISIT_LOG_DESIGN.md` の列だけです。氏名・住所・電話番号を足した表を
+貼ってはいけません（貼っても送信はされませんが、画面に映ります）。
 
 ### 4. PWA としてのスマートフォン追加
 

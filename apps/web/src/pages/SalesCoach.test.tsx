@@ -14,7 +14,12 @@ function show(annualSavingsYen: number | null = null, totalKwh = 348) {
       lastEstimate={
         annualSavingsYen === null
           ? null
-          : { scenarioId: 'chugoku_juryo_a', totalKwh, annualSavingsYen }
+          : {
+              scenarioId: 'chugoku_juryo_a',
+              totalKwh,
+              annualSavingsYen,
+              period: { year: 2026, month: 8 }
+            }
       }
     />
   )
@@ -238,6 +243,82 @@ describe('ふりかえり', () => {
     await goTo('振返')
     expect(screen.getByText('今日のふりかえり')).toBeInTheDocument()
     expect(screen.getByText(/押してしまった場面はありましたか/)).toBeInTheDocument()
+  })
+})
+
+describe('確度と次の一手', () => {
+  it('試算まで進んだだけなら C で、口実ができたときに行く', async () => {
+    show(5231)
+    await goTo('振返')
+    expect(screen.getByText(/確度/, { selector: '.card-title' }).textContent).toContain('C')
+    expect(screen.getByText('口実ができたときに', { selector: 'strong' })).toBeInTheDocument()
+  })
+
+  it('次回うかがう話ができたと控えると A になる', async () => {
+    // 日が決まっているのが、いちばん強い材料
+    show(5231)
+    await goTo('振返')
+    await userEvent.click(screen.getByRole('button', { name: /次回うかがう話ができた/ }))
+    expect(screen.getByText(/確度/, { selector: '.card-title' }).textContent).toContain('A')
+    expect(screen.getByText(/その日のうちに、ご自身の予定に入れてください/)).toBeInTheDocument()
+  })
+
+  it('感触だけでは確度が上がらない', async () => {
+    // 素人の感触は当てにならず、ベテランでも自分に都合よく見る
+    show(5231)
+    await goTo('振返')
+    const before = screen.getByText(/確度/, { selector: '.card-title' }).textContent
+    await userEvent.click(screen.getByRole('button', { name: 'あった' }))
+    expect(screen.getByText(/確度/, { selector: '.card-title' }).textContent).toBe(before)
+  })
+
+  it('なぜその確度なのかを開いて確かめられる', async () => {
+    show(5231)
+    await goTo('振返')
+    await userEvent.click(screen.getByText('この確度になった理由'))
+    expect(screen.getByText(/検針票を見せていただけた/)).toBeInTheDocument()
+  })
+
+  it('今後の訪問をご遠慮したいと選んだら、点数に関係なく打ち切る', async () => {
+    show(111924)
+    await goTo('振返')
+    await userEvent.click(screen.getByRole('button', { name: /次回うかがう話ができた/ }))
+    await userEvent.click(screen.getByRole('button', { name: /今後の訪問はご遠慮したい/ }))
+    expect(screen.getByText(/確度/, { selector: '.card-title' }).textContent).toContain('E')
+    expect(screen.getByText(/名簿へ「訪問不可」を反映してください/)).toBeInTheDocument()
+    expect(screen.queryByText('次に行くときの口実')).not.toBeInTheDocument()
+  })
+
+  it('高くなる結果なら、追いかけない側に倒す', async () => {
+    show(-9504)
+    await goTo('振返')
+    expect(screen.getByText(/確度/, { selector: '.card-title' }).textContent).toContain('D')
+    expect(screen.getByText(/追いかけないでください/)).toBeInTheDocument()
+    expect(screen.queryByText('次に行くときの口実')).not.toBeInTheDocument()
+  })
+
+  it('前回どこで止まったかを、次に行くときの口実にする', async () => {
+    show(5231)
+    await goTo('不安')
+    await userEvent.click(screen.getByText(/「解約金がかかるのでは」/))
+    await goTo('振返')
+    expect(screen.getByText('次に行くときの口実')).toBeInTheDocument()
+    expect(screen.getByText(/確認してまいりました/)).toBeInTheDocument()
+  })
+
+  it('料金改定を口実として出す', async () => {
+    show(5231)
+    await goTo('振返')
+    expect(screen.getByText(/2026年11月の検針分から料金が変わります/)).toBeInTheDocument()
+  })
+
+  it('確度と次回の目安も、書き出す1行に入る', async () => {
+    // 名簿へ書き写すのは職員なので、この1行に入っていないと運用が回らない
+    show(5231)
+    await goTo('振返')
+    const row = screen.getByLabelText('書き出す記録').textContent ?? ''
+    expect(row).toContain('C')
+    expect(row).toContain('口実ができたときに')
   })
 })
 

@@ -167,6 +167,54 @@ export function scanServiceWorker(file: SourceFile): Finding[] {
   ]
 }
 
+/**
+ * 管理者向けの集計が、職員向けの配布物に混ざっていないこと。
+ *
+ * 集計（何件回って何件決まったか）は訪問中の職員には要らない。
+ * 職員の画面に置くと、お客様の前で開いてしまう事故が起きる。
+ * ビルドを分けてあるが、import を1本足せば簡単に元へ戻る。
+ */
+export const ADMIN_ONLY_MARKERS = ['いくら安くなると決まるのか', '集計表を貼る']
+
+/** ファイル名で管理者向けの成果物を見分ける（vite のエントリ名が admin） */
+export function isAdminAsset(path: string): boolean {
+  return /(^|[/\\])admin[-.]/.test(path)
+}
+
+export function scanAdminSeparation(files: SourceFile[]): Finding[] {
+  const out: Finding[] = []
+  for (const file of files) {
+    if (isAdminAsset(file.path)) continue
+    for (const marker of ADMIN_ONLY_MARKERS) {
+      if (file.content.includes(marker)) {
+        out.push({
+          severity: 'error',
+          rule: 'admin-separated',
+          file: file.path,
+          line: 0,
+          detail: `職員向けの配布物に管理者向けの文言「${marker}」が入っている。お客様の前で開いてしまう`
+        })
+      }
+    }
+  }
+  return out
+}
+
+/** Service Worker が管理者向けの画面を職員の端末に先読みしないこと */
+export function scanPrecache(file: SourceFile): Finding[] {
+  const hit = file.content.match(/["'][^"']*admin[^"']*["']/)
+  if (!hit) return []
+  return [
+    {
+      severity: 'error',
+      rule: 'admin-not-precached',
+      file: file.path,
+      line: 0,
+      detail: `Service Worker が管理者向けの ${hit[0]} を先読みしている。職員の端末にオフラインで残る`
+    }
+  ]
+}
+
 export function renderReport(findings: Finding[]): string {
   if (findings.length === 0) {
     return '✓ ブラウザの外に出る経路は見つかりませんでした（保存API・通信API・ログ出力・外部ホスト参照）'

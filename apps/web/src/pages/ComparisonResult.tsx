@@ -26,6 +26,7 @@ interface ComparisonResultProps {
     scenarioId: string;
     totalKwh: number;
     annualSavingsYen: number | null;
+    period: { year: number; month: number };
   }) => void;
   /** 商談ナビから来たときだけ。試算のあと台本へ戻る導線 */
   onReturnToCoach?: () => void;
@@ -313,8 +314,8 @@ export default function ComparisonResult({
 
   // 商談ナビへ知らせる。描画中に親を更新しないよう、描画後に渡す
   useEffect(() => {
-    onEstimateSummary?.({ scenarioId, totalKwh: v.totalKwh, annualSavingsYen: annualYen })
-  }, [scenarioId, v.totalKwh, annualYen, onEstimateSummary])
+    onEstimateSummary?.({ scenarioId, totalKwh: v.totalKwh, annualSavingsYen: annualYen, period })
+  }, [scenarioId, v.totalKwh, annualYen, period, onEstimateSummary])
   const firstYearYen = annual ? annual.firstYearSavingsYen : v.firstYearSavingsYen
   const annualTone = toneOf(annualYen)
   const monthTone = toneOf(savings)

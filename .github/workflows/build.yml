@@ -99,6 +99,11 @@ jobs:
             echo "ERROR: assets directory not found"
             exit 1
           fi
+          # 管理者向けは職員向けとは別のエントリ。片方だけ出ていたら分離が壊れている
+          if [ ! -f "admin.html" ]; then
+            echo "ERROR: admin.html not found"
+            exit 1
+          fi
           echo "✓ Build output verified"
 
       - name: Check file sizes
