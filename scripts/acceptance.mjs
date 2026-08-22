@@ -657,6 +657,30 @@ async function runDetailed(page, scenario, usage = '348', period) {
     explain.includes('231,624円') ? '年額・差額とも一致' : '年間の料金が出ていない'
   )
 
+  // 「なぜ安くなるのか」に、単価ではなく仕組みから答えているか
+  await page.getByText('「なぜ安くなるのですか」と聞かれたら').click()
+  await page.waitForTimeout(250)
+  const why = await page.innerText('body')
+  check(
+    'A15h',
+    '「なぜ安くなるのか」に仕組みから答える（単価の話から入らない）',
+    /電気そのものは、いまと何も変わりません/.test(why) &&
+      /中国電力ネットワーク/.test(why) &&
+      /2016年に電気の小売りが自由化/.test(why) &&
+      /料金表そのものが中国電力より安く作られています/.test(why)
+  )
+  check(
+    'A15i',
+    '内訳の数字は最後に出す（先に出すと数字合戦になる）',
+    why.indexOf('変わらないもの') < why.indexOf('お客様の場合はどうか') &&
+      /たくさんお使いになる月ほど/.test(why)
+  )
+  check(
+    'A15j',
+    '確かめていない理由を足さないよう戒めている',
+    /確かめていない理由を足すこと/.test(why)
+  )
+
   // 解約金を聞かれたときに、差額の側から話せるか
   await talkRail.getByRole('button', { name: '不安' }).click()
   await page.waitForTimeout(200)

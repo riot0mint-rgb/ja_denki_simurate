@@ -27,12 +27,14 @@ import {
   toTsv,
   headerRow
 } from '../services/visitLog'
+import { SWITCHING, NO_CATCH, CANNOT_ANSWER, CANNOT_ANSWER_EXAMPLES } from '../data/switching'
 import {
   EstimateSummary,
   estimateTalk,
   estimateHeadline,
   estimateRecap,
   reasonLine,
+  shapeLine,
   breakEvenLine
 } from '../services/estimateTalk'
 import {
@@ -420,17 +422,71 @@ export default function SalesCoach({
                 <>
                   <ScriptCard script={talk} title="今日の試算を、そのまま読む" />
                   {reasonLine(lastEstimate) && (
-                    <div className="card">
-                      <p className="card-title">「なぜ安くなるのか」と聞かれたら</p>
-                      <SayBlock lines={[reasonLine(lastEstimate)!]} />
-                      <WhyBlock
-                        text={
-                          'これは試算の内訳から出た事実で、営業の説明ではない。' +
-                          '結果画面の「差が出ている理由」に、費目ごとの差額まで出ている。'
-                        }
-                      />
-                    </div>
+                    <details className="card">
+                      <summary>
+                        <strong>「なぜ安くなるのですか」と聞かれたら</strong>
+                      </summary>
+                      <p className="note" style={{ marginTop: '10px' }}>
+                        単価の話から入らないでください。この質問の中身は、たいてい
+                        「電気の質が落ちるのでは」「裏があるのでは」です。
+                        <strong>①変わらないもの → ②変わるもの → ③料金表の違い</strong>
+                        の順で答えます。
+                      </p>
+                      {SWITCHING.map(step => (
+                        <div key={step.heading} style={{ marginTop: '16px' }}>
+                          <p className="card-title">{step.heading}</p>
+                          <SayBlock lines={step.script.say} />
+                          <WhyBlock text={step.script.why} />
+                          <AvoidBlock items={step.script.avoid} />
+                        </div>
+                      ))}
+                      <div style={{ marginTop: '16px' }}>
+                        <p className="card-title">④ お客様の場合はどうか</p>
+                        <SayBlock
+                          lines={[shapeLine(lastEstimate), reasonLine(lastEstimate)].filter(
+                            (l): l is string => l !== null
+                          )}
+                        />
+                        <WhyBlock
+                          text={
+                            'ここで初めて内訳の数字を出す。**先に出すと、ただの数字合戦になる。**' +
+                            'この行は試算の内訳から出た事実で、営業の説明ではない。' +
+                            '結果画面の「差が出ている理由」に、費目ごとの差額まで出ている。'
+                          }
+                        />
+                      </div>
+                    </details>
                   )}
+
+                  <details className="card">
+                    <summary>
+                      <strong>「安いのには裏があるのでは」と聞かれたら</strong>
+                    </summary>
+                    <div style={{ marginTop: '12px' }}>
+                      <SayBlock lines={NO_CATCH.say} />
+                      <WhyBlock text={NO_CATCH.why} />
+                      <AvoidBlock items={NO_CATCH.avoid} />
+                    </div>
+                  </details>
+
+                  <details className="card">
+                    <summary>
+                      <strong>答えられない質問が出たら</strong>
+                    </summary>
+                    <div style={{ marginTop: '12px' }}>
+                      <SayBlock lines={CANNOT_ANSWER.say} />
+                      <WhyBlock text={CANNOT_ANSWER.why} />
+                      <p className="note" style={{ marginTop: '12px' }}>
+                        この画面が答えを持っていない質問
+                      </p>
+                      <ul className="checklist">
+                        {CANNOT_ANSWER_EXAMPLES.map(q => (
+                          <li key={q}>{q}</li>
+                        ))}
+                      </ul>
+                      <AvoidBlock items={CANNOT_ANSWER.avoid} />
+                    </div>
+                  </details>
                 </>
               ) : (
                 <div className="card">

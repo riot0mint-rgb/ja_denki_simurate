@@ -330,6 +330,13 @@ export default function ComparisonResult({
       annualCurrentYen: annual ? annual.currentYen : null,
       annualRecommendedYen: annual ? annual.candidateYen - annual.gasSetDiscountYen : null,
       highlights: v.explanation?.comparable ? v.explanation.highlights : [],
+      parts: v.explanation?.comparable
+        ? v.explanation.parts.map(p => ({
+            key: p.key,
+            label: p.label,
+            differenceYen: p.differenceYen
+          }))
+        : [],
       annualMethod: annual && rollup ? annual.method : null,
       period
     }),

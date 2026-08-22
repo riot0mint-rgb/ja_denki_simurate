@@ -5,6 +5,7 @@ import {
   estimateHeadline,
   estimateRecap,
   reasonLine,
+  shapeLine,
   breakEvenLine
 } from './estimateTalk'
 
@@ -18,6 +19,10 @@ const summary = (partial: Partial<EstimateSummary> = {}): EstimateSummary => ({
   annualCurrentYen: 231624,
   annualRecommendedYen: 218196,
   highlights: ['第1段階の単価が 1.39円 安いこと'],
+  parts: [
+    { key: 'base', label: '最低料金', differenceYen: 55 },
+    { key: 'energy', label: '電力量料金', differenceYen: 1064 }
+  ],
   annualMethod: 'flat',
   period: { year: 2026, month: 8 },
   ...partial
@@ -178,5 +183,45 @@ describe('試算の段階に出す要点', () => {
     expect(lines).toContain('中国電力 従量電灯A')
     expect(lines).toContain('JAでんき 従量電灯A')
     expect(lines).toContain('結果：')
+  })
+})
+
+describe('差のつき方（お客様の生活実感に直結する）', () => {
+  it('使った分の単価で差がついていれば、使うほど効くと言う', () => {
+    const line = shapeLine(summary())!
+    expect(line).toContain('たくさんお使いになる月ほど')
+  })
+
+  it('基本の料金で差がついていれば、毎月ほぼ同じだけ変わると言う', () => {
+    const line = shapeLine(
+      summary({
+        parts: [
+          { key: 'base', label: '基本料金', differenceYen: 900 },
+          { key: 'energy', label: '電力量料金', differenceYen: 30 }
+        ]
+      })
+    )!
+    expect(line).toContain('毎月ほぼ同じだけ変わります')
+  })
+
+  it('どちらも効いていれば、両方だと言う（片方に決めつけない）', () => {
+    const line = shapeLine(
+      summary({
+        parts: [
+          { key: 'base', label: '基本料金', differenceYen: 500 },
+          { key: 'energy', label: '電力量料金', differenceYen: 600 }
+        ]
+      })
+    )!
+    expect(line).toContain('両方で差がついています')
+  })
+
+  it('内訳が出せなかったときは、何も言わせない', () => {
+    expect(shapeLine(summary({ parts: [] }))).toBeNull()
+  })
+
+  it('高くなる・同額のときは出さない', () => {
+    expect(shapeLine(summary({ annualSavingsYen: -9504 }))).toBeNull()
+    expect(shapeLine(summary({ annualSavingsYen: 0 }))).toBeNull()
   })
 })

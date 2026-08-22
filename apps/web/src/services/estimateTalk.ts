@@ -26,6 +26,8 @@ export interface EstimateSummary {
   annualRecommendedYen: number | null
   /** 「差が出ている理由」の箇条書き */
   highlights: string[]
+  /** 差額の内訳。どの費目で差がついているかの判定に使う */
+  parts: Array<{ key: string | null; label: string; differenceYen: number }>
   /** 1年ぶんの見積もり方 */
   annualMethod: 'flat' | 'seasonal' | null
   period: { year: number; month: number }
@@ -117,6 +119,35 @@ export function estimateTalk(e: EstimateSummary | null): Script | null {
       '削減率（何％お得）を足すこと。数字が2つになると、どちらも残らない'
     ]
   }
+}
+
+/**
+ * 差のつき方を一言で。
+ *
+ * お客様がいちばん知りたいのは「うちの場合どうなのか」で、
+ * **「使うほど効くのか、いつも一定なのか」**は生活実感に直結する。
+ * 内訳のどこで差がついているかから決めるので、推測は入らない。
+ */
+export function shapeLine(e: EstimateSummary | null): string | null {
+  if (!e || e.annualSavingsYen === null || e.annualSavingsYen <= 0) return null
+  const of = (key: string) =>
+    Math.abs(e.parts.find(p => p.key === key)?.differenceYen ?? 0)
+  const base = of('base')
+  const energy = of('energy')
+  if (base === 0 && energy === 0) return null
+  if (energy > base * 2) {
+    return (
+      'この差は、使った分の単価の違いから出ています。' +
+      'ですので、電気をたくさんお使いになる月ほど、差は大きくなります。'
+    )
+  }
+  if (base > energy * 2) {
+    return (
+      'この差は、毎月の基本になる料金の違いから出ています。' +
+      'ですので、お使いになる量に関わらず、毎月ほぼ同じだけ変わります。'
+    )
+  }
+  return '毎月の基本の料金と、使った分の単価の、両方で差がついています。'
 }
 
 /** 「安くなる理由」を1つだけ。内訳の先頭が、いちばん効いている費目 */

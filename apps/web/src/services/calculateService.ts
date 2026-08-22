@@ -46,6 +46,8 @@ export interface PlanResult {
  * 合わない表は営業の場で「計算が合わない」と言われる材料にしかならない。
  */
 export interface DifferenceBreakdown {
+  /** どの費目か。「その他」は key を持たない。台本の組み立てに使う */
+  key: 'base' | 'energy' | 'discount' | 'fuel' | 'levy' | 'rounding' | null
   label: string
   /** 「その他」の行は個別の金額を持たない */
   currentYen: number | null
@@ -217,6 +219,7 @@ function unitPriceEffectiveness(
  */
 function breakdownOf(explained: {
   parts: Array<{
+    key: 'base' | 'energy' | 'discount' | 'fuel' | 'levy' | 'rounding'
     label: string
     currentYen: { toNumber(): number }
     candidateYen: { toNumber(): number }
@@ -228,6 +231,7 @@ function breakdownOf(explained: {
   const rows: DifferenceBreakdown[] = explained.parts
     .filter(p => Math.abs(p.differenceYen.toNumber()) >= 1)
     .map(p => ({
+      key: p.key,
       label: p.label,
       currentYen: p.currentYen.toNumber(),
       candidateYen: p.candidateYen.toNumber(),
@@ -236,6 +240,7 @@ function breakdownOf(explained: {
   const other = total - rows.reduce((a, r) => a + r.differenceYen, 0)
   if (other !== 0) {
     rows.push({
+      key: null,
       label: 'その他（1円未満の差・端数処理）',
       currentYen: null,
       candidateYen: null,

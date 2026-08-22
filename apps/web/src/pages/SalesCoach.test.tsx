@@ -28,6 +28,10 @@ function show(
               annualCurrentYen: 231624,
               annualRecommendedYen: 231624 - annualSavingsYen,
               highlights: ['第1段階の単価が 1.39円 安いこと'],
+              parts: [
+                { key: 'base', label: '最低料金', differenceYen: 55 },
+                { key: 'energy', label: '電力量料金', differenceYen: 1064 }
+              ],
               annualMethod: 'flat',
               period: { year: 2026, month: 8 }
             }
@@ -45,6 +49,14 @@ async function openSaid(said: RegExp) {
   await userEvent.click(screen.getByText(said))
   await waitFor(() =>
     expect(screen.getByText(said).closest('details')).toHaveAttribute('open')
+  )
+}
+
+/** 折りたたみを開く（見出しの文字で探す） */
+async function openDetails(title: string) {
+  await userEvent.click(screen.getByText(title))
+  await waitFor(() =>
+    expect(screen.getByText(title).closest('details')).toHaveAttribute('open')
   )
 }
 
@@ -218,11 +230,60 @@ describe('試算の結果を台本に反映する', () => {
     expect(screen.getByText('どのプランで試算するか')).toBeInTheDocument()
   })
 
-  it('「なぜ安くなるのか」の答えを、内訳からそのまま出す', async () => {
+  it('「なぜ安くなるのか」に、仕組みから答える', async () => {
+    // 単価の話から入っても、お客様の聞きたいことには答えていない
     show(13428, 600, 1119)
     await goTo('説明')
-    expect(screen.getByText('「なぜ安くなるのか」と聞かれたら')).toBeInTheDocument()
+    await openDetails('「なぜ安くなるのですか」と聞かれたら')
+    const body = document.body.textContent ?? ''
+    expect(body).toContain('電気そのものは、いまと何も変わりません')
+    expect(body).toContain('中国電力ネットワーク')
+    expect(body).toContain('2016年に電気の小売りが自由化')
+    expect(body).toContain('料金表そのものが中国電力より安く作られています')
+  })
+
+  it('変わらないもの→変わるもの→料金表、の順に並ぶ', async () => {
+    show(13428, 600, 1119)
+    await goTo('説明')
+    await openDetails('「なぜ安くなるのですか」と聞かれたら')
+    const body = document.body.textContent ?? ''
+    expect(body.indexOf('変わらないもの')).toBeLessThan(body.indexOf('変わるのかをお伝え'))
+    expect(body.indexOf('変わるのかをお伝え')).toBeLessThan(body.indexOf('なぜ安くなるのかをお伝え'))
+    // 内訳の数字は最後。先に出すと数字合戦になる
+    expect(body.indexOf('なぜ安くなるのかをお伝え')).toBeLessThan(
+      body.indexOf('お客様の場合はどうか')
+    )
+  })
+
+  it('確かめていない理由を足さないよう戒める', async () => {
+    show(13428, 600, 1119)
+    await goTo('説明')
+    await openDetails('「なぜ安くなるのですか」と聞かれたら')
+    expect(document.body.textContent).toContain('確かめていない理由を足すこと')
+  })
+
+  it('お客様の場合の差のつき方と、内訳を最後に出す', async () => {
+    show(13428, 600, 1119)
+    await goTo('説明')
+    await openDetails('「なぜ安くなるのですか」と聞かれたら')
+    expect(screen.getByText(/たくさんお使いになる月ほど/)).toBeInTheDocument()
     expect(screen.getByText(/第1段階の単価が/, { selector: '.say-line' })).toBeInTheDocument()
+  })
+
+  it('「裏があるのでは」に、確かめ方で答える', async () => {
+    show(13428, 600, 1119)
+    await goTo('説明')
+    await openDetails('「安いのには裏があるのでは」と聞かれたら')
+    expect(screen.getByText(/ご自分で確かめられる/)).toBeInTheDocument()
+  })
+
+  it('答えられない質問には、答えられないと言わせる', async () => {
+    // 素人ほど、その場で答えを作ってしまう
+    show(13428, 600, 1119)
+    await goTo('説明')
+    await openDetails('答えられない質問が出たら')
+    expect(screen.getByText(/私の一存でお答えできません/)).toBeInTheDocument()
+    expect(screen.getByText(/JAでんきがなぜこの価格にできるのか/)).toBeInTheDocument()
   })
 
   it('気がかりを聞けていれば、それに合わせた台本もあとに続ける', async () => {
