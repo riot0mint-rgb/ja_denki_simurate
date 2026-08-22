@@ -593,23 +593,38 @@ describe('商談の記録', () => {
     expect(row.textContent).not.toContain('kWh')
   })
 
-  it('1行をコピーできる', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
+  it('結果を選ぶまでは記録できない（空の行を溜めない）', async () => {
     show(5231)
     await goTo('振返')
-    await userEvent.click(screen.getByRole('button', { name: '1行をコピー' }))
-    expect(writeText).toHaveBeenCalledOnce()
-    expect(writeText.mock.calls[0][0]).toContain('2026-08-22')
+    expect(screen.getByRole('button', { name: /この商談を記録して次のお客様へ/ })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: /お申し込みいただいた/ }))
+    expect(screen.getByRole('button', { name: /この商談を記録して次のお客様へ/ })).toBeEnabled()
   })
 
-  it('見出しもコピーできる（貼り先の表を作れる）', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.assign(navigator, { clipboard: { writeText } })
+  it('記録すると、その1件を親へ渡す', async () => {
+    // 溜めるのは親側。ナビ自身は次のお客様のために作り直される
+    const onSaveLog = vi.fn()
+    render(
+      <SalesCoach
+        onOpenEstimate={vi.fn()}
+        onBack={vi.fn()}
+        today="2026-08-22"
+        lastEstimate={null}
+        onSaveLog={onSaveLog}
+      />
+    )
+    const rail = screen.getByRole('navigation', { name: '商談の進み方' })
+    await userEvent.click(within(rail).getByRole('button', { name: '振返' }))
+    await userEvent.click(screen.getByRole('button', { name: /ご不在/ }))
+    await userEvent.click(screen.getByRole('button', { name: /この商談を記録して次のお客様へ/ }))
+    expect(onSaveLog).toHaveBeenCalledTimes(1)
+    expect(onSaveLog.mock.calls[0][0].outcome).toBe('absent')
+  })
+
+  it('前のお客様の数字を持ち越さないと明記する', async () => {
     show(5231)
     await goTo('振返')
-    await userEvent.click(screen.getByRole('button', { name: '見出しをコピー' }))
-    expect(writeText.mock.calls[0][0]).toContain('日付')
+    expect(screen.getByText(/前のお客様の数字を持ち越しません/)).toBeInTheDocument()
   })
 })
 
@@ -650,5 +665,137 @@ describe('台本の強調', () => {
     show(13428, 600, 1119)
     await goTo('説明')
     expect(document.body.textContent).not.toContain('**')
+  })
+})
+
+describe('今日ぶんの記録を溜める', () => {
+  const logs = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      date: '2026-08-22',
+      reached: 'review' as const,
+      interest: null,
+      household: null,
+      daytime: null,
+      allElectric: null,
+      concern: null,
+      scenarioId: 'chugoku_juryo_a',
+      usageBand: '300〜500kWh',
+      savingsBand: '3千〜1万円',
+      objections: [],
+      outcome: i === 0 ? ('applied' as const) : ('declined' as const),
+      confidence: 'C',
+      nextVisit: '口実ができたときに',
+      stoppedAt: null
+    }))
+
+  function withLogs(n: number) {
+    render(
+      <SalesCoach
+        onOpenEstimate={vi.fn()}
+        onBack={vi.fn()}
+        today="2026-08-22"
+        lastEstimate={null}
+        savedLogs={logs(n)}
+      />
+    )
+  }
+
+  it('溜まっていなければ何も出さない', () => {
+    withLogs(0)
+    expect(screen.queryByText(/今日の記録/)).not.toBeInTheDocument()
+  })
+
+  it('準備の段階に件数が出る（次のお客様へ行く前に見える）', () => {
+    withLogs(3)
+    expect(screen.getByText('今日の記録 3 件')).toBeInTheDocument()
+  })
+
+  it('端末に保存していないことを警告する', () => {
+    // 溜めるほど、閉じたときに失う量が増える
+    withLogs(3)
+    expect(screen.getByText(/画面を閉じると消えます/)).toBeInTheDocument()
+  })
+
+  it('まとめてコピーできる（1件ずつではない）', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    withLogs(3)
+    await userEvent.click(screen.getByRole('button', { name: '3件をまとめてコピー' }))
+    expect(writeText).toHaveBeenCalledOnce()
+    const tsv = writeText.mock.calls[0][0] as string
+    // 見出し1行＋3行
+    expect(tsv.split('\n')).toHaveLength(4)
+    expect(tsv).toContain('日付')
+    expect(tsv).toContain('applied')
+  })
+
+  it('溜めた中身を画面でも確かめられる', async () => {
+    withLogs(2)
+    await userEvent.click(screen.getByText('記録した 2 件を見る'))
+    expect(screen.getByLabelText('今日の記録').textContent).toContain('日付')
+  })
+})
+
+describe('試算から戻ったら', () => {
+  function withSignal(signal: number) {
+    const view = render(
+      <SalesCoach
+        onOpenEstimate={vi.fn()}
+        onBack={vi.fn()}
+        today="2026-08-22"
+        returnSignal={signal}
+        lastEstimate={{
+          scenarioId: 'chugoku_juryo_a',
+          totalKwh: 600,
+          annualSavingsYen: 13428,
+          monthlySavingsYen: 1119,
+          currentPlanName: '中国電力 従量電灯A',
+          recommendedPlanName: 'JAでんき 従量電灯A',
+          annualCurrentYen: 231624,
+          annualRecommendedYen: 218196,
+          highlights: ['第1段階の単価が 1.39円 安いこと'],
+          parts: [{ key: 'energy', label: '電力量料金', differenceYen: 1064 }],
+          annualMethod: 'flat',
+          period: { year: 2026, month: 8 }
+        }}
+      />
+    )
+    return view
+  }
+
+  it('試算の段階ではなく、説明へ進む', async () => {
+    // 試算に戻しても、いま出した数字をどう伝えるかにたどり着けない
+    const view = withSignal(0)
+    expect(screen.getByText('持っていくもの')).toBeInTheDocument()
+    view.rerender(
+      <SalesCoach
+        onOpenEstimate={vi.fn()}
+        onBack={vi.fn()}
+        today="2026-08-22"
+        returnSignal={1}
+        lastEstimate={{
+          scenarioId: 'chugoku_juryo_a',
+          totalKwh: 600,
+          annualSavingsYen: 13428,
+          monthlySavingsYen: 1119,
+          currentPlanName: '中国電力 従量電灯A',
+          recommendedPlanName: 'JAでんき 従量電灯A',
+          annualCurrentYen: 231624,
+          annualRecommendedYen: 218196,
+          highlights: ['第1段階の単価が 1.39円 安いこと'],
+          parts: [{ key: 'energy', label: '電力量料金', differenceYen: 1064 }],
+          annualMethod: 'flat',
+          period: { year: 2026, month: 8 }
+        }}
+      />
+    )
+    await waitFor(() =>
+      expect(screen.getByText('今日の試算を、そのまま読む')).toBeInTheDocument()
+    )
+  })
+
+  it('開いた直後は勝手に飛ばない', () => {
+    withSignal(0)
+    expect(screen.getByText('持っていくもの')).toBeInTheDocument()
   })
 })

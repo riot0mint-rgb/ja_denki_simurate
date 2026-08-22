@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../components/Icon'
 import {
   HearingAnswers,
@@ -24,8 +24,7 @@ import {
   Outcome,
   usageBand,
   savingsBand,
-  toTsv,
-  headerRow
+  toTsv
 } from '../services/visitLog'
 import { SWITCHING, NO_CATCH, CANNOT_ANSWER, CANNOT_ANSWER_EXAMPLES } from '../data/switching'
 import {
@@ -63,6 +62,15 @@ interface SalesCoachProps {
   lastEstimate: EstimateSummary | null
   /** 今日の日付。テストから固定できるようにしておく */
   today?: string
+  /**
+   * 試算から戻ってきたことを知らせる合図。増えるたびに「説明」へ進む。
+   * 試算のあとに読むのは説明の台本で、試算の画面ではない
+   */
+  returnSignal?: number
+  /** 今日ぶんの記録。端末には保存していない（画面を閉じれば消える） */
+  savedLogs?: VisitLog[]
+  /** この商談を今日ぶんに足す。足したら次のお客様へ進む */
+  onSaveLog?: (log: VisitLog) => void
 }
 
 /** 読み上げる言葉。営業がそのまま声に出せる形で大きく出す */
@@ -137,7 +145,10 @@ export default function SalesCoach({
   onOpenEstimate,
   onBack,
   lastEstimate,
-  today
+  today,
+  returnSignal = 0,
+  savedLogs = [],
+  onSaveLog
 }: SalesCoachProps) {
   const [stage, setStage] = useState<Stage>('prepare')
   const [answers, setAnswers] = useState<HearingAnswers>(EMPTY_ANSWERS)
@@ -226,6 +237,54 @@ export default function SalesCoach({
     window.scrollTo({ top: 0 })
   }
 
+  /*
+   * 試算から戻ってきたら「説明」へ進める。
+   * 試算の段階に戻すと、いま出した数字をどう伝えるかにたどり着けない
+   */
+  const seenSignal = useRef(returnSignal)
+  useEffect(() => {
+    if (returnSignal === seenSignal.current) return
+    seenSignal.current = returnSignal
+    setStage('explain')
+    window.scrollTo({ top: 0 })
+  }, [returnSignal])
+
+  /** 今日ぶんをまとめて書き出す。見出し付きなので、貼るだけで表になる */
+  const savedTsv = useMemo(() => toTsv(savedLogs, { header: true }), [savedLogs])
+
+  const savedCard =
+    savedLogs.length === 0 ? null : (
+      <div className="card">
+        <p className="card-title">今日の記録 {savedLogs.length} 件</p>
+        <p className="note">
+          <strong>この端末に保存はしていません。画面を閉じると消えます。</strong>
+          支店に戻る前に、下のボタンでまとめてコピーして集計表に貼ってください。
+        </p>
+        <details style={{ marginTop: '12px' }}>
+          <summary className="note">記録した {savedLogs.length} 件を見る</summary>
+          <pre className="log-row" aria-label="今日の記録">
+            {savedTsv}
+          </pre>
+        </details>
+        <div className="btn-row" style={{ marginTop: '12px' }}>
+          <button
+            className="btn btn-primary"
+            onClick={async () => {
+              // クリップボードが使えない端末でも、上に本文が出ているので手で写せる
+              await navigator.clipboard?.writeText(savedTsv).catch(() => {})
+              setCopied(true)
+            }}
+          >
+            {copied ? 'コピーしました' : `${savedLogs.length}件をまとめてコピー`}
+          </button>
+        </div>
+        <p className="note" style={{ marginTop: '12px' }}>
+          見出しの行も一緒にコピーされます。集めた表は「営業の集計」画面に貼ると、
+          どの反論が多いか・いくら安くなると決まりやすいかが出ます。
+        </p>
+      </div>
+    )
+
   const answer = (id: keyof HearingAnswers, value: string) =>
     setAnswers(prev => ({ ...prev, [id]: value }))
 
@@ -274,6 +333,7 @@ export default function SalesCoach({
       {/* ───────────── 準備 ───────────── */}
       {stage === 'prepare' && (
         <>
+          {savedCard}
           <div className="card">
             <p className="card-title">持っていくもの</p>
             <ul className="checklist">
@@ -773,9 +833,8 @@ export default function SalesCoach({
           </div>
 
           <div className="card">
-            <p className="card-title">記録を書き出す</p>
+            <p className="card-title">この商談の記録</p>
             <p className="note">
-              コピーして、支店の集計表に貼ってください。
               <strong>お客様が特定できる項目は入っていません。</strong>
               日付・時刻の時刻部分・正確なご使用量も入れていません。
             </p>
@@ -785,29 +844,24 @@ export default function SalesCoach({
             <div className="btn-row" style={{ marginTop: '12px' }}>
               <button
                 className="btn btn-primary"
-                onClick={async () => {
-                  // クリップボードが使えない端末でも、上に本文が出ているので手で写せる
-                  await navigator.clipboard?.writeText(toTsv([log])).catch(() => {})
-                  setCopied(true)
-                }}
+                disabled={!outcome}
+                onClick={() => onSaveLog?.(log)}
               >
-                {copied ? 'コピーしました' : '1行をコピー'}
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={async () => {
-                  await navigator.clipboard?.writeText(headerRow().join('\t')).catch(() => {})
-                  setCopied(true)
-                }}
-              >
-                見出しをコピー
+                この商談を記録して次のお客様へ
               </button>
             </div>
-            <p className="note" style={{ marginTop: '12px' }}>
-              集めた表は「営業の集計」画面に貼ると、どの反論が多いか・いくら安くなると
-              決まりやすいかが出ます。
+            {!outcome && (
+              <p className="note" style={{ marginTop: '10px' }}>
+                「今日の結果」を選ぶと記録できます。
+              </p>
+            )}
+            <p className="note" style={{ marginTop: '10px' }}>
+              記録すると聞き取りと試算はまっさらになります。
+              <strong>前のお客様の数字を持ち越しません。</strong>
             </p>
           </div>
+
+          {savedCard}
         </>
       )}
 

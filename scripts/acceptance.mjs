@@ -403,6 +403,12 @@ async function runDetailed(page, scenario, usage = '348', period) {
   check('A11', '試算のあと商談ナビに戻れる', (await back.count()) > 0)
   await back.click()
   await page.waitForTimeout(300)
+  // 戻り先は「説明」。試算の画面に戻しても、いま出した数字の伝え方にたどり着けない
+  check(
+    'A11f',
+    '戻り先が試算ではなく説明の段階になる',
+    /今日の試算を、そのまま読む/.test(await page.innerText('body'))
+  )
 
   // 戻ってきた先で、試算の結果が確度に効いているか
   await rail.getByRole('button', { name: '振返' }).click()
@@ -722,6 +728,70 @@ async function runDetailed(page, scenario, usage = '348', period) {
   await page.getByRole('button', { name: 'ふりかえりへ進む' }).click()
   await page.waitForTimeout(250)
   check('A15g', 'その場からふりかえりへ進める', /今日のふりかえり/.test(await page.innerText('body')))
+  await ctx.close()
+}
+
+// ───────────────────────────────────────────────────────────
+// A16: 商談の記録を1件ずつコピーさせず、今日ぶんに溜めてまとめて出す
+// ───────────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } })
+  const page = await ctx.newPage()
+  await page.goto(origin)
+  await page.waitForSelector('button')
+  await page.getByRole('button', { name: '商談ナビをひらく' }).click()
+  await page.waitForTimeout(300)
+  const short = s => page.getByRole('navigation', { name: '商談の進み方' }).getByRole('button', { name: s })
+
+  // 1件目。結果を選ぶまで記録できない
+  await short('振返').click()
+  await page.waitForTimeout(200)
+  const saveButton = () => page.getByRole('button', { name: /この商談を記録して次のお客様へ/ })
+  check('A16', '結果を選ぶまでは記録できない（空の行を溜めない）', await saveButton().isDisabled())
+  await page.getByRole('button', { name: /お申し込みいただいた/ }).click()
+  await page.waitForTimeout(200)
+  await saveButton().click()
+  await page.waitForTimeout(300)
+
+  const afterSave = await page.innerText('body')
+  check('A16b', '記録すると最初の段階へ戻る', /持っていくもの/.test(afterSave))
+  check('A16c', '今日ぶんが溜まる', /今日の記録 1 件/.test(afterSave))
+  check(
+    'A16d',
+    '端末に保存していないことを警告する',
+    /画面を閉じると消えます/.test(afterSave)
+  )
+
+  // 2件目
+  await short('振返').click()
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: /ご不在/ }).click()
+  await page.waitForTimeout(200)
+  await saveButton().click()
+  await page.waitForTimeout(300)
+  check('A16e', '2件目も溜まる', /今日の記録 2 件/.test(await page.innerText('body')))
+
+  // まとめて書き出せる（1件ずつではない）
+  check(
+    'A16f',
+    'まとめてコピーできる（1件ずつのボタンは無い）',
+    (await page.getByRole('button', { name: '2件をまとめてコピー' }).count()) > 0 &&
+      (await page.getByRole('button', { name: '1行をコピー' }).count()) === 0
+  )
+  await page.getByText('記録した 2 件を見る').click()
+  await page.waitForTimeout(200)
+  const dump = await page.locator('[aria-label="今日の記録"]').innerText()
+  check(
+    'A16g',
+    '見出し1行＋2件で書き出される',
+    dump.trim().split('\n').length === 3 && dump.includes('日付') && dump.includes('applied'),
+    `${dump.trim().split('\n').length} 行`
+  )
+  check(
+    'A16h',
+    '溜めた記録にも個人を特定できるものが入らない',
+    !/様|丁目|@/.test(dump)
+  )
   await ctx.close()
 }
 

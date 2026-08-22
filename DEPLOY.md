@@ -827,7 +827,7 @@ git push origin main
 npm ci
 npm install --no-save playwright        # 8・9 に必要（初回のみ）
 
-npm run test:coverage                   # 1. テスト805件とカバレッジ閾値
+npm run test:coverage                   # 1. テスト817件とカバレッジ閾値
 npm run type-check                      # 2. 型
 npm run rate-master:check               # 3. 料金マスターJSONの同期
 npm run rate-intake                     # 4. 元資料との突合（archive/ がある場合）
@@ -835,7 +835,7 @@ npm run build                           # 5. ビルド
 npm run security:check                  # 6. 端末の外に出る経路が無いこと（静的）
 npm audit --omit=dev --audit-level=low  # 7. 本番依存の脆弱性
 npm run security:runtime                # 8. 実機で外部通信・保存が無いこと
-npm run accept                          # 9. 受け入れテスト46項目
+npm run accept                          # 9. 受け入れテスト55項目
 ```
 
 1〜7 は CI でも毎回走ります。**8・9 はリリース前に手元で1回**（ブラウザの取得が重いため）。

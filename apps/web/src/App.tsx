@@ -8,6 +8,7 @@ import SalesCoach from './pages/SalesCoach'
 import UpdateBanner from './components/UpdateBanner'
 import Logo from './components/Logo'
 import { EstimateSummary } from './services/estimateTalk'
+import { VisitLog } from './services/visitLog'
 import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
@@ -37,6 +38,23 @@ export default function App() {
   const [lastEstimate, setLastEstimate] = useState<EstimateSummary | null>(null)
   /** 試算から戻るときに商談ナビへ返すか */
   const [cameFromCoach, setCameFromCoach] = useState(false)
+  /**
+   * 今日ぶんの商談の記録。
+   *
+   * **端末には保存しない**（CLAUDE.md ルール9）。画面を閉じれば消える。
+   * 1軒ごとにコピーして貼るのは訪問の合間にできないので、ここに溜めて
+   * まとめて書き出す。溜めるほど失う量が増えるので、画面でも警告を出す。
+   */
+  const [visitLogs, setVisitLogs] = useState<VisitLog[]>([])
+  /**
+   * 商談ごとの入力を作り直すための鍵。
+   *
+   * 前のお客様の聞き取り・使用量が残ったまま次の商談に入ると、
+   * お客様の前で他人の数字を出すことになる。**入れ直しではなく作り直す**
+   */
+  const [sessionKey, setSessionKey] = useState(0)
+  /** 試算から商談ナビへ戻ったことを知らせる。増えるたびに「説明」へ進む */
+  const [returnSignal, setReturnSignal] = useState(0)
 
   useEffect(() => {
     // setState に関数を渡すと更新関数と解釈されるため、包んで保持する
@@ -88,7 +106,19 @@ export default function App() {
       {(currentPage === 'coach' || cameFromCoach) && (
         <div style={currentPage === 'coach' ? undefined : { display: 'none' }}>
           <SalesCoach
+            key={sessionKey}
             lastEstimate={lastEstimate}
+            returnSignal={returnSignal}
+            savedLogs={visitLogs}
+            onSaveLog={saved => {
+              setVisitLogs(prev => [...prev, saved])
+              // 次のお客様へ。前の商談の値をひとつも持ち越さない
+              setLastEstimate(null)
+              setQuery({ scenarioId: 'chugoku_juryo_a', usage: {}, period: DEFAULT_RATE_PERIOD })
+              setSessionKey(k => k + 1)
+              setCurrentPage('coach')
+              window.scrollTo({ top: 0 })
+            }}
             onOpenEstimate={kind => {
               setLastInputPage(kind === 'simple' ? 'simple' : 'input')
               setCurrentPage(kind === 'simple' ? 'simple' : 'input')
@@ -118,6 +148,7 @@ export default function App() {
       {currentPage !== 'home' && (
         <div style={currentPage === 'input' ? undefined : { display: 'none' }}>
           <ManualInput
+            key={sessionKey}
             onComplete={handleInputComplete}
             onBack={() => setCurrentPage(cameFromCoach ? 'coach' : 'home')}
           />
@@ -130,7 +161,15 @@ export default function App() {
           period={query.period}
           estimate={query.estimate}
           onEstimateSummary={setLastEstimate}
-          onReturnToCoach={cameFromCoach ? () => setCurrentPage('coach') : undefined}
+          onReturnToCoach={
+            cameFromCoach
+              ? () => {
+                  // 試算のあとに読むのは「説明」。試算の画面へ戻しても意味がない
+                  setReturnSignal(n => n + 1)
+                  setCurrentPage('coach')
+                }
+              : undefined
+          }
           onBack={() => setCurrentPage(lastInputPage)}
         />
       )}
