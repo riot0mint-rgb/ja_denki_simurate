@@ -18,8 +18,17 @@ interface ComparisonResultProps {
   period: { year: number; month: number };
   /** かんたん試算で電気料金から使用量を逆算した場合の内訳 */
   estimate?: { billYen: number; kwh: number; exact: boolean; estimatedBillYen: number };
-  /** 年間の差額を外へ知らせる。商談ナビが「高くなるなら勧めない」に倒すために見る */
-  onAnnualSavings?: (yen: number | null) => void;
+  /**
+   * 試算の要点を外へ知らせる。商談ナビが「高くなるなら勧めない」に倒すのと、
+   * 商談の記録に使う。個人にたどり着く値は渡さない
+   */
+  onEstimateSummary?: (summary: {
+    scenarioId: string;
+    totalKwh: number;
+    annualSavingsYen: number | null;
+  }) => void;
+  /** 商談ナビから来たときだけ。試算のあと台本へ戻る導線 */
+  onReturnToCoach?: () => void;
   onBack: () => void;
 }
 
@@ -239,7 +248,8 @@ export default function ComparisonResult({
   usage,
   period,
   estimate,
-  onAnnualSavings,
+  onEstimateSummary,
+  onReturnToCoach,
   onBack
 }: ComparisonResultProps) {
   const [gasSet, setGasSet] = useState(false)
@@ -277,9 +287,16 @@ export default function ComparisonResult({
             {outcome.nextSteps.map(step => <li key={step}>{step}</li>)}
           </ul>
         </div>
-        <button className="btn btn-primary btn-full section-gap" onClick={onBack}>
-          入力し直す
-        </button>
+        <div className="btn-row section-gap">
+          <button className="btn btn-primary" onClick={onBack}>
+            入力し直す
+          </button>
+          {onReturnToCoach && (
+            <button className="btn btn-ghost" onClick={onReturnToCoach}>
+              商談ナビにもどる
+            </button>
+          )}
+        </div>
       </main>
     )
   }
@@ -296,8 +313,8 @@ export default function ComparisonResult({
 
   // 商談ナビへ知らせる。描画中に親を更新しないよう、描画後に渡す
   useEffect(() => {
-    onAnnualSavings?.(annualYen)
-  }, [annualYen, onAnnualSavings])
+    onEstimateSummary?.({ scenarioId, totalKwh: v.totalKwh, annualSavingsYen: annualYen })
+  }, [scenarioId, v.totalKwh, annualYen, onEstimateSummary])
   const firstYearYen = annual ? annual.firstYearSavingsYen : v.firstYearSavingsYen
   const annualTone = toneOf(annualYen)
   const monthTone = toneOf(savings)
@@ -722,7 +739,15 @@ export default function ComparisonResult({
 
           <div className="btn-row section-gap print-hide">
             <button className="btn btn-ghost" onClick={handlePrint}>PDFで保存・印刷</button>
-            <button className="btn btn-primary" onClick={onBack}>条件を変えて試算する</button>
+            <button className={`btn ${onReturnToCoach ? 'btn-ghost' : 'btn-primary'}`} onClick={onBack}>
+              条件を変えて試算する
+            </button>
+            {/* 商談の途中なら、次の一手は台本に戻ること。いちばん強いボタンにする */}
+            {onReturnToCoach && (
+              <button className="btn btn-primary" onClick={onReturnToCoach}>
+                商談ナビにもどる
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -985,6 +985,104 @@ details.card[open] > summary::before {
   }
 }
 
+/* ── 商談の記録と集計 ─────────────────────────────────────── */
+
+.choice-note {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+
+.choice-btn.is-on .choice-note {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 書き出す1行。手で写せるように等幅で、折り返して全部見せる */
+.log-row {
+  margin-top: 12px;
+  background: var(--field);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}
+
+.paste-area {
+  margin-top: 12px;
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.tally {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/*
+ * 区分名・棒・件数・申込率の4列。狭い画面では棒を畳んで数字を残す
+ * （棒は目安、数字が本体）
+ */
+.tally-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 52px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+@media (min-width: 560px) {
+  .tally-row {
+    grid-template-columns: minmax(0, 1fr) minmax(60px, 2fr) 64px 52px;
+  }
+}
+
+.tally-label {
+  color: var(--ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.tally-bar {
+  display: none;
+  height: 8px;
+  background: var(--field);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+@media (min-width: 560px) {
+  .tally-bar {
+    display: block;
+  }
+}
+
+.tally-fill {
+  display: block;
+  height: 100%;
+  background: var(--leaf);
+  border-radius: 999px;
+}
+
+.tally-count {
+  text-align: right;
+  color: var(--ink-2);
+}
+
+.tally-rate {
+  text-align: right;
+  font-weight: 700;
+  color: var(--green-deep);
+}
+
 /* ── 1年ぶんの見積もり方の切り替え ─────────────────────────── */
 
 .method-switch {

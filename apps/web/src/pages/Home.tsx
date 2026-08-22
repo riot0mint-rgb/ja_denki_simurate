@@ -7,6 +7,8 @@ interface HomeProps {
   onStartSimple: () => void;
   /** 商談ナビ（おうかがいから、お手続きのご案内まで） */
   onStartCoach: () => void;
+  /** 営業の集計（支店で集めた記録を貼ると、何が効いているかが出る） */
+  onStartInsights: () => void;
 }
 
 /**
@@ -39,7 +41,12 @@ const STEPS: Array<{ n: string; icon: IconName; tone: string; title: string; bod
   }
 ]
 
-export default function Home({ onStartInput, onStartSimple, onStartCoach }: HomeProps) {
+export default function Home({
+  onStartInput,
+  onStartSimple,
+  onStartCoach,
+  onStartInsights
+}: HomeProps) {
   return (
     <main className="wrap">
       <section className="card hero">
@@ -93,6 +100,16 @@ export default function Home({ onStartInput, onStartSimple, onStartCoach }: Home
         <button className="btn btn-ghost btn-full" style={{ marginTop: '14px' }} onClick={onStartCoach}>
           商談ナビをひらく
         </button>
+        <button
+          className="btn btn-ghost btn-full"
+          style={{ marginTop: '8px' }}
+          onClick={onStartInsights}
+        >
+          営業の集計をひらく
+        </button>
+        <p className="note" style={{ marginTop: '10px', fontSize: '12.5px' }}>
+          集計は、支店で集めた記録を貼るとその場で数えます。
+        </p>
       </div>
 
       <ol className="card" style={{ listStyle: 'none', display: 'grid', gap: '18px' }}>

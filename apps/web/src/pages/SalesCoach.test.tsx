@@ -3,14 +3,19 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SalesCoach from './SalesCoach'
 
-function show(lastAnnualSavingsYen: number | null = null) {
+function show(annualSavingsYen: number | null = null, totalKwh = 348) {
   const onOpenEstimate = vi.fn()
   const onBack = vi.fn()
   render(
     <SalesCoach
       onOpenEstimate={onOpenEstimate}
       onBack={onBack}
-      lastAnnualSavingsYen={lastAnnualSavingsYen}
+      today="2026-08-22"
+      lastEstimate={
+        annualSavingsYen === null
+          ? null
+          : { scenarioId: 'chugoku_juryo_a', totalKwh, annualSavingsYen }
+      }
     />
   )
   return { onOpenEstimate, onBack }
@@ -233,6 +238,77 @@ describe('ふりかえり', () => {
     await goTo('振返')
     expect(screen.getByText('今日のふりかえり')).toBeInTheDocument()
     expect(screen.getByText(/押してしまった場面はありましたか/)).toBeInTheDocument()
+  })
+})
+
+describe('商談の記録', () => {
+  it('結果を選べる', async () => {
+    show(5231)
+    await goTo('振返')
+    await userEvent.click(screen.getByRole('button', { name: /お申し込みいただいた/ }))
+    expect(screen.getByRole('button', { name: /お申し込みいただいた/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+  })
+
+  it('書き出す1行が画面に見える（コピーできない端末でも写せる）', async () => {
+    show(5231)
+    await goTo('振返')
+    const row = screen.getByLabelText('書き出す記録')
+    expect(row.textContent).toContain('2026-08-22')
+    expect(row.textContent).toContain('chugoku_juryo_a')
+    expect(row.textContent).toContain('300〜500kWh')
+    expect(row.textContent).toContain('3千〜1万円')
+  })
+
+  it('記録に個人を特定できるものが入らないと明記する', async () => {
+    show(5231)
+    await goTo('振返')
+    expect(screen.getByText(/お客様が特定できる項目は入っていません/)).toBeInTheDocument()
+  })
+
+  it('正確なご使用量ではなく帯で残す', async () => {
+    // 実数だと「この地区でひと月◯◯kWhの世帯」がほぼ一意に決まることがある
+    show(5231, 348)
+    await goTo('振返')
+    const row = screen.getByLabelText('書き出す記録')
+    expect(row.textContent).not.toContain('348')
+    expect(row.textContent).toContain('300〜500kWh')
+  })
+
+  it('開いた反論が「出た反論」として控えられる', async () => {
+    show(5231)
+    await goTo('不安')
+    await userEvent.click(screen.getByText(/「解約金がかかるのでは」/))
+    await goTo('振返')
+    expect(screen.getByLabelText('書き出す記録').textContent).toContain('cancel_fee')
+  })
+
+  it('まだ試算していなければ、試算の欄は空のまま', async () => {
+    show(null)
+    await goTo('振返')
+    const row = screen.getByLabelText('書き出す記録')
+    expect(row.textContent).not.toContain('kWh')
+  })
+
+  it('1行をコピーできる', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    show(5231)
+    await goTo('振返')
+    await userEvent.click(screen.getByRole('button', { name: '1行をコピー' }))
+    expect(writeText).toHaveBeenCalledOnce()
+    expect(writeText.mock.calls[0][0]).toContain('2026-08-22')
+  })
+
+  it('見出しもコピーできる（貼り先の表を作れる）', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    show(5231)
+    await goTo('振返')
+    await userEvent.click(screen.getByRole('button', { name: '見出しをコピー' }))
+    expect(writeText.mock.calls[0][0]).toContain('日付')
   })
 })
 

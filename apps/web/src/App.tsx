@@ -5,13 +5,14 @@ import ManualInput from './pages/ManualInput'
 import SimpleInput, { SimpleEstimate } from './pages/SimpleInput'
 import ComparisonResult from './pages/ComparisonResult'
 import SalesCoach from './pages/SalesCoach'
+import SalesInsights from './pages/SalesInsights'
 import UpdateBanner from './components/UpdateBanner'
 import Logo from './components/Logo'
 import { registerServiceWorker } from './serviceWorker'
 import { DEFAULT_RATE_PERIOD } from './services/calculateService'
 import './App.css'
 
-type PageType = 'home' | 'simple' | 'input' | 'result' | 'coach'
+type PageType = 'home' | 'simple' | 'input' | 'result' | 'coach' | 'insights'
 
 interface Query {
   scenarioId: string
@@ -30,10 +31,14 @@ export default function App() {
   })
   const [applyUpdate, setApplyUpdate] = useState<(() => void) | null>(null)
   /**
-   * 直近の試算で出た年間の差額。商談ナビが「高くなる結果なら勧めない」に
-   * 倒すために見る。null は「まだ試算していない」
+   * 直近の試算の要点。商談ナビが「高くなる結果なら勧めない」に倒すのと、
+   * 商談の記録に使う。null は「まだ試算していない」
    */
-  const [lastAnnualSavingsYen, setLastAnnualSavingsYen] = useState<number | null>(null)
+  const [lastEstimate, setLastEstimate] = useState<{
+    scenarioId: string
+    totalKwh: number
+    annualSavingsYen: number | null
+  } | null>(null)
   /** 試算から戻るときに商談ナビへ返すか */
   const [cameFromCoach, setCameFromCoach] = useState(false)
 
@@ -78,6 +83,7 @@ export default function App() {
             setCameFromCoach(true)
             setCurrentPage('coach')
           }}
+          onStartInsights={() => setCurrentPage('insights')}
         />
       )}
       {/*
@@ -87,7 +93,7 @@ export default function App() {
       {(currentPage === 'coach' || cameFromCoach) && (
         <div style={currentPage === 'coach' ? undefined : { display: 'none' }}>
           <SalesCoach
-            lastAnnualSavingsYen={lastAnnualSavingsYen}
+            lastEstimate={lastEstimate}
             onOpenEstimate={kind => {
               setLastInputPage(kind === 'simple' ? 'simple' : 'input')
               setCurrentPage(kind === 'simple' ? 'simple' : 'input')
@@ -102,7 +108,7 @@ export default function App() {
       {currentPage === 'simple' && (
         <SimpleInput
           onComplete={handleInputComplete}
-          onBack={() => setCurrentPage('home')}
+          onBack={() => setCurrentPage(cameFromCoach ? 'coach' : 'home')}
           onSwitchToDetailed={() => {
             setLastInputPage('input')
             setCurrentPage('input')
@@ -116,17 +122,22 @@ export default function App() {
       */}
       {currentPage !== 'home' && (
         <div style={currentPage === 'input' ? undefined : { display: 'none' }}>
-          <ManualInput onComplete={handleInputComplete} onBack={() => setCurrentPage('home')} />
+          <ManualInput
+            onComplete={handleInputComplete}
+            onBack={() => setCurrentPage(cameFromCoach ? 'coach' : 'home')}
+          />
         </div>
       )}
+      {currentPage === 'insights' && <SalesInsights onBack={() => setCurrentPage('home')} />}
       {currentPage === 'result' && (
         <ComparisonResult
           scenarioId={query.scenarioId}
           usage={query.usage}
           period={query.period}
           estimate={query.estimate}
-          onAnnualSavings={setLastAnnualSavingsYen}
-          onBack={() => setCurrentPage(cameFromCoach ? 'coach' : lastInputPage)}
+          onEstimateSummary={setLastEstimate}
+          onReturnToCoach={cameFromCoach ? () => setCurrentPage('coach') : undefined}
+          onBack={() => setCurrentPage(lastInputPage)}
         />
       )}
       {/*

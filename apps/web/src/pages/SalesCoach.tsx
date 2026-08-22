@@ -13,6 +13,15 @@ import {
   Script
 } from '../data/playbook'
 import {
+  VisitLog,
+  OUTCOMES,
+  Outcome,
+  usageBand,
+  savingsBand,
+  toTsv,
+  headerRow
+} from '../services/visitLog'
+import {
   Stage,
   STAGES,
   stageIndex,
@@ -33,8 +42,14 @@ interface SalesCoachProps {
   /** 試算画面をひらく。検針票があるかで分ける */
   onOpenEstimate: (kind: 'detailed' | 'simple') => void
   onBack: () => void
-  /** 直近の試算で出た年間の差額。マイナスなら「高くなる」 */
-  lastAnnualSavingsYen: number | null
+  /** 直近の試算の要点。まだ試算していなければ null */
+  lastEstimate: {
+    scenarioId: string
+    totalKwh: number
+    annualSavingsYen: number | null
+  } | null
+  /** 今日の日付。テストから固定できるようにしておく */
+  today?: string
 }
 
 /** 読み上げる言葉。営業がそのまま声に出せる形で大きく出す */
@@ -93,16 +108,43 @@ function ScriptCard({ script, title }: { script: Script; title?: string }) {
   )
 }
 
-export default function SalesCoach({ onOpenEstimate, onBack, lastAnnualSavingsYen }: SalesCoachProps) {
+export default function SalesCoach({
+  onOpenEstimate,
+  onBack,
+  lastEstimate,
+  today
+}: SalesCoachProps) {
   const [stage, setStage] = useState<Stage>('prepare')
   const [answers, setAnswers] = useState<HearingAnswers>(EMPTY_ANSWERS)
   const [openObjection, setOpenObjection] = useState<string | null>(null)
   const [checked, setChecked] = useState<Record<string, boolean>>({})
+  /** 実際に出た反論。開いたものを記録する */
+  const [usedObjections, setUsedObjections] = useState<string[]>([])
+  const [outcome, setOutcome] = useState<Outcome | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const hint = useMemo(() => estimateHint(answers), [answers])
   const objections = useMemo(() => orderedObjections(answers), [answers])
   const preemptive = useMemo(() => preemptiveObjectionIds(answers), [answers])
-  const standDown = shouldStandDown(lastAnnualSavingsYen)
+  const standDown = shouldStandDown(lastEstimate?.annualSavingsYen ?? null)
+
+  const log: VisitLog = useMemo(
+    () => ({
+      date: today ?? new Date().toISOString().slice(0, 10),
+      reached: stage,
+      interest: answers.interest,
+      household: answers.household,
+      daytime: answers.daytime,
+      allElectric: answers.allElectric,
+      concern: answers.concern,
+      scenarioId: lastEstimate?.scenarioId ?? null,
+      usageBand: usageBand(lastEstimate?.totalKwh ?? null),
+      savingsBand: savingsBand(lastEstimate?.annualSavingsYen ?? null),
+      objections: usedObjections,
+      outcome
+    }),
+    [today, stage, answers, lastEstimate, usedObjections, outcome]
+  )
 
   const go = (next: Stage | null) => {
     if (!next) return
@@ -304,7 +346,12 @@ export default function SalesCoach({ onOpenEstimate, onBack, lastAnnualSavingsYe
               className={`card objection${preemptive.includes(o.id) ? ' is-likely' : ''}`}
               key={o.id}
               open={openObjection === o.id}
-              onToggle={e => setOpenObjection(e.currentTarget.open ? o.id : null)}
+              onToggle={e => {
+                const open = e.currentTarget.open
+                setOpenObjection(open ? o.id : null)
+                // 開いた＝その反論が出た、とみなす。あとで数え直さなくて済む
+                if (open) setUsedObjections(prev => (prev.includes(o.id) ? prev : [...prev, o.id]))
+              }}
             >
               <summary>
                 <span className="objection-said">「{o.said}」</span>
@@ -373,6 +420,61 @@ export default function SalesCoach({ onOpenEstimate, onBack, lastAnnualSavingsYe
               <WhyBlock text={r.why} />
             </div>
           ))}
+
+          <div className="card">
+            <p className="card-title">今日の結果</p>
+            <div className="choice-grid">
+              {OUTCOMES.map(o => (
+                <button
+                  key={o.value}
+                  type="button"
+                  className={`choice-btn${outcome === o.value ? ' is-on' : ''}`}
+                  aria-pressed={outcome === o.value}
+                  onClick={() => setOutcome(o.value)}
+                >
+                  {o.label}
+                  {o.note && <span className="choice-note">{o.note}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <p className="card-title">記録を書き出す</p>
+            <p className="note">
+              コピーして、支店の集計表に貼ってください。
+              <strong>お客様が特定できる項目は入っていません。</strong>
+              日付・時刻の時刻部分・正確なご使用量も入れていません。
+            </p>
+            <pre className="log-row" aria-label="書き出す記録">
+              {toTsv([log])}
+            </pre>
+            <div className="btn-row" style={{ marginTop: '12px' }}>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  // クリップボードが使えない端末でも、上に本文が出ているので手で写せる
+                  await navigator.clipboard?.writeText(toTsv([log])).catch(() => {})
+                  setCopied(true)
+                }}
+              >
+                {copied ? 'コピーしました' : '1行をコピー'}
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={async () => {
+                  await navigator.clipboard?.writeText(headerRow().join('\t')).catch(() => {})
+                  setCopied(true)
+                }}
+              >
+                見出しをコピー
+              </button>
+            </div>
+            <p className="note" style={{ marginTop: '12px' }}>
+              集めた表は「営業の集計」画面に貼ると、どの反論が多いか・いくら安くなると
+              決まりやすいかが出ます。
+            </p>
+          </div>
         </>
       )}
 

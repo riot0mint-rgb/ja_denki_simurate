@@ -341,3 +341,61 @@ describe('差が出ている理由', () => {
     expect(screen.queryByRole('table', { name: '差額の内訳' })).not.toBeInTheDocument()
   })
 })
+
+// 商談ナビから試算に来たら、台本に戻れないと商談が止まる
+describe('商談ナビへの戻り', () => {
+  const showWithCoach = (onReturnToCoach: () => void) =>
+    render(
+      <ComparisonResult
+        scenarioId="chugoku_juryo_a"
+        usage={{ totalKwh: 348 }}
+        period={JULY}
+        onReturnToCoach={onReturnToCoach}
+        onBack={vi.fn()}
+      />
+    )
+
+  it('商談ナビから来たときだけ、戻るボタンが出る', () => {
+    show('chugoku_juryo_a', { totalKwh: 348 })
+    expect(screen.queryByRole('button', { name: '商談ナビにもどる' })).not.toBeInTheDocument()
+  })
+
+  it('押すと商談ナビへ戻る', async () => {
+    const onReturnToCoach = vi.fn()
+    showWithCoach(onReturnToCoach)
+    await userEvent.click(screen.getByRole('button', { name: '商談ナビにもどる' }))
+    expect(onReturnToCoach).toHaveBeenCalledTimes(1)
+  })
+
+  it('「条件を変えて試算する」は入力画面へ返す（商談ナビへは別のボタン）', async () => {
+    const onBack = vi.fn()
+    const onReturnToCoach = vi.fn()
+    render(
+      <ComparisonResult
+        scenarioId="chugoku_juryo_a"
+        usage={{ totalKwh: 348 }}
+        period={JULY}
+        onReturnToCoach={onReturnToCoach}
+        onBack={onBack}
+      />
+    )
+    await userEvent.click(screen.getByRole('button', { name: '条件を変えて試算する' }))
+    expect(onBack).toHaveBeenCalledTimes(1)
+    expect(onReturnToCoach).not.toHaveBeenCalled()
+  })
+
+  it('計算できないときも商談ナビへ戻れる', async () => {
+    const onReturnToCoach = vi.fn()
+    render(
+      <ComparisonResult
+        scenarioId="unknown_plan"
+        usage={{ totalKwh: 348 }}
+        period={JULY}
+        onReturnToCoach={onReturnToCoach}
+        onBack={vi.fn()}
+      />
+    )
+    await userEvent.click(screen.getByRole('button', { name: '商談ナビにもどる' }))
+    expect(onReturnToCoach).toHaveBeenCalledTimes(1)
+  })
+})
