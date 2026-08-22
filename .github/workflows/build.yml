@@ -1,0 +1,112 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main, "claude/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        # Node 18 は 2025-04 にサポートが切れている。ビルドツール（vite 7）も
+        # 20.19 以上を要求するため、現行の LTS 2本で回す
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build calc-core
+        run: npm run build -w @ja-denki-simulator/calc-core
+
+      # calc-core 100% / Web UI 80% / scripts 100% を閾値に設定してある。
+      # npm test だけでは閾値未達を検知できず、実際に 88% まで落ちていた。
+      - name: Run tests with coverage (calc-core 100% / web 80% / scripts 100%)
+        run: npm run test:coverage
+
+      - name: Type check
+        run: npm run type-check
+
+      # 料金マスターJSONは rates.ts からの生成物。手編集や更新漏れをここで落とす。
+      - name: Verify rate master is in sync
+        run: npm run rate-master:check
+
+      # 試算表そのものはリポジトリに入れていないため、archive/ がある環境でのみ動く。
+      # 改定の取り込み時は手元で必ず実行すること（DEPLOY.md「5-1」参照）。
+      # archive/ が無いときだけ省略する。あるのに食い違ったらジョブを落とす
+      # （`cmd || echo` にすると exit 2 を握りつぶして関門が働かない）
+      - name: Reconcile with source spreadsheets (if present)
+        run: |
+          if [ -d archive ]; then
+            npm run rate-intake
+          else
+            echo "archive/ が無いため省略"
+          fi
+
+      - name: Build web application
+        run: npm run build -w @ja-denki-simulator/web
+
+      # 本番に載る依存（decimal.js / react / react-dom）に既知の脆弱性が出たら落とす。
+      # 開発用の依存は配布物に入らないため、ここでは対象にしない
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=low
+
+      # ブラウザ内で完結すること（CLAUDE.md ルール7・9）をコードで検査する
+      - name: Verify no data leaves the browser
+        run: npm run security:check
+
+      - name: Upload build artifacts
+        # マトリクスの両方が同じ成果物を上げると衝突する
+        if: success() && matrix.node-version == '22.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: apps/web/dist/
+          retention-days: 7
+
+  verify-build:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+
+      - name: Verify build output
+        run: |
+          echo "Checking build output..."
+          ls -la
+          if [ ! -f "index.html" ]; then
+            echo "ERROR: index.html not found"
+            exit 1
+          fi
+          if [ ! -d "assets" ]; then
+            echo "ERROR: assets directory not found"
+            exit 1
+          fi
+          # 管理者向けは職員向けとは別のエントリ。片方だけ出ていたら分離が壊れている
+          if [ ! -f "admin.html" ]; then
+            echo "ERROR: admin.html not found"
+            exit 1
+          fi
+          echo "✓ Build output verified"
+
+      - name: Check file sizes
+        run: |
+          echo "Build artifact sizes:"
+          find . -type f -exec ls -lh {} \;

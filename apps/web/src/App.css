@@ -1,0 +1,227 @@
+/* ─────────────────────────────────────────────────────────────
+   画面の骨格。
+   モバイル1カラムを基本に、広い画面では結果を2カラムに割る。
+   営業がタブレットで開くことがあるため、幅が余ったときに
+   1カラムのまま間延びしないようにする。
+   ───────────────────────────────────────────────────────────── */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper-2);
+}
+
+.topbar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.wordmark {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* 主色は金額に取っておく。ワードマークには細い緑の下線だけを当てる */
+.wordmark::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--green);
+  margin-top: 3px;
+}
+
+.topbar-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * 320px ではロゴ・製品名・エリア表記が横1行に収まらず、
+ * 「中国電力エリア…」が製品名に重なって読めなくなる。
+ * 文字を詰めたうえで、入りきらなければ次の行へ送る
+ */
+@media (max-width: 560px) {
+  .topbar-inner {
+    padding: 12px 16px;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    height: 22px;
+  }
+
+  .wordmark {
+    font-size: 13px;
+  }
+
+  .topbar-sub {
+    font-size: 11px;
+  }
+}
+
+.wrap {
+  flex: 1;
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 20px 20px 40px;
+}
+
+/*
+ * 画面の末尾に置く但し書き。認証をかけない配布なので、
+ * 誰向けの道具で、数字がどこへ行くのかを常に画面に残す（フェーズ9）
+ */
+.sitefoot {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 20px 32px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--ink-3);
+}
+
+.sitefoot p + p {
+  margin-top: 2px;
+}
+
+.page-title {
+  font-size: 21px;
+  margin-bottom: 4px;
+}
+
+.page-lead {
+  font-size: 14px;
+  color: var(--ink-2);
+  margin-bottom: 18px;
+}
+
+.section-gap {
+  margin-top: 26px;
+}
+
+.hr {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 22px 0;
+}
+
+/* 広い画面では結果を2カラムにする。
+   --maxw の切り替えは index.css 側に置いてある（後から読まれる側で
+   上書きされるため。ここに書くと効かない） */
+@media (min-width: 1000px) {
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .result-grid > .stack > * + * {
+    margin-top: 14px;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   印刷（PDF保存）
+   営業がその場でお客様に渡す前提。操作用の要素を落とし、
+   数値・内訳・出典が1枚に収まるように詰める。
+   ───────────────────────────────────────────── */
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    font-size: 10pt;
+    line-height: 1.6;
+  }
+
+  /* 紙にも製品名を残す。誰が出した試算なのかが分からない紙は使えない */
+  .topbar {
+    position: static;
+    border-bottom: 1px solid #999;
+    margin-bottom: 10px;
+  }
+
+  .topbar .wordmark::after {
+    display: none;
+  }
+
+  .topbar-inner,
+  .wrap {
+    max-width: 100%;
+    padding: 0 0 8px;
+  }
+
+  .wrap {
+    padding: 10px 0 0;
+  }
+
+  /* 金額のカードだけは地色を残す。そこが一番読ませたい */
+  .hero {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .card {
+    border: 1px solid #bbb;
+    border-radius: 0;
+    padding: 10px 12px;
+    break-inside: avoid;
+  }
+
+  .card + .card {
+    margin-top: 8px;
+  }
+
+  .result-grid {
+    display: block;
+  }
+
+  details,
+  table {
+    break-inside: avoid;
+  }
+
+  details > summary {
+    list-style: none;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  span.print-only {
+    display: inline !important;
+  }
+}
+
+.print-only {
+  display: none;
+}

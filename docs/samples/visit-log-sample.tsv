@@ -1,0 +1,34 @@
+日付	到達段階	温度感	世帯	日中在宅	オール電化	気がかり	現在の契約	使用量帯	年間差額帯	出た反論	結果	確度	次回の目安	前回の止まり
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-18	closing	curious	family	home	no	price	chugoku_juryo_a	500〜1000kWh	1万〜3万円	cancel_fee	applied	A	約束した日	
+2026-08-19	closing	curious	small	away	no	price	chugoku_juryo_a	300〜500kWh	3千〜1万円	think	applied	B	1〜2週間のうちに	
+2026-08-19	closing	curious	small	away	no	price	chugoku_juryo_a	300〜500kWh	3千〜1万円	think	applied	B	1〜2週間のうちに	
+2026-08-19	closing	curious	small	away	no	price	chugoku_juryo_a	300〜500kWh	3千〜1万円	think	applied	B	1〜2週間のうちに	
+2026-08-19	closing	curious	small	away	no	price	chugoku_juryo_a	300〜500kWh	3千〜1万円	think	applied	B	1〜2週間のうちに	
+2026-08-19	closing	curious	small	away	no	price	chugoku_juryo_a	300〜500kWh	3千〜1万円	think	applied	B	1〜2週間のうちに	
+2026-08-19	explain	satisfied	small	away	no	satisfied	chugoku_smart	150〜300kWh	〜3千円	no_need	declined	D	個別の再訪はしない	
+2026-08-19	explain	satisfied	small	away	no	satisfied	chugoku_smart	150〜300kWh	〜3千円	no_need	declined	D	個別の再訪はしない	
+2026-08-19	explain	satisfied	small	away	no	satisfied	chugoku_smart	150〜300kWh	〜3千円	no_need	declined	D	個別の再訪はしない	
+2026-08-19	explain	satisfied	small	away	no	satisfied	chugoku_smart	150〜300kWh	〜3千円	no_need	declined	D	個別の再訪はしない	
+2026-08-19	explain	satisfied	small	away	no	satisfied	chugoku_smart	150〜300kWh	〜3千円	no_need	declined	D	個別の再訪はしない	
+2026-08-19	explain	satisfied	small	away	no	satisfied	chugoku_smart	150〜300kWh	〜3千円	no_need	declined	D	個別の再訪はしない	
+2026-08-20	estimate	curious	family	home	yes	price	chugoku_family_2	500〜1000kWh	3千〜1万円	think;busy	considering	C	口実ができたときに	
+2026-08-20	estimate	curious	family	home	yes	price	chugoku_family_2	500〜1000kWh	3千〜1万円	think;busy	considering	C	口実ができたときに	
+2026-08-20	estimate	curious	family	home	yes	price	chugoku_family_2	500〜1000kWh	3千〜1万円	think;busy	considering	C	口実ができたときに	
+2026-08-20	estimate	curious	family	home	yes	price	chugoku_family_2	500〜1000kWh	3千〜1万円	think;busy	considering	C	口実ができたときに	
+2026-08-20	estimate	curious	family	home	yes	price	chugoku_family_2	500〜1000kWh	3千〜1万円	think;busy	considering	C	口実ができたときに	
+2026-08-20	explain	wary	senior	home	no	trouble	au_m_plan	300〜500kWh	高くなる	suspicious	not_suitable	D	個別の再訪はしない	
+2026-08-20	explain	wary	senior	home	no	trouble	au_m_plan	300〜500kWh	高くなる	suspicious	not_suitable	D	個別の再訪はしない	
+2026-08-20	explain	wary	senior	home	no	trouble	au_m_plan	300〜500kWh	高くなる	suspicious	not_suitable	D	個別の再訪はしない	
+2026-08-20	explain	wary	senior	home	no	trouble	au_m_plan	300〜500kWh	高くなる	suspicious	not_suitable	D	個別の再訪はしない	
+2026-08-20	explain	wary	senior	home	no	trouble	au_m_plan	300〜500kWh	高くなる	suspicious	not_suitable	D	個別の再訪はしない	
+2026-08-21	opening	wary	small	away	no	trouble				busy	absent	D	個別の再訪はしない	
+2026-08-21	opening	wary	small	away	no	trouble				busy	absent	D	個別の再訪はしない	
+2026-08-21	opening	wary	small	away	no	trouble				busy	absent	D	個別の再訪はしない	
+2026-08-21	opening	wary	senior	home	no	trouble				no_need	今後の訪問はご遠慮したい	E	訪問しない	
+2026-08-21	opening	wary	senior	home	no	trouble				no_need	今後の訪問はご遠慮したい	E	訪問しない	

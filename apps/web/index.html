@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="JAでんき料金比較シミュレーター（JA職員向け）" />
+    <!--
+      認証をかけない代わりに、検索には載せない。URLを知っている職員だけが
+      使える状態を、公開しつつ保つための最低限の措置（フェーズ9）。
+      検索避けは強制力がないので、HTTPヘッダ側でも X-Robots-Tag を付ける
+      （DEPLOY.md「配信時のヘッダ」参照）
+    -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#17875e" />
+    <title>JAでんき料金比較</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+    <link rel="apple-touch-icon" href="/icon-192x192.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

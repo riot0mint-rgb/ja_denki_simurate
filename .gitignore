@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Build outputs
+dist/
+*/dist/
+*/*/dist/
+
+# TypeScript
+*.tsbuildinfo
+**/*.d.ts.map
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# 元資料のローカルコピー（CLAUDE.md ルール3: 読み取り専用で分析するための作業用）
+# 正本は Google Drive 側。リポジトリには回帰テスト用に抽出した
+# packages/calc-core/tests/excel-lookup.fixture.json のみを置く。
+archive/

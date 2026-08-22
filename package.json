@@ -1,0 +1,37 @@
+{
+  "name": "ja-denki-simulator",
+  "version": "0.1.0",
+  "description": "JAでんき vs 中国電力 料金比較シミュレーター",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @ja-denki-simulator/web",
+    "build": "npm run build -w @ja-denki-simulator/calc-core && npm run build -w @ja-denki-simulator/web",
+    "build:all": "npm run build",
+    "test": "npm test -w @ja-denki-simulator/calc-core && npm test -w @ja-denki-simulator/web && npm run test:scripts",
+    "test:coverage": "npm run test:coverage -w @ja-denki-simulator/calc-core && npm run test:coverage -w @ja-denki-simulator/web && vitest run --coverage",
+    "preview": "npm run preview -w @ja-denki-simulator/web",
+    "type-check": "npm run type-check -w @ja-denki-simulator/web && tsc --noEmit -p packages/calc-core && tsc --noEmit -p tsconfig.scripts.json",
+    "rate-master:generate": "tsx scripts/generate-rate-master.ts",
+    "rate-master:check": "tsx scripts/generate-rate-master.ts --check",
+    "rate-master:diff": "tsx scripts/rate-master-diff.ts",
+    "test:scripts": "vitest run",
+    "rate-intake": "tsx scripts/rate-intake.ts",
+    "security:check": "tsx scripts/security-check.ts",
+    "security:runtime": "node scripts/security-runtime.mjs",
+    "accept": "node scripts/acceptance.mjs"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.7",
+    "exceljs": "^4.4.0",
+    "tsx": "^4.23.12",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10.0.0"
+  }
+}

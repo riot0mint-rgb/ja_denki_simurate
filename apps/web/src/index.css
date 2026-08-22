@@ -1,0 +1,1640 @@
+/* ─────────────────────────────────────────────────────────────
+   JAでんき料金比較 — デザイントークン
+
+   ■ 配色の組み立て
+
+   主色は JAグリーン #1f903b（色相 約145°）。1色だけだと単調になり、
+   かといって色相を散らすと金額の意味づけが弱くなる。そこで
+   **暖色1・寒色1だけを足した3色**で組む。
+
+     金 #f2a71b（約45°・暖色）  緑 #1f903b（約145°）  青緑 #0e8f7e（約180°）
+
+   役割は固定する。
+   - 金（暖色）: おトク額まわりの目印だけ。暖色は進出色で視線を引くため、
+     ページ内でいちばん見せたい1点にしか使わない
+   - 緑: JAでんき側・操作・金額そのもの
+   - 青緑（寒色）: 金額ではない補助情報。後退色なので背景に沈む
+
+   ■ おトク額を目立たせるために使っている性質
+
+   1. 明度対比 — 数字は最も濃い緑、地は最も淡い緑。明度差を最大にとる
+   2. 面積効果 — 面積の小さい数字は彩度を上げてよい。大きい面ほど彩度を落とす
+   3. 進出色 — 金額の前後に金のアイコンと罫を置き、暖色で視線を集める
+   4. 彩度対比 — 金額のまわりの要素の彩度を落とすと、同じ彩度でも数字が冴える
+   5. 補色の隣接を避ける — 赤（ご負担増）と緑（おトク）は色相環でほぼ向かい合う。
+      隣り合わせにするとちらつくので、同じ行に並べない
+
+   白地に置く文字と白文字を載せる面は一段暗くする。
+   #1f903b に白文字はコントラスト比 3.8 で、本文サイズでは読みにくい。
+
+   和文は端末のフォントを使う（外部フォントを読み込まない）。
+   Phase A はブラウザ内で完結し、オフラインでも使えることが要件のため。
+   欧文を先に置くのは、数字とラテン文字を欧文フォントから取るため。
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* 紙とインク。ニュートラルはわずかに緑寄りにして主色となじませる */
+  --ink: #1b2418;
+  --ink-2: #5d6a56;
+  --ink-3: #909c89;
+  --paper: #ffffff;
+  --paper-2: #f7faf3;
+  --paper-3: #e8f1e0;
+  --line: #e2e9db;
+  --line-strong: #c8d5bd;
+
+  /* 緑（主色）。明度の階段で役割を分ける */
+  --green-800: #0d5220;
+  --green-700: #16702e;
+  --green-600: #1f903b;
+  --green-100: #dcefd0;
+  --green-50: #eef7e8;
+
+  /* 金（暖色アクセント）。おトク額まわりにしか使わない */
+  --gold-600: #a8710a;
+  --gold-500: #f2a71b;
+  --gold-100: #ffeec2;
+  --gold-50: #fff8e6;
+
+  /* 青緑（寒色）。金額ではない補助情報 */
+  --teal-700: #0a6c5f;
+  --teal-600: #0e8f7e;
+  --teal-50: #e3f3f0;
+
+  /* 別名。既存の記述を壊さないために残す */
+  --green: var(--green-700);
+  --green-dark: var(--green-800);
+  --green-soft: var(--green-50);
+  --green-deep: var(--green-800);
+  --green-bright: var(--green-600);
+  --field: var(--green-50);
+  --field-line: #c6e3b4;
+  --leaf: #97c46e;
+  --leaf-soft: #eef7e4;
+  --teal: var(--teal-600);
+  --teal-deep: var(--teal-700);
+  --teal-soft: var(--teal-50);
+
+  /* 増減。赤緑だけに頼らず、符号と語で必ず併記する */
+  --gain: var(--green-800);
+  --loss: #c8402a;
+
+  --warn-bg: var(--gold-50);
+  --warn-line: var(--gold-500);
+  --warn-ink: #6b4c05;
+
+  --radius: 14px;
+  --radius-sm: 9px;
+
+  --maxw: 680px;
+
+  /* 和文と欧文。欧文を先に置き、数字はここから取る */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI',
+    Roboto, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'BIZ UDPGothic',
+    'Yu Gothic Medium', 'Yu Gothic', 'Noto Sans JP', Meiryo, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--paper-2);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.75;
+  /* 日本語の見出し・本文の折り返しを整える。「な／し」のような
+     1文字だけの行送りを防ぐ */
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.35;
+  text-wrap: balance;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* 数字は等幅で桁を揃える。金額が縦に並ぶ画面なので効く */
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── 面 ───────────────────────────────────────────────────── */
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card + .card,
+.card + .stack-gap,
+.stack > * + * {
+  margin-top: 14px;
+}
+
+.stack {
+  display: block;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card-sub {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.7;
+  margin-top: 4px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+
+/* ── 入力 ─────────────────────────────────────────────────── */
+
+.field + .field {
+  margin-top: 16px;
+}
+
+.field-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 2px;
+  line-height: 1.6;
+}
+
+.input,
+.select {
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  width: 100%;
+  margin-top: 6px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-lg {
+  font-size: 20px;
+  font-weight: 600;
+  padding: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%),
+    linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.input:focus,
+.select:focus,
+.chip:focus-visible,
+.btn:focus-visible,
+input[type='radio']:focus-visible,
+input[type='checkbox']:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--green);
+  outline-offset: 0;
+}
+
+.field-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.field-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── チップ（選択肢） ─────────────────────────────────────── */
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.chip {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chip:hover {
+  background: var(--paper-2);
+}
+
+.chip.is-active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── ボタン ───────────────────────────────────────────────── */
+
+.btn {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 13px 18px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  /* 「詳しい結果を／見る」のような語中での折り返しを止める */
+  white-space: nowrap;
+}
+
+/*
+ * ただし「検針票がない → かんたん試算」は 320px のボタン幅に入らず、
+ * nowrap のままだと末尾が切れる。狭い画面では語の切れ目で折り返す
+ */
+@media (max-width: 400px) {
+  .btn {
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--green-dark);
+}
+
+.btn-ghost {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.btn-ghost:hover {
+  background: var(--paper-2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-row .btn {
+  flex: 1;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+/* ── ラジオ・チェック ─────────────────────────────────────── */
+
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin-top: 12px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  /* 「な／し」と1文字ずつ割れるのを防ぐ */
+  white-space: nowrap;
+}
+
+.choice input {
+  accent-color: var(--green);
+  width: 18px;
+  height: 18px;
+}
+
+/* ── 注記 ─────────────────────────────────────────────────── */
+
+.note {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+
+.note-warn {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-sm);
+  color: var(--warn-ink);
+  padding: 14px 16px;
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+/* ── 金額 ─────────────────────────────────────────────────── */
+
+/* 金額の面。淡い若草のベタで、白の地からわずかに起こす */
+.hero {
+  background: var(--field);
+  border-color: var(--field-line);
+  color: var(--ink);
+  padding: 28px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 面の上辺に緑の細い罫。ベタ塗りだけだと素っ気ない */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--gold-500);
+}
+
+.hero .eyebrow {
+  color: var(--gold-600);
+}
+
+.hero .note {
+  color: var(--ink-2);
+}
+
+/* 面の中の補助要素は彩度を落とす。金額だけが冴えるようにする */
+.hero .compare-name,
+.hero .hero-figures dt {
+  color: var(--ink-2);
+}
+
+.hero .note strong {
+  color: var(--ink);
+}
+
+/* 金額のうしろに金の下線を敷く。暖色は進出色なので、ここに目が行く */
+.hero-figure {
+  display: inline-block;
+  padding-bottom: 6px;
+  border-bottom: 4px solid var(--gold-500);
+  /*
+   * 桁数は事業所向けプランだと7桁まで伸びる（年間・低圧電力など）。
+   * 固定サイズだと .hero の overflow: hidden で金額が黙って切れるので、
+   * 画面幅に比例させ、狭い画面では小さく組む
+   */
+  font-size: clamp(34px, 11vw, 56px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  margin: 10px 0 8px;
+  white-space: nowrap;
+  color: var(--green-deep);
+}
+
+/* 通貨記号は数字より一段小さく、軽く。数字を主役に見せる */
+.yen {
+  font-size: 0.46em;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-right: 0.08em;
+  vertical-align: 0.16em;
+  opacity: 0.75;
+}
+
+.figure-gain { color: var(--gain); }
+.figure-loss { color: var(--loss); }
+.figure-flat { color: var(--ink); }
+
+/* 現在と乗り換え後の年額を横棒で並べる */
+.compare-bars {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.compare-name {
+  font-size: 13px;
+  color: var(--ink-2);
+  min-width: 0;
+}
+
+/*
+ * 金額と差額チップで右列が 180px ほど占め、狭い画面ではプラン名の列が
+ * 50px 程度しか残らない（「JAでん／き／低圧／電力」と縦に割れる）。
+ * 480px 以下では名前と金額を上下に積む
+ */
+@media (max-width: 480px) {
+  .compare-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .compare-name,
+  .compare-amount {
+    grid-column: 1 / -1;
+  }
+}
+
+.compare-amount {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.compare-track {
+  display: block;
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.compare-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* ── 月別の差額 ───────────────────────────────────────────── */
+
+.bars {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bar-slot {
+  height: 104px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+}
+
+.bar-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.bar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.bar-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.bar-label {
+  font-size: 10px;
+  color: var(--ink-3);
+  text-align: center;
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── 比較表 ───────────────────────────────────────────────── */
+
+/*
+ * 表は横に逃がす。桁の多い金額でカードを突き破ると、ページ全体が
+ * 横スクロールになって他の要素まで読めなくなる
+ */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+.rate-table th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  text-align: right;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.rate-table th:first-child {
+  text-align: left;
+}
+
+.rate-table td {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: baseline;
+}
+
+.rate-table td + td {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-left: 10px;
+  font-size: 16px;
+}
+
+/* 差額はこの表でいちばん見せたい数字。月額より強くする */
+.rate-table td:last-child {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.rate-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.plan-name {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* プラン名の途中で折れると「従量電灯／A」になる。名前は一塊で扱い、
+   入りきらないときはタグだけを次の行へ送る */
+.plan-name > span:first-child {
+  white-space: nowrap;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #3a2600;
+  background: var(--gold-500);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.is-current td {
+  color: var(--ink-2);
+}
+
+/* ── 内訳 ─────────────────────────────────────────────────── */
+
+details.card > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+details.card > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.card > summary::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--teal);
+  border-bottom: 2px solid var(--teal);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  flex: none;
+}
+
+details.card[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.formula {
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.9;
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  .compare-fill,
+  .bar,
+  .tag {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── 商談ナビ ─────────────────────────────────────────────── */
+
+/* 商談のどこにいるか。お客様の前で自分の位置を見失わないための帯 */
+.stage-rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stage-chip {
+  flex: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-3);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stage-chip.is-done {
+  color: var(--green-deep);
+  border-color: var(--field-line);
+  background: var(--field);
+}
+
+.stage-chip.is-on {
+  color: #ffffff;
+  background: var(--green);
+  border-color: var(--green);
+}
+
+/* 聞き取った内容の要約。1行に収める */
+.situation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--field);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/*
+ * 読み上げる言葉。ここだけは目で追って声に出せる大きさにする。
+ * 小さいと現場で読めず、台本として機能しない
+ */
+.say {
+  background: var(--field);
+  border-left: 4px solid var(--green);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.say-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green-deep);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.say-line {
+  font-size: 16.5px;
+  line-height: 1.85;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.say-line + .say-line {
+  margin-top: 8px;
+}
+
+/* なぜそう言うのか。台本だけ渡すと棒読みになるので必ず添える */
+.why {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--ink-2);
+}
+
+.why strong {
+  color: var(--ink);
+}
+
+/* 言ってはいけないこと。ここだけ暖色で、見落とさせない */
+.avoid {
+  margin-top: 12px;
+  background: var(--warn-bg);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.avoid-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warn-ink);
+  margin-bottom: 6px;
+}
+
+.avoid ul,
+.never-say ul,
+.checklist {
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--ink-2);
+}
+
+.avoid li {
+  color: var(--warn-ink);
+}
+
+.checklist li + li {
+  margin-top: 4px;
+}
+
+.checklist-input {
+  list-style: none;
+  padding-left: 0;
+}
+
+.checklist-input label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+  padding: 7px 0;
+  line-height: 1.7;
+}
+
+.checklist-input input {
+  margin-top: 4px;
+  flex: none;
+}
+
+/* ヒアリングの選択肢。指で押せる大きさにする */
+.choice-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (min-width: 560px) {
+  .choice-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+.choice-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 13px 14px;
+  cursor: pointer;
+  text-align: left;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.choice-btn:hover:not(.is-on) {
+  background: var(--field);
+}
+
+.choice-btn.is-on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+}
+
+/* この回答があとで何に効くか */
+.implication {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--green-deep);
+  font-weight: 600;
+}
+
+/* 反論カード。お客様の言葉のまま並べる */
+.objection > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.objection > summary::-webkit-details-marker {
+  display: none;
+}
+
+.objection-said {
+  flex: 1;
+}
+
+.objection.is-likely {
+  border-color: var(--gold-500);
+}
+
+.card-warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-ink);
+}
+
+.card-warn .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--warn-ink);
+}
+
+.never-say > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn-ink);
+  list-style: none;
+}
+
+.never-say > summary::-webkit-details-marker {
+  display: none;
+}
+
+@media print {
+  /* 紙に出すのは台本ではなくお客様向けの試算。ナビは出さない */
+  .stage-rail,
+  .never-say {
+    display: none;
+  }
+}
+
+/* ── 商談の記録と集計 ─────────────────────────────────────── */
+
+.choice-note {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+
+.choice-btn.is-on .choice-note {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 書き出す1行。手で写せるように等幅で、折り返して全部見せる */
+.log-row {
+  margin-top: 12px;
+  background: var(--field);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+}
+
+.paste-area {
+  margin-top: 12px;
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.tally {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/*
+ * 区分名・棒・件数・申込率の4列。狭い画面では棒を畳んで数字を残す
+ * （棒は目安、数字が本体）
+ */
+.tally-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 52px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+@media (min-width: 560px) {
+  .tally-row {
+    grid-template-columns: minmax(0, 1fr) minmax(60px, 2fr) 64px 52px;
+  }
+}
+
+.tally-label {
+  color: var(--ink);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.tally-bar {
+  display: none;
+  height: 8px;
+  background: var(--field);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+@media (min-width: 560px) {
+  .tally-bar {
+    display: block;
+  }
+}
+
+.tally-fill {
+  display: block;
+  height: 100%;
+  background: var(--leaf);
+  border-radius: 999px;
+}
+
+.tally-count {
+  text-align: right;
+  color: var(--ink-2);
+}
+
+.tally-rate {
+  text-align: right;
+  font-weight: 700;
+  color: var(--green-deep);
+}
+
+/*
+ * 注意カードの見出し。アイコンを行頭に固定する。
+ * インラインのままだと、長い見出しが折り返したときにアイコンが文中に紛れる
+ */
+.card-warn .card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card-warn .card-title svg {
+  flex: none;
+  margin-top: 4px;
+}
+
+/*
+ * 帯に出す試算の一文。どの段階にいても、いまいくらの話をしているかを見せる。
+ * 台本を読んでいる最中に金額を思い出せないのが、素人がいちばん詰まるところ
+ */
+.situation-figure {
+  font-weight: 700;
+  color: var(--green-deep);
+}
+
+.situation-figure.is-warn {
+  color: var(--warn-ink);
+}
+
+.confidence-rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--green);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.card-warn .confidence-rank {
+  background: var(--warn-ink);
+}
+
+.revisit + .revisit {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.revisit-when {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-600);
+  margin-bottom: 8px;
+}
+
+/* ── 1年ぶんの見積もり方の切り替え ─────────────────────────── */
+
+.method-switch {
+  margin-top: 18px;
+}
+
+.method-switch-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+/*
+ * 2択なので、選んでいないほうも必ず見えているようにする。
+ * プルダウンにすると「もう一つの見積もり方がある」ことに気づかれない
+ */
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius-sm);
+}
+
+.segmented-btn {
+  flex: 1 1 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: transparent;
+  border: 0;
+  border-radius: calc(var(--radius-sm) - 4px);
+  padding: 9px 8px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.segmented-btn:hover:not(.is-on) {
+  background: var(--field);
+}
+
+.segmented-btn.is-on {
+  background: var(--green);
+  color: #ffffff;
+}
+
+.method-switch-hint {
+  margin-top: 6px;
+}
+
+@media print {
+  /* 紙では選べないので、選ばれているほうだけ残す */
+  .segmented-btn:not(.is-on) {
+    display: none;
+  }
+
+  .segmented {
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .segmented-btn.is-on {
+    background: transparent;
+    color: var(--ink);
+    padding: 0;
+    text-align: left;
+  }
+}
+
+/* ── ヒーロー内の組み ─────────────────────────────────────── */
+
+.hero-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.hero-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--field-line);
+}
+
+.hero-figures dt {
+  color: var(--ink-2);
+}
+
+.hero-figures dd {
+  font-size: clamp(22px, 7vw, 27px);
+  font-weight: 700;
+  margin-top: 2px;
+  /* 「￥436お／トク」と語中で折れるのを止める */
+  white-space: nowrap;
+}
+
+/* 面が明るいので、増減は色でも示す。ただし色だけに頼らず
+   「おトク」「ご負担増」の語を必ず併記する */
+.hero .figure-gain {
+  color: var(--green-deep);
+}
+
+/*
+ * プラン名は一塊で扱い、「（現在）」だけを次の行へ送る。
+ * ただし「中国電力 時間帯別電灯（エコノミーナイト）」のような長い名前は
+ * 狭い画面で枠から出るため、720px 未満では折り返しを許す。
+ */
+.compare-name > span {
+  white-space: normal;
+}
+
+/*
+ * 折り返しは語の切れ目で起こす。keep-all だけだと「時間帯別電灯（エコノミー
+ * ナイト）」のような長い語が枠を超えるので、あふれるときだけ任意位置で折る
+ */
+.compare-name > span,
+.plan-name,
+.plan-name > span:first-child,
+h1,
+h2,
+h3,
+.card-title,
+.eyebrow {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 720px) {
+  .compare-name > span {
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr 1.05fr;
+    gap: 40px;
+    /* 右列（年間の料金＋内訳）のほうが丈が高い。左の金額を中央に置くと
+       面の中でつり合う */
+    align-items: center;
+  }
+
+  .hero-figure {
+    font-size: 68px;
+  }
+}
+
+/* 広い画面では本文幅を広げ、結果を2カラムに割る。
+   custom property の上書きは、あとから読まれるこのファイルに置く */
+@media (min-width: 1000px) {
+  :root {
+    --maxw: 1080px;
+  }
+}
+
+/* 説明が2行以上になるチェックは、頭を揃えて折り返しを許す */
+.choice-block {
+  align-items: flex-start;
+  white-space: normal;
+  margin-top: 16px;
+}
+
+.choice-block input {
+  margin-top: 3px;
+  flex: none;
+}
+
+/* ── 仕上げ ───────────────────────────────────────────────── */
+
+.card-title {
+  font-size: 17px;
+}
+
+.card-sub {
+  color: var(--ink-3);
+}
+
+/* 棒は下から立ち上げる。数字が入れ替わったことが分かる程度に短く */
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.bar {
+  transform-origin: bottom;
+  animation: bar-grow 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.wrap > .card,
+.wrap > .hero,
+.result-grid > .stack > * {
+  animation: rise 0.36s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.wrap > .hero { animation-delay: 0.02s; }
+.result-grid > .stack > *:nth-child(2) { animation-delay: 0.06s; }
+.result-grid > .stack > *:nth-child(3) { animation-delay: 0.1s; }
+
+/* 帯の中の差額。棒のとなりに置いて、どちらがどれだけ安いかを1目盛りで見せる */
+.delta-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--gold-500);
+  color: #3a2600;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media print {
+  /* 紙では淡い地色も抜く。コピー機を通すと網点になって数字が読みにくい */
+  .hero {
+    background: #fff !important;
+    border: 1px solid #999 !important;
+  }
+
+  .hero::before {
+    display: none;
+  }
+
+  .hero-figure {
+    font-size: 30pt;
+  }
+
+  .compare-track {
+    background: #e8e8e8 !important;
+  }
+
+  .delta-chip {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid #999;
+  }
+
+  .hero-figures {
+    border-top-color: #ccc;
+  }
+}
+
+/* 面の上に置く主ボタン。地が淡いので、はっきりした緑で立たせる */
+.btn-gold {
+  background: var(--green-bright);
+  color: #ffffff;
+}
+
+.btn-gold:hover:not(:disabled) {
+  background: var(--green);
+}
+
+/* ── ロゴ ─────────────────────────────────────────────────── */
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.logo {
+  height: 26px;
+  width: auto;
+  max-width: 160px;
+  display: block;
+}
+
+@media print {
+  .logo {
+    height: 20px;
+  }
+}
+
+/* ── アイコン ─────────────────────────────────────────────── */
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+/* 見出しの頭に置く小さな丸のアイコン。役割ごとに色を変える */
+.badge-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.badge-green { background: var(--field); color: var(--green-deep); }
+.badge-leaf { background: var(--leaf-soft); color: #4b7a24; }
+.badge-teal { background: var(--teal-soft); color: var(--teal-deep); }
+.badge-warn { background: var(--warn-bg); color: var(--warn-ink); }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-head .card-title {
+  margin: 0;
+}
+
+/* ── 金額の見せ方 ─────────────────────────────────────────── */
+
+/*
+ * 数字の大きさは「見せたい順」に決める。
+ * いちばん大きいのは常におトク額で、使用量やその他の数値はそれより小さい。
+ */
+.figure-xl {
+  font-size: clamp(30px, 9.5vw, 46px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.figure-lg {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.figure-sub {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+/* おトク／ご負担増の語。金額より一段小さく、色は金額に合わせる */
+.figure-word {
+  font-size: 0.42em;
+  font-weight: 700;
+  margin-left: 0.15em;
+}
+
+/*
+ * 狭い画面では語を金額の下に落とす。横に並べたままだと、桁の多い金額で
+ * 行が枠を超え、.hero の overflow: hidden に金額の頭が食われる
+ */
+@media (max-width: 480px) {
+  .hero-figure .figure-word,
+  .figure-xl .figure-word,
+  .hero-figures dd .figure-word {
+    display: block;
+    margin-left: 0;
+    font-size: 0.34em;
+  }
+
+  /*
+   * 「月あたり」「初年度」を2列に割ると、1列 150px 前後しか取れない。
+   * 7桁の金額が入らないので、狭い画面では縦に積む
+   */
+  .hero-figures {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* ── 差額の内訳の表 ───────────────────────────────────────── */
+
+/*
+ * 4列は狭い画面に入らない。項目名が1文字ずつ縦に折れて読めなくなるので、
+ * スマホでは「項目」と「差」の2列だけにする。両者の金額はデスクトップで見せる。
+ */
+.diff-table th:nth-child(2),
+.diff-table th:nth-child(3),
+.diff-table td:nth-child(2),
+.diff-table td:nth-child(3) {
+  display: none;
+}
+
+/* 2列に減らしている幅では折り返さないほうが読みやすい。
+   ただし 320px 級では折り返さないと表が画面から出る（下の @media 参照） */
+.diff-table .plan-name {
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .diff-table th:nth-child(2),
+  .diff-table th:nth-child(3),
+  .diff-table td:nth-child(2),
+  .diff-table td:nth-child(3) {
+    display: table-cell;
+  }
+}
+
+/* ── 狭い画面での崩れ対策 ─────────────────────────────────── */
+
+/*
+ * ボタンは語中で折らない（white-space: nowrap）ので、2つ並べると
+ * 320〜390px では入りきらずに画面外へ出ていた。
+ * 入らないときは自動で縦に積む。
+ */
+.btn-row {
+  flex-wrap: wrap;
+}
+
+.btn-row .btn {
+  flex: 1 1 160px;
+}
+
+/*
+ * 日付入力はブラウザ側が最低幅（およそ150px）を持っており、
+ * 2つ横に並べると狭い画面で必ずはみ出す。入らない幅では縦に積む。
+ */
+.date-range {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.date-range .input {
+  margin-top: 0;
+  min-width: 0;
+}
+
+.date-range-sep {
+  color: var(--ink-3);
+  flex: none;
+}
+
+@media (max-width: 430px) {
+  .date-range {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .date-range-sep {
+    text-align: center;
+    line-height: 1;
+  }
+}
+
+
+/*
+ * 320px 級の端末。プラン名を折り返さない指定のままだと、
+ * 「中国電力 時間帯別電灯（エコノミーナイト）（現在）」のような長い名前で
+ * 表が画面の外へ出る。この幅では文字を一段小さくし、折り返しを許す。
+ */
+@media (max-width: 380px) {
+  .rate-table {
+    font-size: 13px;
+  }
+
+  .rate-table td + td {
+    font-size: 14px;
+    padding-left: 8px;
+  }
+
+  .rate-table td:last-child {
+    font-size: 15px;
+  }
+
+  .plan-name > span:first-child,
+  .diff-table .plan-name {
+    white-space: normal;
+  }
+}
+
+
+/*
+ * 計算の内訳に出す単価の出典にはURLが混ざる。URLは途中で折り返せないため、
+ * そのままだと横スクロールが出る。ここだけはどこでも折り返してよい。
+ */
+.formula,
+details.card li,
+details.card p {
+  overflow-wrap: anywhere;
+}
