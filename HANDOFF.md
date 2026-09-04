@@ -9,21 +9,16 @@
 
 ## 0. ブランチ・PRの状態（重要・2026-09-04時点）
 
-**PR #2 は 2026-08-22 に `main` へマージ済み。** このブランチ（`claude/ja-denki-comparison-simulator-mewi5f`）の
-先頭コミット（`3e05638`）が、そのまま `main` の親コミットになっている。
+**PR #2 は 2026-08-22 に `main` へマージ済み。** マージ済みブランチへコミットを積み増さない
+という運用ルールに従い、このブランチ（`claude/ja-denki-comparison-simulator-mewi5f`）は
+`main` の最新（`70203b5`）から作り直し、follow-up の作業を新しい**PR #8**として出した。
 
-マージ済みのブランチへコミットを積み増すのは、セッション運用ルール上避けるべき動作
-（履歴を後から積んでも新しいPRとしては扱われない）。**次にこのブランチで作業するときは、
-`main` の最新から同名ブランチを作り直してから始めること。**
+次にこのブランチで作業するときも同じ手順を踏むこと（PR #8がまだ開いていれば不要）。
 
 ```bash
 git fetch origin main
 git checkout -B claude/ja-denki-comparison-simulator-mewi5f origin/main
 ```
-
-このセッションでは、この付け替え操作をユーザーに確認したところ「コミットはせず内容だけ確認したい」
-との回答だったため、**ブランチの付け替え・コミット・pushは行っていない**。
-下記2件はワーキングツリー上の未コミットの変更として残っている。
 
 ---
 
@@ -43,29 +38,34 @@ JAでんき料金比較シミュレータ（Web版・Phase A）＋**商談ナビ
 - PDF保存・印刷、Service Worker によるオフライン動作を実装済み
 - 料金マスターの正本は TypeScript。`data/rate_master.json` はそこからの生成物
 
-### ⚠️ 本セッションで見つけて直したもの（未コミット）
+### ⚠️ 本セッションでの作業ミスと教訓（重要）
 
-1. **`npm run type-check` が失敗していた**（2026-08-21のコミット `d2459a4` から）。
-   `apps/web/src/pages/ManualInput.test.tsx` の `vi.fn<Complete>()` が vitest 1.x の
-   `fn<TArgs extends any[], R>()` シグネチャに合っておらず、型エラー6件が出ていた。
-   `vi.fn<Parameters<Complete>, ReturnType<Complete>>()` に直して解消（1行のみ、テストの型注釈で
-   実行結果に影響なし）。**マージ済みブランチのため、このセッションではコミットしていない。**
-   次にこのファイルを開くセッションで、まずこの修正がまだ当たっているか
-   （`git diff apps/web/src/pages/ManualInput.test.tsx`）を確認すること。
-2. `packages/calc-core/dist/` はビルド成果物で `.gitignore` 済み。VMを作り直すと消えるため、
-   `npm run build -w @ja-denki-simulator/calc-core` を打たずに `apps/web` のテストを走らせると
-   `estimateUsageFromBill is not a function` のような分かりにくいエラーになる。まず
-   `npm run build` (calc-core→web の順) を通してからテストすること。
+本セッションの前半で「`npm run type-check` が失敗している」と誤診断し、
+`ManualInput.test.tsx` の `vi.fn<Complete>()` を `vi.fn<Parameters<Complete>, ReturnType<Complete>>()`
+に「修正」してコミット・pushしてしまった（PR #8 の最初のコミット）。
+
+**原因はこのセッションのローカル `node_modules` が古い vitest（1.6.1）のままだったこと。**
+`package.json` / `package-lock.json` は `vitest ^3.2.7` を指定しており、CIはそちらで動く。
+vitest 1.x の `fn<TArgs extends any[], R>()` と vitest 3.x の `fn<T extends Procedure>()`
+（`Procedure = (...args:any[]) => any`）はジェネリクスの取り方が違うため、**ローカルでは
+「正しいコード」がエラーに見え、逆に「壊すコード」がローカルでは通ってしまった。**
+CIのビルドログで実際の失敗（vitest 3.2.7 での型エラー）を見て気づき、`npm ci` で
+依存関係をlockfileどおりに揃え直してから、元の `vi.fn<Complete>()` に戻して解決した
+（=最初から壊れていなかった）。
+
+**教訓**: ローカルの `node_modules` は `.gitignore` 対象で、VMが作り直されると消える一方、
+セッションを長く使い続けると `npm install` のタイミング次第で package.json との間に
+ズレが生じうる。**「型チェックが通らない」「テストが妙な形で落ちる」ときは、まず
+`npm ci` で lockfile どおりに入れ直してから原因を切り分けること。** 特に依存の
+バージョンをまたぐような挙動差（今回のように同名APIのジェネリクスの取り方が
+メジャーバージョンで変わる、等）は、ローカルの古い install では絶対に再現できない。
+
+なお `packages/calc-core/dist/` もビルド成果物で `.gitignore` 済み。ブランチを
+作り直した直後などは `npm run build -w @ja-denki-simulator/calc-core` を打たずに
+`apps/web` のテストを走らせると `estimateUsageFromBill is not a function` のような
+分かりにくいエラーになる。まず `npm run build`（calc-core→web の順）を通すこと。
 
 ## 2. 次にやること（最優先）
-
-### A. まずセッション運用（このセッション内で確認・要承認）
-
-1. 「0. ブランチ・PRの状態」のとおり、`main` から同名ブランチを作り直す
-2. 上記「型チェック修正」をコミットに含める（`git diff` で内容を確認できる状態にしてある）
-3. このHANDOFF.md更新自体もコミットする
-
-### B. ローンチ前に片付けること（DEPLOY.md「5. ローンチ前に片付いている必要があること」より）
 
 - [ ] **2026年10月・11月分の燃料費調整額の収録**（必須・最優先）。未収録のため
       2026年11月検針分以降は年額の積み上げができない。全農エネルギーが公表しだい
@@ -87,7 +87,7 @@ JAでんき料金比較シミュレータ（Web版・Phase A）＋**商談ナビ
 - [ ] 確度の重み・季節の指数・1年見積もりの既定値はいずれも仮説のまま運用開始する前提。
       確度ごとの実績が各20件を超えたあたりで見直す（`apps/web/src/services/confidence.ts` 冒頭コメント参照）
 
-### C. ネットワークの状態（2026-09-04 再確認・依然遮断）
+### ネットワークの状態（2026-09-04 再確認・依然遮断）
 
 `WebFetch https://www.energia.co.jp/...` は本セッションでも `EGRESS_BLOCKED`。
 過去のセッションでは同じ環境からの取得に成功した記録があるため（既に一次資料の裏付けは
@@ -96,7 +96,7 @@ JAでんき料金比較シミュレータ（Web版・Phase A）＋**商談ナビ
 「セッションをアーカイブ→アーカイブ解除→メッセージ送信でVMが作り直される」と伝える。
 代替手段は Google Drive 経由（ユーザーにPDF/xlsxを置いてもらう）。
 
-### D. 改定が来たときの手順
+### 改定が来たときの手順
 
 ```bash
 npm run rate-intake -- juryoA=./新しい①.xlsx tou=./新しい③.xlsx ...
