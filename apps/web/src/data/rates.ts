@@ -530,6 +530,7 @@ export const chugokuFamilyTime1: FamilyTimePlan = {
   baseChargePerKvaOver10: new Decimal('481.77'),
   unitPrices: familyPrices('47.38', '42.57', '42.33', '30.34'),
   allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
   sources: [src(DOC.family, "'ファミリーⅠ結果'!H7, E8, E10:E13, H15"), OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION]
 }
@@ -543,6 +544,7 @@ export const chugokuFamilyTime2: FamilyTimePlan = {
   baseChargePerKvaOver10: new Decimal('481.77'),
   unitPrices: familyPrices('50.71', '45.58', '45.34', '30.34'),
   allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
   sources: [src(DOC.family, "'ファミリーⅡ結果'!H7, E8, E10:E13, H15"), OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION]
 }

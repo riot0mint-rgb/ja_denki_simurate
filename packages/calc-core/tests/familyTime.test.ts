@@ -133,6 +133,13 @@ describe('ファミリータイムⅠ', () => {
     expect(b.notes).toEqual([]);
   });
 
+  // エコノミーナイトと同型の半額ルール。ユーザー確認済み（2026-09-07・中国電力公式仕様）
+  it('使用量が0kWhの月は基本料金が半額', () => {
+    const b = bill(F.chugokuFamilyTime1, { contractKva: 6, familyTime: {} }, CASE_PERIOD);
+    expect(b.baseCharge.toNumber()).toBe(2577.1 / 2);
+    expect(b.notes).toContain('使用量が0kWhのため基本料金が半額です');
+  });
+
   it('使用量が未入力なら unsupported', () => {
     const r = calculator.calculate({
       usage: { contractKva: 6 },

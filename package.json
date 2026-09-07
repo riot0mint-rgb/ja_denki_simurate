@@ -22,6 +22,7 @@
     "rate-intake": "tsx scripts/rate-intake.ts",
     "security:check": "tsx scripts/security-check.ts",
     "security:runtime": "node scripts/security-runtime.mjs",
+    "fetch-monthly-rates": "tsx scripts/fetch-monthly-rates.ts",
     "accept": "node scripts/acceptance.mjs"
   },
   "devDependencies": {
