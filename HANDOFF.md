@@ -67,15 +67,11 @@ CIのビルドログで実際の失敗（vitest 3.2.7 での型エラー）を�
 
 ## 2. 次にやること（最優先）
 
-- [ ] **2026年10月・11月分の燃料費調整額の収録**（必須・最優先）。未収録のため
-      2026年11月検針分以降は年額の積み上げができない。全農エネルギーが公表しだい
-      `packages/calc-core/src/monthlyRates.ts` に追記すれば自動で切り替わる
-- [ ] **JA側と中国電力側で燃調の基準が分かれるかの確認**。2026年10月改定でJAでんきの燃調が
-      「規制料金」から「電気サービス約款」基準に変わり、平均燃料価格の上限も廃止された。
-      いまは中国エリアの燃調テーブル1本をJA・中国電力の両方に当てている。公表値を取り込む際、
-      中国電力の規制料金側の値と一致するか必ず確認すること。食い違ったらテーブルを分ける必要がある
-- [ ] **ファミリータイムⅠ/Ⅱ の0kWh半額ルールの確認**。時間帯別電灯（エコノミーナイト）は
-      中国電力公式シミュレーションの実測で確認・修正済みだが、ファミリー系は未確認
+- [ ] **燃料費調整額・再エネ賦課金の自動取得の完成**（必須・最優先・完全自動でユーザー承認済み
+      2026-09-07）。パイプライン（突き合わせ・追記・CI検証・自動push）は実装済みだが、
+      **取得元ページの実際の解析ロジックが未実装**（URL・HTML構造が未確認のため）。
+      2026年10月・11月分が未収録のため2026年11月検針分以降は年額の積み上げができない。
+      設計と実装状況は本ファイル「燃料費調整額の自動取得（フェーズ6-b）」の節を参照
 - [ ] `/admin.html` と `/assets/admin-*.js` への **Basic認証の設定**（本番配信サーバー側。
       手順は DEPLOY.md「3-5. 管理者向け画面の切り離し」。nginx 1.24 で設定例を実機検証済み）
 - [ ] **合言葉（Basic認証パスワード）の管理者・配り方・変更周期の決定**（DEPLOY.md 3-5
@@ -108,6 +104,47 @@ npm run rate-intake -- juryoA=./新しい①.xlsx tou=./新しい③.xlsx ...
 
 不一致があれば `rates.ts` を直し、`npm run rate-master:generate` → `npm test` →
 `npm run rate-master:diff` の順に回して差分レポートをPR本文に貼る。
+
+### 燃料費調整額の自動取得（フェーズ6-b・2026-09-07 着手）
+
+**ここだけはCLAUDE.mdルール10の例外で、取得から本番反映まで無人**（プロジェクト管理者承認）。
+詳細な設計は `docs/IMPLEMENTATION_PLAN.md`「フェーズ6-b」、ルールの例外条項は
+`CLAUDE.md` ルール10「例外: 燃料費調整額・再エネ賦課金の月次値」を参照。
+
+**実装済み**:
+- `packages/calc-core/src/monthlyRatesData.ts` — 燃調・賦課金の生データ（従来
+  `monthlyRates.ts` に直書きしていたものを分離。人が手で編集してもよい）
+- `scripts/monthlyRatesDiff.ts` — 取得値と現在値を突き合わせ、新規追加・食い違い
+  （conflict）・変更なしに分類する純粋関数（テスト済み・カバレッジ100%）
+- `scripts/monthlyRatesInsert.ts` — `monthlyRatesData.ts` の該当テーブルの末尾に
+  新しい年月の行を追記するテキスト挿入（既存の値・コメントは一切書き換えない。
+  純粋関数・テスト済み・カバレッジ100%）
+- `scripts/fetch-monthly-rates.ts` — 上記2つを束ねるCLI。`npm run fetch-monthly-rates`
+- `.github/workflows/monthly-rate-fetch.yml` — 月4回（1/8/15/22日）実行するスケジュール。
+  取得→（新規分があれば）`build`・`test:coverage`・`type-check`・`rate-master:check`・
+  `web build` を通してから `main` へ直接 commit・push する。品質ゲートが1つでも
+  赤ければコミットされない
+
+**⚠️ 未実装（ここが本セッションの最大のブロッカー）**:
+`scripts/fetch-monthly-rates.ts` の `fetchChugokuFuelPage` / `fetchAuFuelPage` /
+`fetchRenewableLevyNotice` は**プレースホルダ**で、呼ぶと必ず例外を投げる
+（＝ワークフローは実装が終わるまで毎回失敗する。データを壊すよりはるかに安全）。
+
+理由: 取得元の正確なURL・ページのHTML構造が分かっていない。本セッションの
+サンドボックスは `energia.co.jp` 等への `WebFetch` が引き続き `EGRESS_BLOCKED`
+（ASSUMPTIONS.md参照）で、実際のページを見て解析ロジックを書けなかった。
+過去のセッションはネットワーク接続のある環境から中国電力・auでんきの値を
+裏付けており（`ASSUMPTIONS.md`「燃料費調整単価は JAでんき の一次情報でも裏付けた」）、
+その時点のURLはそれぞれ `SOURCE_LOCATORS`（`monthlyRates.ts`）に
+`https://zennoh-energy.co.jp/ja-denki/`・`https://www.au.com/energy/denki/other/adjust/detail/`
+として記録されているが、**実際にどのページのどの部分から数値を拾うか**の
+具体的な構造（HTML/PDF、セレクタ、表の形）までは記録が無い。
+
+**次にやること**: プロジェクト管理者からURL・ページ構造（またはページ内容の
+コピー）の提示を受け、`fetchChugokuFuelPage` 等を実装する。ネットワークが
+使えるセッションであれば自分で確認してもよい。実装できたら、まず
+`workflow_dispatch` で手動実行して1回分の取り込みを確認してから、
+スケジュール実行に任せること。
 
 ---
 
@@ -143,7 +180,8 @@ packages/calc-core/src/
   models.ts            プラン型（8構造）・UsageInput・MonthlyBill
   calculator.ts        全構造の計算。元資料のセル番地をコメントに明記
   comparator.ts        比較・削減額・セット割・初年度割引
-  monthlyRates.ts       燃調・賦課金の年×月テーブル（2025-01〜2026-09、chugoku/au）
+  monthlyRates.ts       燃調・賦課金のlookup関数・DEFAULT_PERIODの自動算出
+  monthlyRatesData.ts   燃調・賦課金の生データ本体（フェーズ6-bが機械的に追記）
   touAllocation.ts     ファミリー/時間帯別 → 夜トク の時間帯振替（推定を含む）
   japaneseHolidays.ts  検針期間から日数・土日・祝日を算出
   rounding.ts          円未満の切り捨て/切り上げ（Excel ROUNDDOWN/ROUNDUP 準拠）
@@ -172,6 +210,8 @@ scripts/
   generate-rate-master.ts  正本 → data/rate_master.json
   rateMasterDiff.ts / rate-master-diff.ts   改定差分（純粋関数＋CLI）
   rateIntake.ts / rate-intake.ts            新しい試算表との突き合わせ（純粋関数＋CLI）
+  monthlyRatesDiff.ts / monthlyRatesInsert.ts  燃調・賦課金の自動取得（フェーズ6-b。純粋関数）
+  fetch-monthly-rates.ts                       同CLI（取得元の解析ロジックは未実装）
   security-check.ts / security-runtime.mjs  静的検査（CI関門）／実機検査（リリース前）
   acceptance.mjs                            受け入れテスト（本物のブラウザ・HTTP・SW込み）
   cliArgs.ts                                 上記CLI群の引数パース（純粋関数）
@@ -207,6 +247,7 @@ npm run rate-master:diff      # 改定差分レポート（PR本文用）
 npm run rate-intake -- juryoA=./新しい①.xlsx   # 新しい試算表と現在値の突き合わせ
 npm run security:check        # 静的検査（CIで実行。個人情報が外に出る経路がないか）
 npm run security:runtime      # 実機での検査（リリース前に手元で1回。要ローカルサーバー）
+npm run fetch-monthly-rates   # 燃調・賦課金の自動取得（フェーズ6-b。取得元の実装待ち）
 npm run accept                # 受け入れテスト（本物のブラウザ・HTTP・Service Worker込み）
 ```
 
@@ -254,20 +295,26 @@ npm run accept                # 受け入れテスト（本物のブラウザ・
 規定は無いことをJAへの確認で決着した。同じ条項で消費税の課税箇所も確定
 （単価はすべて税込で定義されている）。
 
-### ⚠ 燃調の基準が規制料金から電気サービス約款に変わる（2026-11〜）
+### ✅ 解決: 燃調の基準は分かれない（2026-09-07・プロジェクト管理者確認）
 
 2026年10月改定で、JAでんきの燃料費調整相当額の定義が「旧一般電気事業者の
 経過措置料金（規制料金）」から「電気サービス約款（自由料金）」基準に変わり、
-平均燃料価格の上限（120,500円/kℓ）も廃止された。**いまは中国エリアの燃調テーブル1本を
-JAでんき側・中国電力側の両方に当てている。** 11月分以降の公表値を取り込む際、
-中国電力の規制料金側の値と一致するか必ず確認すること。食い違ったらテーブルを分ける必要がある。
+平均燃料価格の上限（120,500円/kℓ）も廃止された。以前は「JAでんき側と中国電力側で
+燃調単価が食い違う可能性がある」と未確認扱いにしていたが、**分かれないことを
+プロジェクト管理者に確認した。** 中国エリアの燃調テーブル1本をJAでんき側・
+中国電力側の両方に当てる現在の実装のままでよい。
 
-### ✅ 解決: 時間帯別電灯の突合点／⚠ ファミリータイムⅠ/Ⅱ は未確認
+### ✅ 解決: 時間帯別電灯・ファミリータイムⅠ/Ⅱ とも0kWh半額ルールを適用
 
 中国電力の公式シミュレーション結果を2件もらい、時間帯別電灯（エコノミーナイト）は
 回帰テストに固定した。この過程で「使用量0kWhの月は基本料金半額」の分岐漏れ
 （JAでんきに有利に出る方向のずれ）が1件見つかり修正済み。
-**ファミリータイムⅠ/Ⅱ にも同じ半額ルールがあるかは未確認**（同型の実測例が要る）。
+
+**ファミリータイムⅠ/Ⅱ にも同じ半額ルールが適用されることをプロジェクト管理者に
+確認した（2026-09-07）。** `FamilyTimePlan.halveBaseWhenNoUsage` を追加し、
+`calculator.ts` の `familyTime()` にエコノミーナイトと同型の半額計算を実装、
+`chugokuFamilyTime1`/`2` の両方で `true` に設定済み。回帰テストは
+`familyTime.test.ts`「使用量が0kWhの月は基本料金が半額」で固定。
 
 ### ✅ 解決（営業判断）: auでんきMプラン・ナイトホリデーは常に有利ではない
 
