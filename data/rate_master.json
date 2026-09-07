@@ -173,6 +173,7 @@
         "rate": "0.08",
         "capYen": "3300"
       },
+      "halveBaseWhenNoUsage": true,
       "rounding": {
         "energyTotal": "none",
         "fuelSubtotal": "none",
@@ -213,6 +214,7 @@
         "rate": "0.08",
         "capYen": "3300"
       },
+      "halveBaseWhenNoUsage": true,
       "rounding": {
         "energyTotal": "none",
         "fuelSubtotal": "none",
