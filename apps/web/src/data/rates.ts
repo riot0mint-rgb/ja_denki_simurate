@@ -139,6 +139,45 @@ const OFFICIAL_JA_DENKI_DEFINITION_2026_10: RateSource = {
   verifiedAt: '2026-08-21'
 }
 
+/**
+ * 中国電力 電気料金メニューの見直し（託送料金見直しの反映）。2026-09-28 公表。
+ *
+ * **2026年11月1日以降の「ご使用分」から**新単価（別紙 2.）。検針日基準ではない。
+ * 11月検針分は改定前後にまたがるため、料金表 附則2「切替措置」により
+ * サービス約款23・24に準じた日割計算になる（電力量区分も別表1で日割り）。
+ * 全量が新単価になるのは **2026年12月検針分から**。
+ */
+const CHUGOKU_REVISION_2026_11: RateSource = {
+  document: '中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf',
+  locator:
+    'https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）',
+  effectiveFrom: '2026-12',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-10-14'
+}
+
+/**
+ * 同じ単価表の「現行単価（Ａ）」列。既存プランの単価がここと一致することを
+ * テストで確かめている（officialSources）。新しく足したプランの改定前単価の出典にも使う。
+ */
+const CHUGOKU_REVISION_2026_11_CURRENT: RateSource = {
+  document: '中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf',
+  locator: 'https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「現行単価（Ａ）」列（2024年4月1日実施の料金表）',
+  effectiveFrom: '2024-04',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-10-14'
+}
+
+/** 動力コース・スマートBコースの料金表（0kWhで基本料金半額の規定の出典） */
+const CHUGOKU_BIZ_TARIFF_2026_11: RateSource = {
+  document: '中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2026年11月1日実施）',
+  locator:
+    'https://www.energia.co.jp/elec/pdf/biz-power-20261101.pdf / biz-smartb-20261101.pdf 本則(１)基本料金「まったく電気を使用しない場合の基本料金は、半額」',
+  effectiveFrom: '2026-11',
+  verificationStatus: 'verified',
+  verifiedAt: '2026-10-14'
+}
+
 const OFFICIAL_JA_DENKI_DEFINITION: RateSource = {
   document: 'JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定',
   locator:
@@ -321,6 +360,65 @@ export const jaDenkiLowVoltage: DemandSeasonalPlan = {
   sources: [src(DOC.lowVoltage, '基本項目!E38:E40'), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
+/**
+ * 中国電力の自由料金「〔ビジネス〕動力コース」。規制料金の低圧電力と同じ構造で、
+ * 基本料金だけが安い（1,152.44円/kW）。乗り換え先は JAでんき 低圧電力。
+ */
+export const chugokuPowerCourse: DemandSeasonalPlan = {
+  structure: 'demand_seasonal',
+  planId: 'chugoku_power_course',
+  planName: '中国電力 動力コース',
+  side: 'other',
+  baseChargePerKw: new Decimal('1152.44'),
+  summerUnitPriceYenPerKwh: new Decimal('26.80'),
+  otherUnitPriceYenPerKwh: new Decimal('25.51'),
+  halveBaseWhenNoUsage: true,
+  rounding: CHUGOKU_ROUNDING,
+  sources: [CHUGOKU_REVISION_2026_11_CURRENT, CHUGOKU_BIZ_TARIFF_2026_11]
+}
+
+/**
+ * 中国電力の自由料金「〔ビジネス〕スマートBコース」。従量電灯Bと同じ構造（6kVA以上）で、
+ * 最初の120kWhまでの単価だけが安い。乗り換え先は JAでんき 従量電灯B。
+ */
+export const chugokuSmartB: CapacityTieredPlan = {
+  structure: 'capacity_tiered',
+  planId: 'chugoku_smart_b',
+  planName: '中国電力 スマートBコース',
+  side: 'other',
+  baseChargePerKva: new Decimal('447.97'),
+  tiers: tiers0('29.04', '36.15', '38.02'),
+  halveBaseWhenNoUsage: true,
+  // 従量電灯Bと違い、賦課金の切り捨てを外す根拠（②明細 I15）が無いので中国電力の既定どおり
+  rounding: CHUGOKU_ROUNDING,
+  sources: [CHUGOKU_REVISION_2026_11_CURRENT, CHUGOKU_BIZ_TARIFF_2026_11]
+}
+
+/**
+ * auでんき 低圧電力（中国電力エリア）。auでんきの公式サイトには料金表の掲載が無く、
+ * JAでんきの試算表だけが出典（一次資料での裏付けなし。ASSUMPTIONS.md 参照）。
+ *
+ * 試算表の明細は Mプランと違い、従量料金・燃調を切り上げず、合計を1回だけ切り捨てる
+ * （'シミュレーション結果明細'!I14 = ROUNDDOWN(SUM(I9:I13),0)）。
+ * 使用量0kWhの半額規定も明細に無いので入れない。
+ * 燃調は auでんき独自の「15kWhを超える」単価を全量に掛ける（明細 D12 → 早見表 F6）。
+ */
+export const auLowVoltage: DemandSeasonalPlan = {
+  structure: 'demand_seasonal',
+  planId: 'au_low_voltage',
+  planName: 'auでんき 低圧電力',
+  side: 'other',
+  baseChargePerKw: new Decimal('1163.91'),
+  summerUnitPriceYenPerKwh: new Decimal('26.79'),
+  otherUnitPriceYenPerKwh: new Decimal('25.50'),
+  halveBaseWhenNoUsage: false,
+  rounding: { energyTotal: 'none', fuelSubtotal: 'none', levySubtotal: 'none', finalTotal: 'down' },
+  sources: [
+    src(DOC.auLow, "'基本項目'!E20:E22（ａｕでんき 低圧電力）"),
+    src(DOC.auLow, "'シミュレーション結果明細'!I9:I14（計算式・端数処理）")
+  ]
+}
+
 // ─────────────────────────────────────────────
 // 2026年10月改定（値下げ）後のJAでんき単価
 //
@@ -360,49 +458,6 @@ const jaDenkiLowVoltage_2026_11: DemandSeasonalPlan = {
   otherUnitPriceYenPerKwh: new Decimal('25.21'),
   sources: JA_2026_10_SOURCES
 }
-
-/**
- * 単価の改定履歴。キーは planId、値は「この検針月から」の昇順。
- *
- * 改定のたびに古い単価を消すと、過去月の試算が当時の請求額と合わなくなる。
- * 画面が過去21か月まで遡れる以上、履歴として持つ。
- */
-const PLAN_REVISIONS: Record<string, Array<{ fromPeriod: string; plan: RatePlan }>> = {
-  ja_denki_juryo_a: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoA_2026_11 }],
-  ja_denki_juryo_s: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoS_2026_11 }],
-  ja_denki_juryo_b: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoB_2026_11 }],
-  ja_denki_low_voltage: [{ fromPeriod: '2026-11', plan: jaDenkiLowVoltage_2026_11 }]
-}
-
-/** 検針月に適用される単価。改定履歴が無いプランはそのまま返す。 */
-export function planForPeriod(plan: RatePlan, period: { year: number; month: number }): RatePlan {
-  const revisions = PLAN_REVISIONS[plan.planId]
-  if (!revisions) return plan
-  const key = `${period.year}-${String(period.month).padStart(2, '0')}`
-  let applied = plan
-  for (const r of revisions) {
-    if (key >= r.fromPeriod) applied = r.plan
-  }
-  return applied
-}
-
-/**
- * 料金改定の一覧。再訪の口実に使う。
- *
- * 「その後いかがですか」しか言えないのが、素人がいちばん困るところ。
- * 改定は**こちらから連絡する正当な理由**になる。
- */
-export const RATE_REVISIONS: Array<{ fromPeriod: string; summary: string }> = [
-  {
-    fromPeriod: '2026-11',
-    summary: 'JAでんきの従量電灯A・S・B・低圧電力が値下げ（2026年11月検針分から）'
-  }
-]
-
-/** 改定後の単価を持つプラン。監査と料金マスターの生成に使う。 */
-export const REVISED_PLANS: RatePlan[] = Object.values(PLAN_REVISIONS)
-  .flatMap(rs => rs.map(r => r.plan))
-  .sort((a, b) => a.planId.localeCompare(b.planId))
 
 // ─────────────────────────────────────────────
 // 時間帯別（電化Style / ナイトホリデー / 夜トクプラン）
@@ -572,6 +627,275 @@ export const chugokuEconomyNight: EconomyNightPlan = {
 }
 
 // ─────────────────────────────────────────────
+// 2026年11月1日 中国電力の料金見直し（託送料金見直しの反映）
+//
+// 全メニュー値上げ。ご使用分基準なので、全量が新単価になるのは12月検針分から
+// （11月検針分は日割り。PRORATED_PERIODS 参照）。単価はすべて
+// CHUGOKU_REVISION_2026_11（中国電力 電気料金単価表 2026年11月1日実施）の見直し後単価。
+// auでんき Mプラン・低圧電力は改定の公表が無いため据え置き（ASSUMPTIONS.md）。
+// ─────────────────────────────────────────────
+
+const CHUGOKU_2026_11_SOURCES = [CHUGOKU_REVISION_2026_11]
+
+const chugokuJuryoA_2026_12: TieredMinimumPlan = {
+  ...chugokuJuryoA,
+  minimumCharge: new Decimal('983.37'),
+  tiers: tiers15('33.32', '40.00', '42.12'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuSmart_2026_12: TieredMinimumPlan = {
+  ...chugokuSmart,
+  minimumCharge: new Decimal('893.61'),
+  tiers: tiers15('32.58', '40.00', '42.12'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuSimple_2026_12: FlatRatePlan = {
+  ...chugokuSimple,
+  unitPriceYenPerKwh: new Decimal('39.31'),
+  minimumMonthlyThreshold: new Decimal('2057.02'),
+  // 改定前の 1,844.70 → 1,844円 と同じく、約款の「合計金額は1円未満切り捨て」による
+  minimumMonthlyBill: new Decimal('2057'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuJuryoB_2026_12: CapacityTieredPlan = {
+  ...chugokuJuryoB,
+  baseChargePerKva: new Decimal('476.18'),
+  tiers: tiers0('30.63', '36.72', '38.59'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuSmartB_2026_12: CapacityTieredPlan = {
+  ...chugokuSmartB,
+  baseChargePerKva: new Decimal('476.18'),
+  tiers: tiers0('29.61', '36.72', '38.59'),
+  sources: [CHUGOKU_REVISION_2026_11, CHUGOKU_BIZ_TARIFF_2026_11]
+}
+
+const chugokuLowVoltage_2026_12: DemandSeasonalPlan = {
+  ...chugokuLowVoltage,
+  baseChargePerKw: new Decimal('1228.07'),
+  summerUnitPriceYenPerKwh: new Decimal('27.20'),
+  otherUnitPriceYenPerKwh: new Decimal('25.91'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuPowerCourse_2026_12: DemandSeasonalPlan = {
+  ...chugokuPowerCourse,
+  baseChargePerKw: new Decimal('1216.59'),
+  summerUnitPriceYenPerKwh: new Decimal('27.20'),
+  otherUnitPriceYenPerKwh: new Decimal('25.91'),
+  sources: [CHUGOKU_REVISION_2026_11, CHUGOKU_BIZ_TARIFF_2026_11]
+}
+
+const chugokuDenkaStyle_2026_12: TimeOfUsePlan = {
+  ...chugokuDenkaStyle,
+  baseChargeUpTo10Kw: new Decimal('2255.36'),
+  baseChargePerKwOver10: new Decimal('519.81'),
+  unitPrices: touPrices('45.00', '47.06', '30.92', '30.92'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuNightHoliday_2026_12: TimeOfUsePlan = {
+  ...chugokuNightHoliday,
+  minimumMonthly: { threshold: new Decimal('2057.02'), bill: new Decimal('2057') },
+  unitPrices: touPrices('48.27', '50.73', '35.91', '35.91'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuMidnightB_2026_12: DemandFlatPlan = {
+  ...chugokuMidnightB,
+  baseChargePerKw: new Decimal('438.24'),
+  unitPriceYenPerKwh: new Decimal('30.89'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+// ファミリータイム・時間帯別電灯の最低月額料金（612.70円）は11月1日で廃止。
+// もともと計算に入れていない（適用事例が無いと中国電力が明記）ので影響しない
+const chugokuFamilyTime1_2026_12: FamilyTimePlan = {
+  ...chugokuFamilyTime1,
+  baseChargeUpTo10Kva: new Decimal('2834.32'),
+  baseChargePerKvaOver10: new Decimal('524.63'),
+  unitPrices: familyPrices('48.01', '43.20', '42.96', '30.94'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuFamilyTime2_2026_12: FamilyTimePlan = {
+  ...chugokuFamilyTime2,
+  baseChargeUpTo10Kva: new Decimal('1844.32'),
+  baseChargePerKvaOver10: new Decimal('524.63'),
+  unitPrices: familyPrices('51.34', '46.21', '45.97', '30.94'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+const chugokuEconomyNight_2026_12: EconomyNightPlan = {
+  ...chugokuEconomyNight,
+  baseChargeUpTo10Kva: new Decimal('1815.36'),
+  baseChargePerKvaOver10: new Decimal('519.81'),
+  dayTiers: [
+    { tierNumber: 1, startKwh: 0, endKwh: 90, unitPriceYenPerKwh: new Decimal('38.80') },
+    { tierNumber: 2, startKwh: 90, endKwh: 220, unitPriceYenPerKwh: new Decimal('44.40') },
+    { tierNumber: 3, startKwh: 220, endKwh: null, unitPriceYenPerKwh: new Decimal('45.44') }
+  ],
+  nightUnitPriceYenPerKwh: new Decimal('30.89'),
+  sources: CHUGOKU_2026_11_SOURCES
+}
+
+/**
+ * 単価の改定履歴。キーは planId、値は「この検針月から」の昇順。
+ *
+ * 改定のたびに古い単価を消すと、過去月の試算が当時の請求額と合わなくなる。
+ * 画面が過去21か月まで遡れる以上、履歴として持つ。
+ */
+const PLAN_REVISIONS: Record<string, Array<{ fromPeriod: string; plan: RatePlan }>> = {
+  ja_denki_juryo_a: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoA_2026_11 }],
+  ja_denki_juryo_s: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoS_2026_11 }],
+  ja_denki_juryo_b: [{ fromPeriod: '2026-11', plan: jaDenkiJuryoB_2026_11 }],
+  ja_denki_low_voltage: [{ fromPeriod: '2026-11', plan: jaDenkiLowVoltage_2026_11 }],
+  chugoku_juryo_a: [{ fromPeriod: '2026-12', plan: chugokuJuryoA_2026_12 }],
+  chugoku_smart: [{ fromPeriod: '2026-12', plan: chugokuSmart_2026_12 }],
+  chugoku_simple: [{ fromPeriod: '2026-12', plan: chugokuSimple_2026_12 }],
+  chugoku_juryo_b: [{ fromPeriod: '2026-12', plan: chugokuJuryoB_2026_12 }],
+  chugoku_smart_b: [{ fromPeriod: '2026-12', plan: chugokuSmartB_2026_12 }],
+  chugoku_low_voltage: [{ fromPeriod: '2026-12', plan: chugokuLowVoltage_2026_12 }],
+  chugoku_power_course: [{ fromPeriod: '2026-12', plan: chugokuPowerCourse_2026_12 }],
+  chugoku_denka_style: [{ fromPeriod: '2026-12', plan: chugokuDenkaStyle_2026_12 }],
+  chugoku_night_holiday: [{ fromPeriod: '2026-12', plan: chugokuNightHoliday_2026_12 }],
+  chugoku_midnight_b: [{ fromPeriod: '2026-12', plan: chugokuMidnightB_2026_12 }],
+  chugoku_family_1: [{ fromPeriod: '2026-12', plan: chugokuFamilyTime1_2026_12 }],
+  chugoku_family_2: [{ fromPeriod: '2026-12', plan: chugokuFamilyTime2_2026_12 }],
+  chugoku_economy_night: [{ fromPeriod: '2026-12', plan: chugokuEconomyNight_2026_12 }]
+}
+
+/** 検針月に適用される単価。改定履歴が無いプランはそのまま返す。 */
+export function planForPeriod(plan: RatePlan, period: { year: number; month: number }): RatePlan {
+  const revisions = PLAN_REVISIONS[plan.planId]
+  if (!revisions) return plan
+  const key = `${period.year}-${String(period.month).padStart(2, '0')}`
+  let applied = plan
+  for (const r of revisions) {
+    if (key >= r.fromPeriod) applied = r.plan
+  }
+  return applied
+}
+
+/**
+ * 料金改定の一覧。再訪の口実に使う。
+ *
+ * 「その後いかがですか」しか言えないのが、素人がいちばん困るところ。
+ * 改定は**こちらから連絡する正当な理由**になる。
+ */
+export const RATE_REVISIONS: Array<{ fromPeriod: string; summary: string }> = [
+  // 同じ月の改定は1件にまとめる。分けると同じ口実が2回並ぶ
+  {
+    fromPeriod: '2026-11',
+    summary:
+      '中国電力が託送料金の見直しで全メニュー値上げ（2026年11月1日ご使用分から。従量電灯Aの最低料金は約224円上がる）。' +
+      'JAでんきは従量電灯A・S・B・低圧電力の値下げ（11月検針分から）に加え、託送料金改定による11月以降の改定を予定（新単価は公表待ち）'
+  }
+]
+
+/** 改定後の単価を持つプラン。監査と料金マスターの生成に使う。 */
+export const REVISED_PLANS: RatePlan[] = Object.values(PLAN_REVISIONS)
+  .flatMap(rs => rs.map(r => r.plan))
+  .sort((a, b) => a.planId.localeCompare(b.planId))
+
+/**
+ * 改定が**公表されたのに新しい単価が手元に無い**期間。
+ *
+ * 旧単価のまま計算すると「推測で計算する」ことになる（CLAUDE.md ルール8）。
+ * とくに相手（中国電力）だけ値上げ後の単価で、JAでんきが値上げ前の単価だと、
+ * 削減額が実際より大きく出る。営業の場でいちばん信頼を失う誤り方なので、
+ * 該当する検針月は計算不可にし、検針月の選択肢からも外す。
+ *
+ * 新しい単価が手に入ったら PLAN_REVISIONS に足し、ここから消す。
+ */
+export interface UnpublishedRevision {
+  planIds: string[]
+  /** この検針月以降が対象 */
+  fromPeriod: string
+  reason: string
+  source: RateSource
+}
+
+const JA_DENKI_PLAN_IDS = ['ja_denki_juryo_a', 'ja_denki_juryo_s', 'ja_denki_juryo_b', 'ja_denki_low_voltage', 'ja_denki_yotoku']
+
+export const UNPUBLISHED_REVISIONS: UnpublishedRevision[] = [
+  {
+    planIds: JA_DENKI_PLAN_IDS,
+    // 「令和8年11月以降」としか書かれておらず、検針日基準かご使用分基準かも未公表。
+    // 早いほう（11月検針分）から止める
+    fromPeriod: '2026-11',
+    reason:
+      'JAでんきは託送料金の改定にともない、2026年11月以降の料金を改定すると公表しています（2026年10月9日）。改定後の単価がまだ公表されていないため、この検針月は試算できません',
+    source: {
+      document: '全農エネルギー「託送料金改定に伴うＪＡでんき（低圧）料金改定について」（2026年10月9日）',
+      locator: 'https://zennoh-energy.co.jp/ja-denki/resource/f95aba09c048975c25e8722c0d09e19743df984e.pdf',
+      effectiveFrom: '2026-11',
+      verificationStatus: 'verified',
+      verifiedAt: '2026-10-14'
+    }
+  }
+]
+
+/**
+ * 検針期間の途中で単価が変わる検針月。約款上は日割計算になる。
+ *
+ * 日割りは電力量の区分（15kWh・120kWh…）まで日数で按分する（料金表 附則2・別表1）。
+ * 検針期間の開始日・終了日が無いと計算できず、按分式も試算表に無いため実装していない。
+ * 旧単価・新単価のどちらかで計算すると請求額と合わないので、計算不可にする。
+ */
+export const PRORATED_PERIODS: Array<{ planIds: string[]; period: string; reason: string }> = [
+  {
+    planIds: [
+      'chugoku_juryo_a',
+      'chugoku_smart',
+      'chugoku_simple',
+      'chugoku_juryo_b',
+      'chugoku_smart_b',
+      'chugoku_low_voltage',
+      'chugoku_power_course',
+      'chugoku_denka_style',
+      'chugoku_night_holiday',
+      'chugoku_midnight_b',
+      'chugoku_family_1',
+      'chugoku_family_2',
+      'chugoku_economy_night'
+    ],
+    period: '2026-11',
+    reason:
+      '中国電力の料金は2026年11月1日のご使用分から改定されます。11月検針分は改定前後の日割り計算になるため、この検針月は試算できません'
+  }
+]
+
+/** その検針月の単価が確定しているか。確定していなければ理由を返す */
+export function rateAvailability(
+  plan: RatePlan,
+  period: { year: number; month: number }
+): { ok: true } | { ok: false; reason: string; nextSteps: string[] } {
+  const key = `${period.year}-${String(period.month).padStart(2, '0')}`
+  const pending = UNPUBLISHED_REVISIONS.find(r => r.planIds.includes(plan.planId) && key >= r.fromPeriod)
+  if (pending) {
+    return {
+      ok: false,
+      reason: pending.reason,
+      nextSteps: ['検針月を改定前の月にして試算してください', '改定後の単価が公表され次第、試算できるようにします']
+    }
+  }
+  const prorated = PRORATED_PERIODS.find(r => r.planIds.includes(plan.planId) && key === r.period)
+  if (prorated) {
+    return {
+      ok: false,
+      reason: prorated.reason,
+      nextSteps: ['前月または翌月の検針月で試算してください']
+    }
+  }
+  return { ok: true }
+}
+
+// ─────────────────────────────────────────────
 // 比較シナリオ
 // ─────────────────────────────────────────────
 
@@ -600,8 +924,24 @@ export interface ComparisonScenario {
    * 'from_economy_night' … 昼間・夜間の2区分を同様に按分（ファミリーとは別式）
    */
   candidateUsage: 'same' | 'all_night' | 'from_family' | 'from_economy_night'
+  /**
+   * ご契約容量によって加わる乗り換え先。時間帯の区分を持たない料金プランなので、
+   * 時間帯別の使用量の**合計**とご契約容量で計算する（振替の推定を挟まない）。
+   *
+   * ④の結果シートには従量電灯Aとの比較列があるが `#REF!` で壊れていた。
+   * 容量で適用できるプランが分かれる（従量電灯A・Sは6kVA未満、Bは6kVA以上50kVA未満。
+   * 電気需給約款・料金メニュー定義書の適用範囲）ので、その範囲の候補だけを出す。
+   */
+  contractDependentCandidates?: Array<{ plan: RatePlan; minKva: number; maxKvaExclusive: number }>
   sourceDocument: string
 }
+
+/** 従量電灯A・S（6kVA未満）／従量電灯B（6kVA以上50kVA未満）の適用範囲 */
+const LIGHTING_BY_CAPACITY: NonNullable<ComparisonScenario['contractDependentCandidates']> = [
+  { plan: jaDenkiJuryoA, minKva: 0, maxKvaExclusive: 6 },
+  { plan: jaDenkiJuryoS, minKva: 0, maxKvaExclusive: 6 },
+  { plan: jaDenkiJuryoB, minKva: 6, maxKvaExclusive: 50 }
+]
 
 export const SCENARIOS: ComparisonScenario[] = [
   {
@@ -665,6 +1005,30 @@ export const SCENARIOS: ComparisonScenario[] = [
     sourceDocument: DOC.lowVoltage
   },
   {
+    scenarioId: 'chugoku_power_course',
+    label: '中国電力 動力コース',
+    hint: '三相200V（動力）の自由料金。検針票に「動力コース」と記載',
+    current: chugokuPowerCourse,
+    candidates: [jaDenkiLowVoltage],
+    usageForm: 'seasonal',
+    contract: 'kw',
+    fuelProvider: 'chugoku',
+    candidateUsage: 'same',
+    sourceDocument: CHUGOKU_REVISION_2026_11_CURRENT.document
+  },
+  {
+    scenarioId: 'chugoku_smart_b',
+    label: '中国電力 スマートBコース',
+    hint: '契約容量6kVA以上の店舗・事務所向けの自由料金。検針票に「スマートBコース」と記載',
+    current: chugokuSmartB,
+    candidates: [jaDenkiJuryoB],
+    usageForm: 'total',
+    contract: 'kva',
+    fuelProvider: 'chugoku',
+    candidateUsage: 'same',
+    sourceDocument: CHUGOKU_REVISION_2026_11_CURRENT.document
+  },
+  {
     scenarioId: 'chugoku_denka_style',
     label: '中国電力 電化Style',
     hint: 'オール電化のご家庭。時間帯別の料金プラン',
@@ -712,6 +1076,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'from_family',
+    contractDependentCandidates: LIGHTING_BY_CAPACITY,
     sourceDocument: DOC.family
   },
   {
@@ -724,6 +1089,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'from_family',
+    contractDependentCandidates: LIGHTING_BY_CAPACITY,
     sourceDocument: DOC.family
   },
   {
@@ -736,6 +1102,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'from_economy_night',
+    contractDependentCandidates: LIGHTING_BY_CAPACITY,
     sourceDocument: DOC.family
   },
   {
@@ -749,6 +1116,18 @@ export const SCENARIOS: ComparisonScenario[] = [
     fuelProvider: 'au',
     candidateUsage: 'same',
     sourceDocument: DOC.auM
+  },
+  {
+    scenarioId: 'au_low_voltage',
+    label: 'auでんき 低圧電力',
+    hint: 'auでんきの動力（三相200V）のご契約',
+    current: auLowVoltage,
+    candidates: [jaDenkiLowVoltage],
+    usageForm: 'seasonal',
+    contract: 'kw',
+    fuelProvider: 'au',
+    candidateUsage: 'same',
+    sourceDocument: DOC.auLow
   }
 ]
 
@@ -768,6 +1147,10 @@ export function findScenario(scenarioId: string): ComparisonScenario | undefined
  */
 export const ALL_PLANS: RatePlan[] = Array.from(
   new Map(
-    SCENARIOS.flatMap(s => [s.current, ...s.candidates]).map(p => [p.planId, p])
+    SCENARIOS.flatMap(s => [
+      s.current,
+      ...s.candidates,
+      ...(s.contractDependentCandidates ?? []).map(c => c.plan)
+    ]).map(p => [p.planId, p])
   ).values()
 ).sort((a, b) => a.planId.localeCompare(b.planId))

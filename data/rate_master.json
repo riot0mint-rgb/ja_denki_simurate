@@ -4,10 +4,42 @@
     "generated_from": "apps/web/src/data/rates.ts + packages/calc-core/src/monthlyRates.ts",
     "generator": "scripts/generate-rate-master.ts",
     "warning": "このファイルは生成物です。編集しても計算には反映されません。単価を直すには正本の TypeScript を変更してください。",
-    "plan_count": 21,
-    "scenario_count": 12
+    "plan_count": 37,
+    "scenario_count": 15
   },
   "plans": [
+    {
+      "structure": "demand_seasonal",
+      "planId": "au_low_voltage",
+      "planName": "auでんき 低圧電力",
+      "side": "other",
+      "baseChargePerKw": "1163.91",
+      "summerUnitPriceYenPerKwh": "26.79",
+      "otherUnitPriceYenPerKwh": "25.5",
+      "halveBaseWhenNoUsage": false,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "none",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "☆JAでんき試算表(VS auでんき_低圧電力)26年6月.xlsx",
+          "locator": "'基本項目'!E20:E22（ａｕでんき 低圧電力）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        },
+        {
+          "document": "☆JAでんき試算表(VS auでんき_低圧電力)26年6月.xlsx",
+          "locator": "'シミュレーション結果明細'!I9:I14（計算式・端数処理）",
+          "effectiveFrom": "2026-07",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
     {
       "structure": "tiered_minimum",
       "planId": "au_m_plan",
@@ -451,6 +483,38 @@
       ]
     },
     {
+      "structure": "demand_seasonal",
+      "planId": "chugoku_power_course",
+      "planName": "中国電力 動力コース",
+      "side": "other",
+      "baseChargePerKw": "1152.44",
+      "summerUnitPriceYenPerKwh": "26.8",
+      "otherUnitPriceYenPerKwh": "25.51",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「現行単価（Ａ）」列（2024年4月1日実施の料金表）",
+          "effectiveFrom": "2024-04",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        },
+        {
+          "document": "中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2026年11月1日実施）",
+          "locator": "https://www.energia.co.jp/elec/pdf/biz-power-20261101.pdf / biz-smartb-20261101.pdf 本則(１)基本料金「まったく電気を使用しない場合の基本料金は、半額」",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
       "structure": "flat_rate",
       "planId": "chugoku_simple",
       "planName": "中国電力 シンプルコース",
@@ -535,6 +599,56 @@
           "effectiveFrom": "2026-07",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "capacity_tiered",
+      "planId": "chugoku_smart_b",
+      "planName": "中国電力 スマートBコース",
+      "side": "other",
+      "baseChargePerKva": "447.97",
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "29.04"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "36.15"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "38.02"
+        }
+      ],
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「現行単価（Ａ）」列（2024年4月1日実施の料金表）",
+          "effectiveFrom": "2024-04",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        },
+        {
+          "document": "中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2026年11月1日実施）",
+          "locator": "https://www.energia.co.jp/elec/pdf/biz-power-20261101.pdf / biz-smartb-20261101.pdf 本則(１)基本料金「まったく電気を使用しない場合の基本料金は、半額」",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
         }
       ]
     },
@@ -756,6 +870,470 @@
           "effectiveFrom": "2024-05",
           "verificationStatus": "verified",
           "verifiedAt": "2026-08-20"
+        }
+      ]
+    },
+    {
+      "structure": "time_of_use",
+      "planId": "chugoku_denka_style",
+      "planName": "中国電力 電化Style",
+      "side": "other",
+      "baseChargeUpTo10Kw": "2255.36",
+      "baseChargePerKwOver10": "519.81",
+      "minimumMonthly": null,
+      "unitPrices": {
+        "dayOther": "45",
+        "daySummer": "47.06",
+        "night": "30.92",
+        "holiday": "30.92"
+      },
+      "halveBaseWhenNoUsage": true,
+      "allElectricDiscount": null,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "economy_night",
+      "planId": "chugoku_economy_night",
+      "planName": "中国電力 時間帯別電灯（エコノミーナイト）",
+      "side": "other",
+      "baseChargeUpTo10Kva": "1815.36",
+      "baseChargePerKvaOver10": "519.81",
+      "dayTiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 90,
+          "unitPriceYenPerKwh": "38.8"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 90,
+          "endKwh": 220,
+          "unitPriceYenPerKwh": "44.4"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 220,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "45.44"
+        }
+      ],
+      "nightUnitPriceYenPerKwh": "30.89",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "family_time",
+      "planId": "chugoku_family_1",
+      "planName": "中国電力 ファミリータイムⅠ",
+      "side": "other",
+      "baseChargeUpTo10Kva": "2834.32",
+      "baseChargePerKvaOver10": "524.63",
+      "unitPrices": {
+        "daySummer": "48.01",
+        "dayOther": "43.2",
+        "family": "42.96",
+        "night": "30.94"
+      },
+      "allElectricDiscount": {
+        "rate": "0.08",
+        "capYen": "3300"
+      },
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "family_time",
+      "planId": "chugoku_family_2",
+      "planName": "中国電力 ファミリータイムⅡ",
+      "side": "other",
+      "baseChargeUpTo10Kva": "1844.32",
+      "baseChargePerKvaOver10": "524.63",
+      "unitPrices": {
+        "daySummer": "51.34",
+        "dayOther": "46.21",
+        "family": "45.97",
+        "night": "30.94"
+      },
+      "allElectricDiscount": {
+        "rate": "0.08",
+        "capYen": "3300"
+      },
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "chugoku_juryo_a",
+      "planName": "中国電力 従量電灯A",
+      "side": "other",
+      "minimumCharge": "983.37",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "33.32"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "40"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "42.12"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "capacity_tiered",
+      "planId": "chugoku_juryo_b",
+      "planName": "中国電力 従量電灯B",
+      "side": "other",
+      "baseChargePerKva": "476.18",
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "30.63"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "36.72"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "38.59"
+        }
+      ],
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "none",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "demand_seasonal",
+      "planId": "chugoku_low_voltage",
+      "planName": "中国電力 低圧電力",
+      "side": "other",
+      "baseChargePerKw": "1228.07",
+      "summerUnitPriceYenPerKwh": "27.2",
+      "otherUnitPriceYenPerKwh": "25.91",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "demand_flat",
+      "planId": "chugoku_midnight_b",
+      "planName": "中国電力 深夜電力B",
+      "side": "other",
+      "baseChargePerKw": "438.24",
+      "unitPriceYenPerKwh": "30.89",
+      "halveTotalWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "time_of_use",
+      "planId": "chugoku_night_holiday",
+      "planName": "中国電力 ナイトホリデー",
+      "side": "other",
+      "baseChargeUpTo10Kw": null,
+      "baseChargePerKwOver10": null,
+      "minimumMonthly": {
+        "threshold": "2057.02",
+        "bill": "2057"
+      },
+      "unitPrices": {
+        "dayOther": "48.27",
+        "daySummer": "50.73",
+        "night": "35.91",
+        "holiday": "35.91"
+      },
+      "halveBaseWhenNoUsage": true,
+      "allElectricDiscount": null,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "demand_seasonal",
+      "planId": "chugoku_power_course",
+      "planName": "中国電力 動力コース",
+      "side": "other",
+      "baseChargePerKw": "1216.59",
+      "summerUnitPriceYenPerKwh": "27.2",
+      "otherUnitPriceYenPerKwh": "25.91",
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        },
+        {
+          "document": "中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2026年11月1日実施）",
+          "locator": "https://www.energia.co.jp/elec/pdf/biz-power-20261101.pdf / biz-smartb-20261101.pdf 本則(１)基本料金「まったく電気を使用しない場合の基本料金は、半額」",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "flat_rate",
+      "planId": "chugoku_simple",
+      "planName": "中国電力 シンプルコース",
+      "side": "other",
+      "unitPriceYenPerKwh": "39.31",
+      "minimumMonthlyThreshold": "2057.02",
+      "minimumMonthlyBill": "2057",
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "tiered_minimum",
+      "planId": "chugoku_smart",
+      "planName": "中国電力 スマートコース",
+      "side": "other",
+      "minimumCharge": "893.61",
+      "minimumIncludedKwh": 15,
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 15,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "32.58"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "40"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "42.12"
+        }
+      ],
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "structure": "capacity_tiered",
+      "planId": "chugoku_smart_b",
+      "planName": "中国電力 スマートBコース",
+      "side": "other",
+      "baseChargePerKva": "476.18",
+      "tiers": [
+        {
+          "tierNumber": 1,
+          "startKwh": 0,
+          "endKwh": 120,
+          "unitPriceYenPerKwh": "29.61"
+        },
+        {
+          "tierNumber": 2,
+          "startKwh": 120,
+          "endKwh": 300,
+          "unitPriceYenPerKwh": "36.72"
+        },
+        {
+          "tierNumber": 3,
+          "startKwh": 300,
+          "endKwh": null,
+          "unitPriceYenPerKwh": "38.59"
+        }
+      ],
+      "halveBaseWhenNoUsage": true,
+      "rounding": {
+        "energyTotal": "none",
+        "fuelSubtotal": "none",
+        "levySubtotal": "down",
+        "finalTotal": "down"
+      },
+      "sources": [
+        {
+          "document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf",
+          "locator": "https://www.energia.co.jp/assets/press/2026/p20260928-1b.pdf 「見直し後単価（Ｂ）」列（プレスリリース 2026-09-28「電気料金メニューの見直し（託送料金見直しの反映）について」）",
+          "effectiveFrom": "2026-12",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
+        },
+        {
+          "document": "中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2026年11月1日実施）",
+          "locator": "https://www.energia.co.jp/elec/pdf/biz-power-20261101.pdf / biz-smartb-20261101.pdf 本則(１)基本料金「まったく電気を使用しない場合の基本料金は、半額」",
+          "effectiveFrom": "2026-11",
+          "verificationStatus": "verified",
+          "verifiedAt": "2026-10-14"
         }
       ]
     },
@@ -984,6 +1562,32 @@
       "source_document": "⑤JAでんき試算表(VS中電_低圧電力)26年7月適用.xlsx"
     },
     {
+      "scenario_id": "chugoku_power_course",
+      "label": "中国電力 動力コース",
+      "current_plan_id": "chugoku_power_course",
+      "candidate_plan_ids": [
+        "ja_denki_low_voltage"
+      ],
+      "usage_form": "seasonal",
+      "contract": "kw",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf"
+    },
+    {
+      "scenario_id": "chugoku_smart_b",
+      "label": "中国電力 スマートBコース",
+      "current_plan_id": "chugoku_smart_b",
+      "candidate_plan_ids": [
+        "ja_denki_juryo_b"
+      ],
+      "usage_form": "total",
+      "contract": "kva",
+      "fuel_provider": "chugoku",
+      "candidate_usage": "same",
+      "source_document": "中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf"
+    },
+    {
       "scenario_id": "chugoku_denka_style",
       "label": "中国電力 電化Style",
       "current_plan_id": "chugoku_denka_style",
@@ -1074,9 +1678,50 @@
       "fuel_provider": "au",
       "candidate_usage": "same",
       "source_document": "☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx"
+    },
+    {
+      "scenario_id": "au_low_voltage",
+      "label": "auでんき 低圧電力",
+      "current_plan_id": "au_low_voltage",
+      "candidate_plan_ids": [
+        "ja_denki_low_voltage"
+      ],
+      "usage_form": "seasonal",
+      "contract": "kw",
+      "fuel_provider": "au",
+      "candidate_usage": "same",
+      "source_document": "☆JAでんき試算表(VS auでんき_低圧電力)26年6月.xlsx"
     }
   ],
   "monthly_rates": [
+    {
+      "provider": "chugoku",
+      "period": "2026-11",
+      "fuel_minimum_charge_yen": "-116.02",
+      "fuel_unit_price_yen_per_kwh": "-7.73",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "中国電力「燃料費等調整制度のご案内〔中国電力エリア〕」燃料費等調整単価一覧",
+        "locator": "https://www.energia.co.jp/elec/seido/nencho/ 2026-11",
+        "effectiveFrom": "2026-11",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
+      "period": "2026-10",
+      "fuel_minimum_charge_yen": "-171.63",
+      "fuel_unit_price_yen_per_kwh": "-11.43",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "中国電力「燃料費等調整制度のご案内〔中国電力エリア〕」燃料費等調整単価一覧",
+        "locator": "https://www.energia.co.jp/elec/seido/nencho/ 2026-10",
+        "effectiveFrom": "2026-10",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
     {
       "provider": "chugoku",
       "period": "2026-09",
@@ -1367,6 +2012,34 @@
         "document": "①〜⑥JAでんき試算表 26年7月適用",
         "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-01",
         "effectiveFrom": "2025-01",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "au",
+      "period": "2026-10",
+      "fuel_minimum_charge_yen": "-119.12",
+      "fuel_unit_price_yen_per_kwh": "-7.95",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "auでんき公式「燃料費調整単価」",
+        "locator": "https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア） 2026-10",
+        "effectiveFrom": "2026-10",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "au",
+      "period": "2026-09",
+      "fuel_minimum_charge_yen": "-179.02",
+      "fuel_unit_price_yen_per_kwh": "-11.94",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "auでんき公式「燃料費調整単価」",
+        "locator": "https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア） 2026-09",
+        "effectiveFrom": "2026-09",
         "verificationStatus": "verified",
         "verifiedAt": "2026-08-20"
       }

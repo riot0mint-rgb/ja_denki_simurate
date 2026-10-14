@@ -11,6 +11,9 @@ import {
 import {
   ALL_PLANS,
   REVISED_PLANS,
+  PRORATED_PERIODS,
+  UNPUBLISHED_REVISIONS,
+  rateAvailability,
   jaDenkiJuryoA,
   jaDenkiJuryoB,
   jaDenkiJuryoS,
@@ -203,7 +206,7 @@ describe('2026年10月改定', () => {
   })
 
   it('改定後の単価にも出典が付いている（ルール4）', () => {
-    for (const plan of REVISED_PLANS) {
+    for (const plan of REVISED_PLANS.filter(p => p.side === 'ja')) {
       expect(plan.sources.length).toBeGreaterThan(0)
       for (const s of plan.sources) {
         expect(s.document).toMatch(/20261001/)
@@ -276,5 +279,224 @@ describe('最低月額料金の請求額', () => {
     expect(nightHoliday.minimumMonthly.bill.toString()).toBe('1844')
     expect(simple.minimumMonthlyThreshold.toString()).toBe('1844.7')
     expect(simple.minimumMonthlyBill.toString()).toBe('1844')
+  })
+})
+
+/**
+ * 2026年11月1日 中国電力の料金見直し（託送料金見直しの反映）。
+ * 出典: 中国電力 プレスリリース 2026-09-28 別紙・参考資料（電気料金単価表 2026年11月１日実施）。
+ * ご使用分基準なので、全量が新単価になるのは12月検針分から。
+ */
+describe('2026年11月 中国電力の料金見直し', () => {
+  const plan = (planId: string) => ALL_PLANS.find(p => p.planId === planId)!
+  const DEC = { year: 2026, month: 12 }
+  const NOV = { year: 2026, month: 11 }
+  const OCT = { year: 2026, month: 10 }
+
+  /** 参考資料「見直し後単価（Ｂ）」列。並びは単価表のとおり */
+  const AFTER: Record<string, string[]> = {
+    chugoku_juryo_a: ['983.37', '33.32', '40', '42.12'],
+    chugoku_smart: ['893.61', '32.58', '40', '42.12'],
+    chugoku_juryo_b: ['476.18', '30.63', '36.72', '38.59'],
+    chugoku_smart_b: ['476.18', '29.61', '36.72', '38.59'],
+    chugoku_simple: ['39.31', '2057.02', '2057'],
+    chugoku_low_voltage: ['1228.07', '27.2', '25.91'],
+    chugoku_power_course: ['1216.59', '27.2', '25.91'],
+    chugoku_denka_style: ['2255.36', '519.81', '47.06', '45', '30.92', '30.92'],
+    chugoku_night_holiday: ['2057.02', '2057', '50.73', '48.27', '35.91', '35.91'],
+    chugoku_midnight_b: ['438.24', '30.89'],
+    chugoku_family_1: ['2834.32', '524.63', '48.01', '43.2', '42.96', '30.94'],
+    chugoku_family_2: ['1844.32', '524.63', '51.34', '46.21', '45.97', '30.94'],
+    chugoku_economy_night: ['1815.36', '519.81', '38.8', '44.4', '45.44', '30.89']
+  }
+
+  /** 構造ごとに単価を単価表と同じ並びで取り出す */
+  function unitPrices(p: RatePlan): string[] {
+    const d = (v: Decimal) => v.toString()
+    switch (p.structure) {
+      case 'tiered_minimum':
+        return [d(p.minimumCharge), ...p.tiers.map(t => d(t.unitPriceYenPerKwh))]
+      case 'capacity_tiered':
+        return [d(p.baseChargePerKva), ...p.tiers.map(t => d(t.unitPriceYenPerKwh))]
+      case 'flat_rate':
+        return [d(p.unitPriceYenPerKwh), d(p.minimumMonthlyThreshold), d(p.minimumMonthlyBill)]
+      case 'demand_seasonal':
+        return [d(p.baseChargePerKw), d(p.summerUnitPriceYenPerKwh), d(p.otherUnitPriceYenPerKwh)]
+      case 'time_of_use':
+        return [
+          ...(p.baseChargeUpTo10Kw ? [d(p.baseChargeUpTo10Kw), d(p.baseChargePerKwOver10!)] : []),
+          ...(p.minimumMonthly ? [d(p.minimumMonthly.threshold), d(p.minimumMonthly.bill)] : []),
+          d(p.unitPrices.daySummer),
+          d(p.unitPrices.dayOther),
+          d(p.unitPrices.night),
+          d(p.unitPrices.holiday)
+        ]
+      case 'demand_flat':
+        return [d(p.baseChargePerKw), d(p.unitPriceYenPerKwh)]
+      case 'family_time':
+        return [
+          d(p.baseChargeUpTo10Kva),
+          d(p.baseChargePerKvaOver10),
+          d(p.unitPrices.daySummer),
+          d(p.unitPrices.dayOther),
+          d(p.unitPrices.family),
+          d(p.unitPrices.night)
+        ]
+      case 'economy_night':
+        return [
+          d(p.baseChargeUpTo10Kva),
+          d(p.baseChargePerKvaOver10),
+          ...p.dayTiers.map(t => d(t.unitPriceYenPerKwh)),
+          d(p.nightUnitPriceYenPerKwh)
+        ]
+    }
+  }
+
+  it.each(Object.entries(AFTER))('%s: 12月検針分から見直し後単価', (planId, expected) => {
+    expect(unitPrices(planForPeriod(plan(planId), DEC))).toEqual(expected)
+  })
+
+  it('中国電力の全プランが見直しの対象になっている（漏れが無い）', () => {
+    const chugoku = ALL_PLANS.filter(p => p.planId.startsWith('chugoku_')).map(p => p.planId).sort()
+    expect(Object.keys(AFTER).sort()).toEqual(chugoku)
+  })
+
+  it('改定後の単価の出典は単価表（2026年11月1日実施）', () => {
+    for (const planId of Object.keys(AFTER)) {
+      const docs = planForPeriod(plan(planId), DEC).sources.map(s => s.document)
+      expect(docs.some(d => d.includes('2026年11月１日実施'))).toBe(true)
+    }
+  })
+
+  it('10月検針分までは現行単価のまま', () => {
+    for (const planId of Object.keys(AFTER)) {
+      expect(planForPeriod(plan(planId), OCT)).toBe(plan(planId))
+      expect(rateAvailability(plan(planId), OCT).ok).toBe(true)
+    }
+  })
+
+  it('11月検針分は日割りになるため計算不可（推測で旧単価・新単価のどちらにも寄せない）', () => {
+    for (const planId of Object.keys(AFTER)) {
+      const r = rateAvailability(plan(planId), NOV)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.reason).toContain('日割り')
+    }
+    expect(PRORATED_PERIODS[0].planIds.sort()).toEqual(Object.keys(AFTER).sort())
+  })
+
+  it('auでんきは改定の公表が無いので据え置き・計算も止めない', () => {
+    for (const planId of ['au_m_plan', 'au_low_voltage']) {
+      expect(planForPeriod(plan(planId), DEC)).toBe(plan(planId))
+      expect(rateAvailability(plan(planId), NOV).ok).toBe(true)
+    }
+  })
+
+  /**
+   * 別紙 3-1「モデル料金でのお客さまへの影響額」。2026年10月分の燃料費等調整額から
+   * 国の支援（10月分 ▲3.50円/kWh）を除いた額で計算されている。
+   *   15kWhまで: ▲171.63 + 3.50×15 = ▲119.13 ／ 15kWh超: ▲11.43 + 3.50 = ▲7.93
+   */
+  describe('モデル料金（別紙 3-1）を再現する', () => {
+    const fuelWithoutSubsidy = { minimumCharge: new Decimal('-119.13'), unitPriceYenPerKwh: new Decimal('-7.93') }
+    const levy = lookupRenewableLevy(OCT)!.value
+    const total = (p: RatePlan, usage: UsageInput) => {
+      const r = calculator.calculate({ usage, plan: p, fuelAdjustment: fuelWithoutSubsidy, renewableLevy: levy })
+      if (r.status !== 'ok') throw new Error(r.reason)
+      return r.bill.total.toNumber()
+    }
+    const both = (planId: string, usage: UsageInput) => [
+      total(plan(planId), usage),
+      total(planForPeriod(plan(planId), DEC), usage)
+    ]
+
+    it('従量電灯A 260kWh: 8,742円 → 9,105円', () => {
+      expect(both('chugoku_juryo_a', { totalKwh: 260 })).toEqual([8742, 9105])
+    })
+    it('スマートコース 260kWh: 8,575円 → 8,938円', () => {
+      expect(both('chugoku_smart', { totalKwh: 260 })).toEqual([8575, 8938])
+    })
+    it('シンプルコース 600kWh: 20,676円 → 21,336円', () => {
+      expect(both('chugoku_simple', { totalKwh: 600 })).toEqual([20676, 21336])
+    })
+    it('電化Styleコース 10kW・デイ138/ナイト208/ホリデー184kWh: 18,055円 → 18,598円', () => {
+      const usage = { contractKw: 10, tou: { dayOther: 138, night: 208, holiday: 184 } }
+      expect(both('chugoku_denka_style', usage)).toEqual([18055, 18598])
+    })
+  })
+})
+
+describe('JAでんきの託送料金改定（公表済み・新単価は未公表）', () => {
+  const NOV = { year: 2026, month: 11 }
+  it('JAでんきの全プランが11月検針分以降は計算不可', () => {
+    const ja = ALL_PLANS.filter(p => p.side === 'ja')
+    expect(ja.length).toBeGreaterThan(0)
+    for (const p of ja) {
+      const r = rateAvailability(p, NOV)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.reason).toContain('改定後の単価がまだ公表されていない')
+      expect(rateAvailability(p, { year: 2027, month: 3 }).ok).toBe(false)
+      expect(rateAvailability(p, { year: 2026, month: 10 }).ok).toBe(true)
+    }
+  })
+
+  it('止めている根拠（全農エネルギーのお知らせ）を出典として持つ', () => {
+    for (const r of UNPUBLISHED_REVISIONS) {
+      expect(r.source.locator).toMatch(/^https:\/\/zennoh-energy\.co\.jp\//)
+      expect(r.source.verificationStatus).toBe('verified')
+    }
+  })
+})
+
+describe('追加したプラン', () => {
+  const plan = (planId: string) => ALL_PLANS.find(p => p.planId === planId)!
+  const OCT = { year: 2026, month: 10 }
+
+  it('動力コース: 基本料金だけが規制料金の低圧電力より 11.48円/kW 安い', () => {
+    const power = plan('chugoku_power_course') as typeof jaDenkiLowVoltage
+    const low = plan('chugoku_low_voltage') as typeof jaDenkiLowVoltage
+    expect(low.baseChargePerKw.minus(power.baseChargePerKw).toString()).toBe('11.48')
+    expect(power.summerUnitPriceYenPerKwh.equals(low.summerUnitPriceYenPerKwh)).toBe(true)
+    expect(power.otherUnitPriceYenPerKwh.equals(low.otherUnitPriceYenPerKwh)).toBe(true)
+  })
+
+  it('動力コース・スマートBは使用量0kWhで基本料金が半額（料金表 本則(１)）', () => {
+    const power = bill(plan('chugoku_power_course'), { contractKw: 6, seasonal: { summerKwh: 0, otherKwh: 0 } }, OCT)
+    expect(power.baseCharge.toNumber()).toBe(3457.32)
+    const smartB = bill(plan('chugoku_smart_b'), { contractKva: 10, totalKwh: 0 }, OCT)
+    expect(smartB.baseCharge.toNumber()).toBe(2239.85)
+  })
+
+  it('スマートB 10kVA・400kWh（10月）', () => {
+    // 4,479.70 + 29.04×120 + 36.15×180 + 38.02×100 = 4,479.70 + 3,484.80 + 6,507.00 + 3,802.00 = 18,273.50
+    // 燃調 ▲11.43×400 = ▲4,572 ／ 賦課金 4.18×400 = 1,672 → 15,373.50 → 15,373
+    const b = bill(plan('chugoku_smart_b'), { contractKva: 10, totalKwh: 400 }, OCT)
+    expect(b.total.toNumber()).toBe(15373)
+  })
+
+  // ☆低圧電力試算表 'シミュレーション結果明細' の基準ケース（6kW・0kWh）I14 = 6,983
+  it('auでんき 低圧電力: 試算表の基準ケース 6kW・0kWh → 6,983円（半額規定なし）', () => {
+    const fuel = lookupFuelAdjustment({ year: 2026, month: 7 }, 'au')!.value
+    const levy = lookupRenewableLevy({ year: 2026, month: 7 })!.value
+    const r = calculator.calculate({
+      usage: { contractKw: 6, seasonal: { summerKwh: 0, otherKwh: 0 } },
+      plan: plan('au_low_voltage'),
+      fuelAdjustment: fuel,
+      renewableLevy: levy
+    })
+    expect(r.status).toBe('ok')
+    if (r.status === 'ok') expect(r.bill.total.toNumber()).toBe(6983)
+  })
+
+  it('auでんき 低圧電力: 燃調は auでんきの15kWh超の単価を全量に掛け、合計で1回だけ切り捨てる', () => {
+    const fuel = lookupFuelAdjustment({ year: 2026, month: 7 }, 'au')!.value
+    const levy = lookupRenewableLevy({ year: 2026, month: 7 })!.value
+    const r = calculator.calculate({
+      usage: { contractKw: 6, seasonal: { summerKwh: 333, otherKwh: 0 } },
+      plan: plan('au_low_voltage'),
+      fuelAdjustment: fuel,
+      renewableLevy: levy
+    })
+    // 6,983.46 + 26.79×333 − 13.09×333 + 4.18×333 = 6,983.46 + 8,921.07 − 4,358.97 + 1,391.94 = 12,937.50
+    expect(r.status === 'ok' && r.bill.total.toNumber()).toBe(12937)
   })
 })
