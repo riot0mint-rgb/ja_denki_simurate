@@ -83,6 +83,32 @@ describe('結果画面', () => {
       expect(screen.getByText(/環境省「家庭部門のCO2排出実態統計調査」/)).toBeInTheDocument()
     })
 
+    it('「昼・夜・休日の割合は検針票の月と同じ」の前提を、見積もり方の説明文の中で繰り返さない', async () => {
+      const r = render(
+        <ComparisonResult
+          scenarioId="chugoku_night_holiday"
+          usage={{ contractKw: 6, readingDay: 6, tou: { daySummer: 100, dayOther: 0, night: 300, holiday: 50 } }}
+          period={JULY}
+          onBack={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      // 前提は専用の1行に書く。統計の説明文（切り替えの下の一文）には入れない
+      expect(r.container.querySelector('.method-switch-hint')!.textContent).not.toContain('昼・夜・休日の割合')
+      expect(r.container.querySelectorAll('.method-switch ~ .note')).toHaveLength(1)
+    })
+
+    it('結果画面の注意書きは、季節で変わるでも契約の種類を限定しない（ご家庭の平均と決めつけない）', async () => {
+      show('chugoku_low_voltage', {
+        contractKw: 6,
+        seasonal: { summerKwh: 400, otherKwh: 0 },
+        totalKwh: 400
+      })
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(screen.getByText(/ご契約の種類に合わせた中国エリアの統計から/)).toBeInTheDocument()
+      expect(screen.queryByText(/ご家庭の平均的な使われ方/)).not.toBeInTheDocument()
+    })
+
     it('低圧電力の切り替えは、低圧電力の統計を説明に使う', async () => {
       show('chugoku_low_voltage', {
         contractKw: 6,
