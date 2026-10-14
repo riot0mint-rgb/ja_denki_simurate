@@ -546,7 +546,7 @@ async function runDetailed(page, scenario, usage = '348', period) {
   check(
     'A14b',
     'SMOKE 2-2 の毎月おなじ／季節で変わる',
-    smokeFlatYen.includes('13,428') && smokeSeasonal.includes('10,184'),
+    smokeFlatYen.includes('13,428') && smokeSeasonal.includes('18,277'),
     `${smokeFlatYen} / ${smokeSeasonal}`
   )
 
@@ -566,7 +566,7 @@ async function runDetailed(page, scenario, usage = '348', period) {
   check(
     'A14d',
     'SMOKE 2-4 の推定使用量とおトク額',
-    /275\s*kWh/.test(simpleBody) && flat(await hero()).includes('3,252'),
+    /265\s*kWh/.test(simpleBody) && flat(await hero()).includes('3,088'),
     flat(await hero())
   )
 
@@ -658,9 +658,9 @@ async function runDetailed(page, scenario, usage = '348', period) {
     'A15b',
     '説明の台本に、試算の実数が入っている',
     /今日の試算を、そのまま読む/.test(explain) &&
-      explain.includes('231,624円') &&
+      explain.includes('232,182円') &&
       explain.includes('13,428円'),
-    explain.includes('231,624円') ? '年額・差額とも一致' : '年間の料金が出ていない'
+    explain.includes('232,182円') ? '年額・差額とも一致' : '年間の料金が出ていない'
   )
 
   // 「なぜ安くなるのか」に、単価ではなく仕組みから答えているか

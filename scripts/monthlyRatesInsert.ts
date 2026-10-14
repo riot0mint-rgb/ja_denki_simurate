@@ -54,7 +54,11 @@ export function insertLines(source: string, insertAt: number, lines: string[]): 
   const needsComma = trimmedBefore.length > 0 && !trimmedBefore.endsWith(',') && !trimmedBefore.endsWith('{')
   const fixedBefore = needsComma ? `${trimmedBefore},\n` : before
 
-  const inserted = lines.map(l => `  ${l}`).join('\n')
+  // 既存の行に合わせ、ブロック最後の行には末尾カンマを付けない（次の追記時に上の処理で補われる）
+  const inserted = lines
+    .map(l => `  ${l}`)
+    .join('\n')
+    .replace(/,$/, '')
   return `${fixedBefore}${inserted}\n${after}`
 }
 

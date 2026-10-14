@@ -5,7 +5,8 @@ import {
   AU_FUEL,
   RENEWABLE_LEVY,
   FuelRow,
-  FuelAdjustmentProvider
+  FuelAdjustmentProvider,
+  SourceKey
 } from './monthlyRatesData.js';
 
 /**
@@ -29,23 +30,18 @@ export function periodKey(p: RatePeriod): string {
   return `${p.year}-${String(p.month).padStart(2, '0')}`;
 }
 
-/**
- * 単価の出所。月によって出所が違うため行ごとに持つ。
- * 全部まとめて「試算表」と書くと、値の載っていない文書を出典として
- * verified で記録することになる（CLAUDE.md ルール4）。
- */
-type SourceKey = 'spreadsheet' | 'zennoh' | 'au-site';
-
 const SOURCE_DOCUMENTS: Record<SourceKey, string> = {
   spreadsheet: '①〜⑥JAでんき試算表 26年7月適用',
   zennoh: '全農エネルギー「燃料費調整単価（低圧）のお知らせ」',
-  'au-site': 'auでんき公式「燃料費調整単価」'
+  'au-site': 'auでんき公式「燃料費調整単価」',
+  energia: '中国電力「燃料費等調整制度のご案内〔中国電力エリア〕」燃料費等調整単価一覧'
 };
 
 const SOURCE_LOCATORS: Record<SourceKey, string> = {
   spreadsheet: '公式試算表「基本項目」燃料費調整額',
   zennoh: 'https://zennoh-energy.co.jp/ja-denki/（中国エリア・低圧）',
-  'au-site': 'https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア）'
+  'au-site': 'https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア）',
+  energia: 'https://www.energia.co.jp/elec/seido/nencho/'
 };
 
 const FUEL_TABLES: Record<FuelAdjustmentProvider, Record<string, FuelRow>> = {

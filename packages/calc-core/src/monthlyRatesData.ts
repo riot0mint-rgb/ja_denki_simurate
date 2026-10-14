@@ -27,15 +27,18 @@ export interface FuelRow {
  * 全部まとめて「試算表」と書くと、値の載っていない文書を出典として
  * verified で記録することになる（CLAUDE.md ルール4）。
  */
-export type SourceKey = 'spreadsheet' | 'zennoh' | 'au-site';
+export type SourceKey = 'spreadsheet' | 'zennoh' | 'au-site' | 'energia';
 
 export type FuelAdjustmentProvider = 'chugoku' | 'au';
 
 /**
  * 中国電力エリア（中国電力・JAでんき共通）の燃料費調整額。
  * 出典: 公式試算表「基本項目」燃料費調整額の表（2026-07 まで）。
- * 2026-08 以降は全農エネルギーが公表する「燃料費調整単価（低圧）のお知らせ」から。
- * 中国電力の公表値（燃料費等調整制度のご案内）とも一致することを確認済み。
+ * 2026-08〜09 は全農エネルギーが公表する「燃料費調整単価（低圧）のお知らせ」から。
+ * 2026-10 以降は中国電力「燃料費等調整制度のご案内」（`from: 'energia'`）から
+ * フェーズ6-b の自動取得で追記する。収録済みの全月が中国電力の公表値と一致することを
+ * 2026-10-14 に確認済み（scripts/monthlyRatesParse.test.ts）。
+ * JAでんきの「燃料費調整単価（低圧）のお知らせ」2026年10月分（▲171.63円／▲11.43円）とも一致。
  */
 export const CHUGOKU_FUEL: Record<string, FuelRow> = {
   '2025-01': { minimumCharge: '-130.31', unitPriceYenPerKwh: '-8.67' },
@@ -60,21 +63,25 @@ export const CHUGOKU_FUEL: Record<string, FuelRow> = {
   // ここから全農エネルギーの「燃料費調整単価（低圧）のお知らせ」より。
   // 中国電力の公表値とも一致する（二重に裏付けあり）。
   '2026-08': { minimumCharge: '-188.70', unitPriceYenPerKwh: '-12.56', from: 'zennoh' },
-  '2026-09': { minimumCharge: '-194.01', unitPriceYenPerKwh: '-12.93', from: 'zennoh' }
+  '2026-09': { minimumCharge: '-194.01', unitPriceYenPerKwh: '-12.93', from: 'zennoh' },
+  '2026-10': { minimumCharge: '-171.63', unitPriceYenPerKwh: '-11.43', from: 'energia' },
+  '2026-11': { minimumCharge: '-116.02', unitPriceYenPerKwh: '-7.73', from: 'energia' }
 };
 
 /**
  * auでんきは独自の燃料費調整単価を持つ。
  * 出典: ☆JAでんき試算表(VS auでんき_Ｍプラン)26年6月.xlsx「基本項目」。
  *
- * **中国電力系より収録が遅れている。** auでんきは自社サイトで単価を公表しており、
- * 全農エネルギーのお知らせには載らないため。
+ * **中国電力系より1か月遅れる。** auでんきの公式ページは当月分までしか載せず、
+ * 中国電力は翌月分を先に公表するため。
  */
 export const AU_FUEL: Record<string, FuelRow> = {
   '2026-07': { minimumCharge: '-196.24', unitPriceYenPerKwh: '-13.09' },
   // auでんき公式「燃料費調整単価」より（税込）。中国電力エリアの でんきMプラン。
   // https://www.au.com/energy/denki/other/adjust/detail/
-  '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58', from: 'au-site' }
+  '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58', from: 'au-site' },
+  '2026-09': { minimumCharge: '-179.02', unitPriceYenPerKwh: '-11.94', from: 'au-site' },
+  '2026-10': { minimumCharge: '-119.12', unitPriceYenPerKwh: '-7.95', from: 'au-site' }
 };
 
 /** 再エネ賦課金（円/kWh）。全事業者共通。 */

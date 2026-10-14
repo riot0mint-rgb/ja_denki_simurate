@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Decimal, UsageInput } from '@ja-denki-simulator/calc-core'
+import { DEFAULT_PERIOD, Decimal, UsageInput } from '@ja-denki-simulator/calc-core'
 import type { ComparisonScenario } from '../data/rates'
 import {
   calculateComparison,
@@ -11,6 +11,7 @@ import {
   SCENARIOS,
   periodOptionsFor,
   DEFAULT_RATE_PERIOD,
+  computeDefaultRatePeriod,
   GAS_SET_DISCOUNT_YEN,
   calculateAnnual,
   allElectricTermsOf
@@ -58,8 +59,8 @@ function sampleUsageFor(form: ComparisonScenario['usageForm']): UsageInput {
 }
 
 describe('シナリオ定義', () => {
-  it('全12シナリオが引ける', () => {
-    expect(SCENARIOS).toHaveLength(12)
+  it('全15シナリオが引ける', () => {
+    expect(SCENARIOS).toHaveLength(15)
     for (const s of SCENARIOS) {
       expect(findScenario(s.scenarioId)).toBe(s)
     }
@@ -91,9 +92,39 @@ describe('シナリオ定義', () => {
 })
 
 describe('対象月', () => {
-  it('既定は全事業者の燃調がそろう26年8月', () => {
-    expect(DEFAULT_RATE_PERIOD).toEqual({ year: 2026, month: 8 })
+  // 月次データは自動取得で毎月増えるので、特定の年月は書かない
+  it('既定は全シナリオで計算できる最新の検針月', () => {
+    const key = (p: { year: number; month: number }) => p.year * 12 + p.month
+    for (const scenario of SCENARIOS) {
+      const options = periodOptionsFor(scenario)
+      expect(options, scenario.scenarioId).toContainEqual(DEFAULT_RATE_PERIOD)
+    }
+    const later = periodOptionsFor(SCENARIOS[0]).filter(p => key(p) > key(DEFAULT_RATE_PERIOD))
+    for (const p of later) {
+      expect(SCENARIOS.some(s => !periodOptionsFor(s).some(o => key(o) === key(p)))).toBe(true)
+    }
   })
+
+  it('共通の月が1か月も無ければ、calc-core の既定（燃調がそろう最新月）に倒す', () => {
+    expect(computeDefaultRatePeriod([])).toEqual(DEFAULT_PERIOD)
+  })
+
+  it('改定待ち・日割りの月は検針月の選択肢に出さない', () => {
+    const NOV = { year: 2026, month: 11 }
+    for (const scenario of SCENARIOS) {
+      expect(periodOptionsFor(scenario), scenario.scenarioId).not.toContainEqual(NOV)
+    }
+  })
+
+  it('改定待ちの月を指定されたら、旧単価で計算せず unsupported と理由を返す', () => {
+    const r = calculateComparison('chugoku_juryo_a', { totalKwh: 300 }, { period: { year: 2026, month: 11 } })
+    expect(r.status).toBe('unsupported')
+    if (r.status === 'unsupported') {
+      expect(r.reason).toMatch(/日割り|改定後の単価がまだ公表されていない/)
+      expect(r.nextSteps.length).toBeGreaterThan(0)
+    }
+  })
+
 
   // 燃調の公表時期が事業者ごとにずれるため、選べる月も事業者ごとに違う。
   // 全社共通の選択肢にすると、auでんきで「収録されていません」が出る。
@@ -601,5 +632,84 @@ describe('年間の試算', () => {
       expect(r?.method).toBe('flat')
       expect(r?.profileNote).toBeNull()
     })
+  })
+})
+
+describe('2026-10 追加のシナリオ', () => {
+  const OCT = { year: 2026, month: 10 }
+
+  it('中国電力 動力コース → JAでんき 低圧電力', () => {
+    const v = ok('chugoku_power_course', { contractKw: 6, seasonal: { summerKwh: 0, otherKwh: 400 } }, { period: OCT })
+    expect(v.candidates.map(c => c.planId)).toEqual(['ja_denki_low_voltage'])
+    // 基本料金の差 (1,152.44 − 1,132.83) × 6kW = 117.66。従量料金は同じ。
+    // 端数の切り捨てがそれぞれの請求額にかかるので、差は 118円
+    expect(v.recommended.monthlySavingsYen).toBe(118)
+  })
+
+  it('中国電力 スマートBコース → JAでんき 従量電灯B（契約容量を聞く）', () => {
+    const scenario = findScenario('chugoku_smart_b')!
+    expect(scenario.contract).toBe('kva')
+    const v = ok('chugoku_smart_b', { contractKva: 10, totalKwh: 400 }, { period: OCT })
+    expect(v.candidates.map(c => c.planId)).toEqual(['ja_denki_juryo_b'])
+  })
+
+  it('auでんき 低圧電力 → JAでんき 低圧電力（auでんきの燃調を使う）', () => {
+    const scenario = findScenario('au_low_voltage')!
+    expect(scenario.fuelProvider).toBe('au')
+    const v = ok('au_low_voltage', { contractKw: 6, seasonal: { summerKwh: 0, otherKwh: 400 } }, { period: OCT })
+    expect(v.candidates.map(c => c.planId)).toEqual(['ja_denki_low_voltage'])
+  })
+})
+
+describe('ファミリータイム・時間帯別電灯から 従量電灯A/S/B への比較', () => {
+  const OCT = { year: 2026, month: 10 }
+  const family = (contractKva: number) => ({
+    contractKva,
+    familyTime: { dayOther: 120, family: 80, night: 250 },
+    calendar: sampleCalendar
+  })
+
+  it('6kVA以上は 夜トクプラン と 従量電灯B を比べる', () => {
+    const v = ok('chugoku_family_1', family(10), { period: OCT })
+    expect(v.candidates.map(c => c.planId).sort()).toEqual(['ja_denki_juryo_b', 'ja_denki_yotoku'])
+  })
+
+  it('6kVA未満は 夜トクプラン と 従量電灯A・S を比べる', () => {
+    const v = ok('chugoku_family_2', family(5), { period: OCT })
+    expect(v.candidates.map(c => c.planId).sort()).toEqual(['ja_denki_juryo_a', 'ja_denki_juryo_s', 'ja_denki_yotoku'])
+  })
+
+  it('50kVA以上は従量電灯の対象外なので 夜トクプラン だけ', () => {
+    const v = ok('chugoku_family_1', family(50), { period: OCT })
+    expect(v.candidates.map(c => c.planId)).toEqual(['ja_denki_yotoku'])
+  })
+
+  it('従量電灯B には時間帯の振替を通さず、入力の合計（450kWh）をそのまま渡す', () => {
+    const v = ok('chugoku_family_1', family(10), { period: OCT })
+    const b = v.candidates.find(c => c.planId === 'ja_denki_juryo_b')!
+    // 段階は 120 / 180 / 150kWh（合計450kWh）。10月検針分は値下げ前の 447.97円/kVA
+    expect(b.formula).toContain('447.97円 × 10kVA')
+    expect(b.formula).toContain('× 120kWh')
+    expect(b.formula).toContain('× 180kWh')
+    expect(b.formula).toContain('× 150kWh')
+  })
+
+  it('時間帯別電灯（エコノミーナイト）でも昼間＋夜間の合計で比べる', () => {
+    const v = ok(
+      'chugoku_economy_night',
+      { contractKva: 8, economyNight: { dayKwh: 200, nightKwh: 300 }, calendar: sampleCalendar },
+      { period: OCT }
+    )
+    expect(v.candidates.map(c => c.planId).sort()).toEqual(['ja_denki_juryo_b', 'ja_denki_yotoku'])
+  })
+
+  it('契約容量が無ければ容量で決まる候補は出さない（推測しない）', () => {
+    const r = calculateComparison(
+      'chugoku_family_1',
+      { familyTime: { dayOther: 120, family: 80, night: 250 }, calendar: sampleCalendar },
+      { period: OCT }
+    )
+    // 夜トク側はご契約電力が要るので、それ自体が計算不可になる
+    expect(r.status).toBe('unsupported')
   })
 })

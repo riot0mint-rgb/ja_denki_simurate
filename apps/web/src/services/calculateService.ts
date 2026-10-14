@@ -19,7 +19,14 @@ import {
   explainDifference,
   distributeAnnualUsage
 } from '@ja-denki-simulator/calc-core'
-import { ComparisonScenario, SCENARIOS, findScenario, needsCalendar, planForPeriod } from '../data/rates'
+import {
+  ComparisonScenario,
+  SCENARIOS,
+  findScenario,
+  needsCalendar,
+  planForPeriod,
+  rateAvailability
+} from '../data/rates'
 import { DEMAND_PROFILE } from '../data/demandProfile'
 
 const calculator = new BillingCalculator()
@@ -106,13 +113,38 @@ export type { ComparisonScenario }
 export function periodOptionsFor(scenario: ComparisonScenario): RatePeriod[] {
   // JAでんき側は事業者を問わず中国電力エリアの燃調を使う（billOf 参照）ので、
   // 現行プラン側だけで絞ると JA 候補が計算できない月を出してしまう。
-  // 両方そろっている月に限る
+  // 両方そろっている月に限る。
+  // 単価の改定が公表済みで新単価が未入手の月・日割りになる月も、選べるのに
+  // 計算できない月になるので外す（rateAvailability）
   const key = (p: RatePeriod) => `${p.year}-${p.month}`
   const ja = new Set(availablePeriods('chugoku').map(key))
-  return availablePeriods(scenario.fuelProvider).filter(p => ja.has(key(p)))
+  const plans = plansOf(scenario)
+  return availablePeriods(scenario.fuelProvider)
+    .filter(p => ja.has(key(p)))
+    .filter(p => plans.every(plan => rateAvailability(plan, p).ok))
 }
 
-export const DEFAULT_RATE_PERIOD = DEFAULT_PERIOD
+function plansOf(scenario: ComparisonScenario): RatePlan[] {
+  return [scenario.current, ...scenario.candidates, ...(scenario.contractDependentCandidates ?? []).map(c => c.plan)]
+}
+
+/**
+ * 画面の既定の検針月。**全シナリオで計算できる最新の月**。
+ *
+ * calc-core の DEFAULT_PERIOD は燃調・賦課金がそろう最新月だが、単価の改定待ちの月
+ * （例: JAでんきの改定が公表済みで新単価が未公表）までは見ていない。
+ * シナリオを切り替えたときの戻り先にも使うので、どのシナリオでも選べる月でなければならない。
+ */
+export function computeDefaultRatePeriod(scenarios: ComparisonScenario[]): RatePeriod {
+  const key = (p: RatePeriod) => `${p.year}-${p.month}`
+  const [first, ...rest] = scenarios.map(s => periodOptionsFor(s))
+  const common = (first ?? []).filter(p => rest.every(options => options.some(o => key(o) === key(p))))
+  // 1か月も残らないのはデータの不整合。計算できない月を既定にするより、
+  // calc-core の既定（燃調がそろう最新月）に倒して画面に「試算できません」を出す
+  return common[0] ?? DEFAULT_PERIOD
+}
+
+export const DEFAULT_RATE_PERIOD = computeDefaultRatePeriod(SCENARIOS)
 
 /**
  * 画面に出す割引の条件。金額をラベルに直書きすると改定時に計算とずれる。
@@ -160,6 +192,8 @@ function billOf(
   scenario: ComparisonScenario,
   period: RatePeriod
 ): { ok: true; bill: MonthlyBill } | { ok: false; reason: string; nextSteps: string[] } {
+  const availability = rateAvailability(basePlan, period)
+  if (!availability.ok) return availability
   // 単価は改定で変わる。検針月に適用されていた版で計算する
   const plan = planForPeriod(basePlan, period)
   // JAでんきは中国電力エリアの燃調を使う。他社側だけが独自単価を持つ場合がある。
@@ -269,7 +303,7 @@ export function calculateComparison(
     }
   }
 
-  const period = options.period ?? DEFAULT_PERIOD
+  const period = options.period ?? DEFAULT_RATE_PERIOD
   const currentBill = billOf(scenario.current, usage, scenario, period)
   if (!currentBill.ok) {
     return { status: 'unsupported', reason: currentBill.reason, nextSteps: currentBill.nextSteps }
@@ -287,11 +321,17 @@ export function calculateComparison(
     if (!b.ok) return { status: 'unsupported', reason: b.reason, nextSteps: b.nextSteps }
     candidateBills.push(b.bill)
   }
+  const capacityCandidates = contractDependentCandidatesFor(scenario, usage)
+  for (const plan of capacityCandidates) {
+    const b = billOf(plan, totalUsageOf(scenario, usage), scenario, period)
+    if (!b.ok) return { status: 'unsupported', reason: b.reason, nextSteps: b.nextSteps }
+    candidateBills.push(b.bill)
+  }
 
   // 単価は1版しか持っていない（26年7月適用）。月を変えて動くのは
   // 燃料費調整額と再エネ賦課金だけ。「◯年◯月適用の単価」と書くと嘘になる
   const effective = unitPriceEffectiveness(
-    [scenario.current, ...scenario.candidates]
+    [scenario.current, ...scenario.candidates, ...capacityCandidates]
       .map(p => planForPeriod(p, period))
       .flatMap(p => p.sources),
     period
@@ -334,7 +374,7 @@ export function calculateComparison(
     }
   }
 
-  const sources = [scenario.current, ...scenario.candidates]
+  const sources = [scenario.current, ...scenario.candidates, ...capacityCandidates]
     .map(p => planForPeriod(p, period))
     .flatMap(p => p.sources)
     .map(s => `${s.document} ${s.locator}`)
@@ -366,6 +406,30 @@ export function calculateComparison(
       sources: Array.from(new Set(sources))
     }
   }
+}
+
+/** ご契約容量で適用できる追加の乗り換え先（rates.ts の contractDependentCandidates） */
+function contractDependentCandidatesFor(scenario: ComparisonScenario, usage: UsageInput): RatePlan[] {
+  const kva = usage.contractKva
+  if (kva === undefined || !Number.isFinite(kva)) return []
+  return (scenario.contractDependentCandidates ?? [])
+    .filter(c => kva >= c.minKva && kva < c.maxKvaExclusive)
+    .map(c => c.plan)
+}
+
+/**
+ * 時間帯の区分を持たないプランに渡す使用量。入力された時間帯別の使用量の合計で、
+ * 夜トクへの振替（推定を含む）は通さない。
+ */
+function totalUsageOf(scenario: ComparisonScenario, usage: UsageInput): UsageInput {
+  const values =
+    scenario.usageForm === 'family'
+      ? Object.values(usage.familyTime ?? {})
+      : usage.economyNight
+        ? [usage.economyNight.dayKwh, usage.economyNight.nightKwh]
+        : []
+  const total = values.reduce<Decimal>((sum, v) => sum.plus(v ?? 0), new Decimal('0'))
+  return { totalKwh: total.toNumber(), contractKva: usage.contractKva }
 }
 
 /** 振替後の4区分は、元の総使用量をそのまま分け直したものでなければならない */
@@ -615,7 +679,7 @@ export function calculateAnnual(
   const scenario = findScenario(scenarioId)
   if (!scenario) return null
 
-  const period = options.period ?? DEFAULT_PERIOD
+  const period = options.period ?? DEFAULT_RATE_PERIOD
   const base = calculateComparison(scenarioId, usage, { period })
   if (base.status !== 'ok') return null
 
@@ -752,7 +816,7 @@ export function estimateUsage(
     }
   }
 
-  const period = options.period ?? DEFAULT_PERIOD
+  const period = options.period ?? DEFAULT_RATE_PERIOD
   const plan = planForPeriod(scenario.current, period)
   const fuel = lookupFuelAdjustment(period, scenario.fuelProvider)
   const levy = lookupRenewableLevy(period)

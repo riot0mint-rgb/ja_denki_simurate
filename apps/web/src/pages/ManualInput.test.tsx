@@ -89,7 +89,8 @@ describe('プランごとに必要な入力だけを出す', () => {
     setup()
     await pickPlan('中国電力 電化Style')
     expect(screen.getByLabelText('ご契約電力')).toBeInTheDocument()
-    expect(screen.getByLabelText(/デイタイム/)).toBeInTheDocument()
+    // 季節をまたぐ検針月は夏季・その他季の2欄になるため、件数ではなく有無を見る
+    expect(screen.getAllByLabelText(/デイタイム/).length).toBeGreaterThan(0)
     expect(screen.getByLabelText('ナイトタイム kWh')).toBeInTheDocument()
     expect(screen.getByLabelText('ホリデータイム kWh')).toBeInTheDocument()
   })
@@ -119,9 +120,11 @@ describe('プランごとに必要な入力だけを出す', () => {
 })
 
 describe('対象月から季節を決めて入力欄を減らす', () => {
-  it('7月はデイタイムに「夏季」と表示する', async () => {
+  it('8月はデイタイムに「夏季」と表示する', async () => {
     setup()
     await pickPlan('中国電力 電化Style')
+    // 既定の検針月は燃調の収録に合わせて毎月進むので、月は明示する
+    await pickMonth('2026年8月')
     expect(screen.getByLabelText('デイタイム（夏季） kWh')).toBeInTheDocument()
     expect(screen.getByText(/夏季料金の期間です/)).toBeInTheDocument()
   })
@@ -263,6 +266,7 @@ describe('合計の確認と按分の入力', () => {
   it('時間帯を入れると合計が出る', async () => {
     const { user } = setup()
     await pickPlan('中国電力 電化Style')
+    await pickMonth('2026年8月')
     await user.type(screen.getByLabelText('デイタイム（夏季） kWh'), '100')
     await user.type(screen.getByLabelText('ナイトタイム kWh'), '200')
     await user.type(screen.getByLabelText('ホリデータイム kWh'), '50')

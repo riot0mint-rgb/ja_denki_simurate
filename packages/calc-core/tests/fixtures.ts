@@ -120,6 +120,28 @@ export const jaDenkiLowVoltage: DemandSeasonalPlan = {
   summerUnitPriceYenPerKwh: new Decimal('26.80'), otherUnitPriceYenPerKwh: new Decimal('25.51'),
   halveBaseWhenNoUsage: true, rounding: CHUGOKU_ROUNDING, sources: [src(D5, '基本項目!E38:E40')]
 };
+// 2026-10-14 追加。中国電力 単価表（2026年11月1日実施）の「現行単価」列、au は☆低圧電力試算表
+const DREV = '中国電力 参考資料：電気料金単価表（2026年11月１日実施）p20260928-1b.pdf';
+const DAULOW = '☆JAでんき試算表(VS auでんき_低圧電力)26年6月.xlsx';
+export const chugokuPowerCourse: DemandSeasonalPlan = {
+  structure: 'demand_seasonal', planId: 'chugoku_power_course', planName: '中国電力 動力コース', side: 'other',
+  baseChargePerKw: new Decimal('1152.44'),
+  summerUnitPriceYenPerKwh: new Decimal('26.80'), otherUnitPriceYenPerKwh: new Decimal('25.51'),
+  halveBaseWhenNoUsage: true, rounding: CHUGOKU_ROUNDING, sources: [src(DREV, '現行単価（Ａ）〔ビジネス〕動力コース')]
+};
+export const chugokuSmartB: CapacityTieredPlan = {
+  structure: 'capacity_tiered', planId: 'chugoku_smart_b', planName: '中国電力 スマートBコース', side: 'other',
+  baseChargePerKva: new Decimal('447.97'), tiers: tiers0('29.04', '36.15', '38.02'), halveBaseWhenNoUsage: true,
+  rounding: CHUGOKU_ROUNDING, sources: [src(DREV, '現行単価（Ａ）〔ビジネス〕スマートＢコース')]
+};
+export const auLowVoltage: DemandSeasonalPlan = {
+  structure: 'demand_seasonal', planId: 'au_low_voltage', planName: 'auでんき 低圧電力', side: 'other',
+  baseChargePerKw: new Decimal('1163.91'),
+  summerUnitPriceYenPerKwh: new Decimal('26.79'), otherUnitPriceYenPerKwh: new Decimal('25.50'),
+  halveBaseWhenNoUsage: false,
+  rounding: { energyTotal: 'none', fuelSubtotal: 'none', levySubtotal: 'none', finalTotal: 'down' },
+  sources: [src(DAULOW, '基本項目!E20:E22')]
+};
 export const chugokuDenkaStyle: TimeOfUsePlan = {
   structure: 'time_of_use', planId: 'chugoku_denka_style', planName: '中国電力 電化Style', side: 'other',
   baseChargeUpTo10Kw: new Decimal('2018.72'), baseChargePerKwOver10: new Decimal('480.37'),

@@ -19,7 +19,8 @@ export default defineConfig({
         'scripts/cliArgs.ts',
         'scripts/securityCheck.ts',
         'scripts/monthlyRatesInsert.ts',
-        'scripts/monthlyRatesDiff.ts'
+        'scripts/monthlyRatesDiff.ts',
+        'scripts/monthlyRatesParse.ts'
       ],
       thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 }
     }
