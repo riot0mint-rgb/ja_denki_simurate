@@ -206,6 +206,12 @@ export type RatePlan =
   | EconomyNightPlan;
 
 /**
+ * 使用量の入力形式。プラン構造とは別に、検針票のどの欄を聞くかで分ける。
+ * 年間の試算で月ごとの使用量を組み立てるとき、形式ごとに増減のさせ方が違う。
+ */
+export type UsageFormKind = 'total' | 'seasonal' | 'tou' | 'family' | 'economy_night';
+
+/**
  * 使用量。利用者の入力は number、振替で算出した値は Decimal で渡る。
  * Decimal を number に落とすと丸め誤差が入るため、そのまま受け取れるようにしてある。
  */
@@ -237,6 +243,14 @@ export interface UsageInput {
   contractKva?: number;
   /** 電化住宅割の適用有無 */
   allElectricDiscount?: boolean;
+  /**
+   * 毎月の検針日（2〜28日）。1か月の請求額の計算には使わない。
+   *
+   * 年間の試算で、夏季（7〜9月）とその他季の境目にかかる検針（7月・10月）の
+   * 夏季の割合と、夜トクへ振り替えるときの土日・祝日の日数を月ごとに数えるのに使う。
+   * 省略すると月の中ごろ（15日）とみなす。
+   */
+  readingDay?: number;
 }
 
 export interface CalculationInput {

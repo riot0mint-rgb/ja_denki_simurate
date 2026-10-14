@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_PERIOD, Decimal, UsageInput } from '@ja-denki-simulator/calc-core'
+import { DEFAULT_PERIOD, Decimal, UsageInput, meterCalendarOf } from '@ja-denki-simulator/calc-core'
 import type { ComparisonScenario } from '../data/rates'
 import {
   calculateComparison,
@@ -543,13 +543,26 @@ describe('年間の試算', () => {
     expect(a.firstYearSavingsYen - a.savingsYen).toBe(3000)
   })
 
-  // 時間帯別プランは月ごとの内訳が検針票からしか分からない。
-  // 同じ内訳を12か月に当てると、7月の入力を1月の単価で計算することになる
-  it('時間帯別プランは積み上げず、その旨を返す', () => {
-    const a = annual('chugoku_night_holiday', { contractKw: 6, tou: { night: 430 } })
-    expect(a.basis).toBe('times_twelve')
-    expect(a.months).toHaveLength(0)
-    expect(a.fallbackReason).toMatch(/12倍/)
+  // 時間帯別プランも、12か月それぞれの燃料費調整額で積み上げる。
+  // デイタイムが夏季単価かその他季単価かは使い方ではなくカレンダーで決まるので、月ごとに振り直す
+  it('時間帯別プランも12か月ぶんを積み上げる（デイタイムの夏季／その他季は月ごとに振り直す）', () => {
+    const usage = { contractKw: 6, tou: { daySummer: 100, dayOther: 0, night: 300, holiday: 50 } }
+    const a = annual('chugoku_night_holiday', usage)
+    expect(a.basis).toBe('rollup')
+    expect(a.months).toHaveLength(12)
+    expect(a.months.every(m => m.usageKwh === 450)).toBe(true)
+    expect(a.months.reduce((sum, m) => sum + m.currentYen, 0)).toBe(a.currentYen)
+
+    // 1月は夏季にかからないので、デイタイム100kWh はその他季として計算されている
+    const jan = calculateComparison(
+      'chugoku_night_holiday',
+      { contractKw: 6, tou: { daySummer: 0, dayOther: 100, night: 300, holiday: 50 } },
+      { period: { year: 2026, month: 1 } }
+    )
+    if (jan.status !== 'ok') throw new Error('unreachable')
+    expect(a.months.find(m => m.month === 1)!.currentYen).toBe(jan.view.current.monthlyChargeYen)
+    // 基準の8月は入力どおり（夏季）。夏季のほうが単価が高いので、1月とは請求額が違う
+    expect(a.months.find(m => m.month === 8)!.currentYen).not.toBe(jan.view.current.monthlyChargeYen)
   })
 
   it('12か月ぶんの燃調が無い事業者は積み上げない', () => {
@@ -582,14 +595,15 @@ describe('年間の試算', () => {
     it('既定は「毎月おなじ」で、どの月も入力どおりの使用量になる', () => {
       const a = annual('chugoku_juryo_a', { totalKwh: 348 })
       expect(a.method).toBe('flat')
-      expect(a.profileNote).toBeNull()
+      expect(a.seasonal).not.toBeNull() // 選べるが、選んでいない
       expect(a.months.every(m => m.usageKwh === 348)).toBe(true)
     })
 
     it('「季節で増減」を選ぶと月ごとの使用量が変わる', () => {
       const a = annual('chugoku_juryo_a', { totalKwh: 348 }, { method: 'seasonal' })
       expect(a.method).toBe('seasonal')
-      expect(a.profileNote).not.toBeNull()
+      expect(a.seasonal?.description).toContain('電灯')
+      expect(a.seasonal?.source.document).toContain('電力・ガス取引監視等委員会')
       expect(new Set(a.months.map(m => m.usageKwh)).size).toBeGreaterThan(1)
     })
 
@@ -620,17 +634,24 @@ describe('年間の試算', () => {
       expect(a.months.every(m => m.usageKwh === 0)).toBe(true)
     })
 
-    it('時間帯別のプランは季節で増減させず、月額×12に落とす（ルール8）', () => {
-      // 昼と夜の比まで季節で動くはずで、その比の根拠が無い
-      const r = calculateAnnual(
-        'chugoku_night_holiday',
-        { tou: { night: 300 }, contractKw: 6, calendar: sampleCalendar },
-        'ja_denki_yotoku',
-        { period: AUG, method: 'seasonal' }
-      )
-      expect(r?.basis).toBe('times_twelve')
-      expect(r?.method).toBe('flat')
-      expect(r?.profileNote).toBeNull()
+    it('時間帯別のプランも季節で増減する。昼・夜・休日の割合は入力の月のまま', () => {
+      const usage = { contractKw: 6, tou: { daySummer: 100, dayOther: 0, night: 300, holiday: 50 } }
+      const a = annual('chugoku_night_holiday', usage, { method: 'seasonal' })
+      expect(a.method).toBe('seasonal')
+      expect(a.seasonal?.source.document).toContain('環境省')
+      const total = (month: number) => a.months.find(m => m.month === month)!.usageKwh!
+      // 基準の8月は入力のまま。冬の1月は、オール電化の指数の比（1.638 / 0.868）で増える
+      expect(total(8)).toBe(450)
+      expect(total(1)).toBeGreaterThan(total(8) * 1.8)
+      expect(total(1)).toBeLessThan(total(8) * 2)
+    })
+
+    it('統計が無いプラン（深夜電力B）は「季節で変わる」を選べない', () => {
+      const a = annual('chugoku_midnight_b', { totalKwh: 400, contractKw: 6 }, { method: 'seasonal' })
+      expect(a.seasonal).toBeNull()
+      expect(a.method).toBe('flat') // 指定されても毎月おなじに落とす（ルール8）
+      expect(a.basis).toBe('rollup')
+      expect(a.months.every(m => m.usageKwh === 400)).toBe(true)
     })
   })
 })
@@ -711,5 +732,248 @@ describe('ファミリータイム・時間帯別電灯から 従量電灯A/S/B 
     )
     // 夜トク側はご契約電力が要るので、それ自体が計算不可になる
     expect(r.status).toBe('unsupported')
+  })
+})
+
+// 時間帯別・季節別のプランの年間試算。月ごとの使用量は、検針票の1か月から次のように組み立てる。
+//   ・全体の量は、契約の種類に合った統計の指数で増減させる
+//   ・昼・夜・休日の割合は入力の月のまま
+//   ・夏季／その他季は検針日とカレンダーから月ごとに振り直す
+//   ・夜トクへの振り替えは、月ごとの土日・祝日の日数で数え直す
+describe('時間帯別・季節別プランの年間試算', () => {
+  const OCT = { year: 2026, month: 10 }
+  const rollup = (id: string, usage: UsageInput, opts: object = {}) => {
+    const r = calculateComparison(id, usage, { period: OCT })
+    if (r.status !== 'ok') throw new Error(`前提の月額が計算できていない: ${r.reason}`)
+    return calculateAnnual(id, usage, r.view.recommended.planId, { period: OCT, ...opts })!
+  }
+  const monthly = (id: string, usage: UsageInput, month: number) => {
+    const year = month <= 10 ? 2026 : 2025
+    const r = calculateComparison(id, usage, { period: { year, month } })
+    if (r.status !== 'ok') throw new Error(`月額が計算できていない: ${r.reason}`)
+    return r.view
+  }
+  const at = (a: { months: Array<{ month: number; usageKwh: number | null }> }, month: number) =>
+    a.months.find(m => m.month === month)!.usageKwh!
+
+  describe('低圧電力（夏季／その他季）', () => {
+    const base: UsageInput = { contractKw: 6, seasonal: { summerKwh: 0, otherKwh: 400 }, totalKwh: 400 }
+
+    it('毎月おなじ量でも、8月・9月は夏季単価、ほかの月はその他季単価で計算する', () => {
+      const a = rollup('chugoku_low_voltage', base)
+      expect(a.basis).toBe('rollup')
+      // 2026-08 の請求額は、同じ400kWh を夏季として直接計算した額に一致する
+      const aug = monthly('chugoku_low_voltage', { contractKw: 6, seasonal: { summerKwh: 400, otherKwh: 0 }, totalKwh: 400 }, 8)
+      expect(a.months.find(m => m.month === 8)!.currentYen).toBe(aug.current.monthlyChargeYen)
+      // 基準の10月は入力のまま（その他季）
+      const oct = monthly('chugoku_low_voltage', base, 10)
+      expect(a.months.find(m => m.month === 10)!.currentYen).toBe(oct.current.monthlyChargeYen)
+    })
+
+    it('季節をまたぐ7月は、検針日から夏季の割合を数える（検針日6日なら 5/30）', () => {
+      const a = rollup('chugoku_low_voltage', { ...base, readingDay: 6 })
+      const jul = monthly(
+        'chugoku_low_voltage',
+        { contractKw: 6, seasonal: { summerKwh: 67, otherKwh: 333 }, totalKwh: 400 },
+        7
+      )
+      expect(a.months.find(m => m.month === 7)!.currentYen).toBe(jul.current.monthlyChargeYen)
+    })
+
+    it('検針日を省略すると月の中ごろ（15日）とみなし、その旨を前提に書く', () => {
+      const a = rollup('chugoku_low_voltage', base)
+      expect(a.assumptionNote).toContain('毎月15日')
+      expect(a.assumptionNote).toContain('月の中ごろ')
+      expect(a.assumptionNote).not.toContain('昼・夜・休日') // 低圧電力に時間帯の割合は無い
+    })
+
+    it('検針日を入力すれば、前提にその日付が出る', () => {
+      expect(rollup('chugoku_low_voltage', { ...base, readingDay: 6 }).assumptionNote).toContain('毎月6日として')
+    })
+
+    it('「季節で変わる」は低圧電力の指数で、夏（8月）が最大になる', () => {
+      const a = rollup('chugoku_low_voltage', base, { method: 'seasonal' })
+      expect(a.method).toBe('seasonal')
+      expect(a.seasonal?.description).toContain('低圧電力')
+      const totals = a.months.map(m => m.usageKwh!)
+      expect(a.months[totals.indexOf(Math.max(...totals))].month).toBe(8)
+      expect(at(a, 10)).toBe(400) // 基準月は入力のまま
+    })
+
+    it('検針日が2〜28日でなければ、月ごとの使用量を組み立てず月額×12に落とす', () => {
+      const a = rollup('chugoku_low_voltage', { ...base, readingDay: 31 })
+      expect(a.basis).toBe('times_twelve')
+      expect(a.fallbackReason).toMatch(/組み立てられない/)
+    })
+  })
+
+  describe('電化Style・ナイトホリデー（オール電化の時間帯別）', () => {
+    const base: UsageInput = { contractKw: 6, tou: { daySummer: 0, dayOther: 100, night: 200, holiday: 50 } }
+
+    it('夜トクプランと比べるので、候補側にも同じ月ごとの使用量が渡る', () => {
+      const a = rollup('chugoku_denka_style', base, { method: 'seasonal' })
+      expect(a.basis).toBe('rollup')
+      expect(a.months).toHaveLength(12)
+      expect(a.months.reduce((sum, m) => sum + m.candidateYen, 0)).toBe(a.candidateYen)
+    })
+
+    it('冬（1月）はオール電化の指数で大きく増え、10月基準の1.64/0.70倍', () => {
+      const a = rollup('chugoku_denka_style', base, { method: 'seasonal' })
+      expect(at(a, 10)).toBe(350)
+      const ratio = at(a, 1) / 350
+      expect(ratio).toBeGreaterThan(2.2)
+      expect(ratio).toBeLessThan(2.5)
+    })
+
+    it('前提に「昼・夜・休日の割合は入力の月のまま」と書く', () => {
+      const a = rollup('chugoku_denka_style', base)
+      expect(a.assumptionNote).toContain('昼・夜・休日の割合は、検針票の月と同じ')
+      expect(a.assumptionNote).not.toContain('土日・祝日') // 電化Styleは振り替えが要らない
+    })
+  })
+
+  describe('ファミリータイム・時間帯別電灯（夜トクへ振り替える）', () => {
+    const calendar = meterCalendarOf(2026, 10, 6, 'same')!
+    const family: UsageInput = {
+      contractKva: 10,
+      readingDay: 6,
+      calendar,
+      familyTime: { daySummer: 0, dayOther: 120, family: 80, night: 250 }
+    }
+
+    it('月ごとの土日・祝日の日数で数え直して夜トクに振り替える', () => {
+      const a = rollup('chugoku_family_1', family)
+      expect(a.basis).toBe('rollup')
+      // 2026年1月（検針日6日 = 前年12/6〜1/5）の内訳を、calc-core の公開関数だけで組み立てて比べる
+      const jan = monthly(
+        'chugoku_family_1',
+        {
+          contractKva: 10,
+          calendar: meterCalendarOf(2026, 1, 6, 'same')!,
+          familyTime: { daySummer: 0, dayOther: 120, family: 80, night: 250 }
+        },
+        1
+      )
+      const m = a.months.find(x => x.month === 1)!
+      expect(m.currentYen).toBe(jan.current.monthlyChargeYen)
+      expect(m.candidateYen).toBe(jan.recommended.monthlyChargeYen)
+    })
+
+    it('前提に、割合は入力のまま・土日祝日は月ごとに数え直すと書く', () => {
+      const a = rollup('chugoku_family_1', family)
+      expect(a.assumptionNote).toContain('昼・夜・休日の割合は、検針票の月と同じ')
+      expect(a.assumptionNote).toContain('土日・祝日の日数で数え直')
+      expect(a.assumptionNote).toContain('毎月6日として')
+    })
+
+    it('時間帯別電灯（エコノミーナイト）も同じ仕組みで積み上げる', () => {
+      const a = rollup(
+        'chugoku_economy_night',
+        { contractKva: 8, readingDay: 6, calendar, economyNight: { dayKwh: 200, nightKwh: 300 } },
+        { method: 'seasonal' }
+      )
+      expect(a.basis).toBe('rollup')
+      expect(at(a, 10)).toBe(500)
+      expect(at(a, 1)).toBeGreaterThan(800)
+    })
+
+    it('従量電灯A/S/B も、各月の使用量の合計で比べる', () => {
+      const a = calculateAnnual(
+        'chugoku_family_1',
+        family,
+        'ja_denki_juryo_b',
+        { period: OCT, method: 'seasonal' }
+      )!
+      expect(a.planId).toBe('ja_denki_juryo_b')
+      expect(a.basis).toBe('rollup')
+      expect(a.months).toHaveLength(12)
+    })
+  })
+
+  describe('全シナリオ', () => {
+    it('中国電力の全シナリオで 12か月を積み上げ、合計が年額に一致する', () => {
+      for (const scenario of SCENARIOS.filter(s => s.fuelProvider === 'chugoku')) {
+        const usage: UsageInput = {
+          ...sampleUsageFor(scenario.usageForm),
+          readingDay: 6,
+          ...(scenario.usageForm === 'family' || scenario.usageForm === 'economy_night'
+            ? { calendar: meterCalendarOf(2026, 10, 6, 'same')! }
+            : {})
+        }
+        for (const method of ['flat', 'seasonal'] as const) {
+          const a = rollup(scenario.scenarioId, usage, { method })
+          expect(a.basis, `${scenario.scenarioId}/${method}`).toBe('rollup')
+          expect(a.months, scenario.scenarioId).toHaveLength(12)
+          expect(a.months.reduce((sum, m) => sum + m.currentYen, 0)).toBe(a.currentYen)
+          expect(a.months.reduce((sum, m) => sum + m.candidateYen, 0)).toBe(a.candidateYen)
+          // 季節で変わるが選べるのは、統計があるプランだけ
+          expect(a.method, `${scenario.scenarioId}/${method}`).toBe(
+            method === 'seasonal' && scenario.demandProfile ? 'seasonal' : 'flat'
+          )
+        }
+      }
+    })
+
+    it('どのシナリオも、季節で変わるを選べるかは demandProfile の有無と一致する', () => {
+      const without = SCENARIOS.filter(s => s.demandProfile === null).map(s => s.scenarioId)
+      expect(without).toEqual(['chugoku_midnight_b'])
+    })
+
+    it('auでんきの低圧電力は、燃調が12か月そろうまで月額×12', () => {
+      const a = calculateAnnual(
+        'au_low_voltage',
+        { contractKw: 6, seasonal: { summerKwh: 0, otherKwh: 400 }, totalKwh: 400 },
+        'ja_denki_low_voltage',
+        { period: OCT }
+      )!
+      expect(a.basis).toBe('times_twelve')
+      expect(a.fallbackReason).toMatch(/収録されていない/)
+    })
+  })
+})
+
+// 冬の検針票を「毎月おなじ」で12か月に広げると、年間を多く見込みすぎる。
+// どちらに偏るかを、見積もり方を選ぶ手がかりとして出す
+describe('「毎月おなじ」の偏りの注意', () => {
+  const noteAt = (month: number, opts: object = {}, id = 'chugoku_juryo_a') => {
+    const period = { year: 2026, month }
+    const usage = { totalKwh: 300, contractKva: 6, contractKw: 6 }
+    const r = calculateComparison(id, usage, { period })
+    if (r.status !== 'ok') throw new Error('前提の月額が計算できていない')
+    return calculateAnnual(id, usage, r.view.recommended.planId, { period, ...opts })!.flatBiasNote
+  }
+
+  it('冬の1月は、平均より約34%多く使う月と伝える', () => {
+    const note = noteAt(1)
+    expect(note).toContain('検針票の1月')
+    expect(note).toContain('約34%多く')
+    expect(note).toContain('多めに見込みます')
+  })
+
+  it('初夏の6月は、平均より約26%少なく使う月と伝える', () => {
+    const note = noteAt(6)
+    expect(note).toContain('約26%少なく')
+    expect(note).toContain('少なめに見込みます')
+  })
+
+  it('平均に近い月（4月）は出さない', () => {
+    expect(noteAt(4)).toBeNull()
+  })
+
+  it('「季節で変わる」を選んだら出さない（偏りを直しているため）', () => {
+    expect(noteAt(1, { method: 'seasonal' })).toBeNull()
+  })
+
+  it('季節の形を示す統計が無いプランには出さない', () => {
+    expect(noteAt(1, {}, 'chugoku_midnight_b')).toBeNull()
+  })
+
+  it('オール電化は冬の山が大きいので、冬の検針票ほど強く伝わる', () => {
+    const period = { year: 2026, month: 1 }
+    const usage = { contractKw: 6, tou: { dayOther: 100, night: 100, holiday: 100 } }
+    const r = calculateComparison('chugoku_denka_style', usage, { period })
+    if (r.status !== 'ok') throw new Error('unreachable')
+    const note = calculateAnnual('chugoku_denka_style', usage, r.view.recommended.planId, { period })!.flatBiasNote
+    expect(note).toContain('約64%多く')
   })
 })

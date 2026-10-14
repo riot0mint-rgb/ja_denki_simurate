@@ -339,3 +339,87 @@ describe('計算できない条件は理由を先に見せる', () => {
     expect(screen.getByText('1年あたり')).toBeInTheDocument()
   })
 })
+
+// 年間の試算で、夏季料金（7〜9月）の境目にあたる月と、夜トクへ振り替える土日・祝日を
+// 月ごとに数えるために、毎月の検針日を使う。検針期間を聞かない形式だけ入力欄を出す
+describe('毎月の検針日', () => {
+  const goNext = async () => {
+    await userEvent.click(screen.getByRole('button', { name: '詳しい結果を見る' }))
+  }
+
+  it('電化Style・低圧電力には入力欄が出る', async () => {
+    setup()
+    await pickPlan('中国電力 電化Style')
+    expect(screen.getByLabelText('毎月の検針日（わかれば）')).toBeInTheDocument()
+    await pickPlan('中国電力 低圧電力')
+    expect(screen.getByLabelText('毎月の検針日（わかれば）')).toBeInTheDocument()
+  })
+
+  it('総使用量だけのプラン・検針期間を聞くプランには出さない', async () => {
+    setup()
+    expect(screen.queryByLabelText('毎月の検針日（わかれば）')).not.toBeInTheDocument()
+    await pickPlan('中国電力 ファミリータイムⅠ')
+    expect(screen.queryByLabelText('毎月の検針日（わかれば）')).not.toBeInTheDocument()
+  })
+
+  it('入れた日付がそのまま計算側へ渡る', async () => {
+    const { user, onComplete } = setup()
+    await pickPlan('中国電力 電化Style')
+    await user.type(screen.getByLabelText('ナイトタイム kWh'), '300')
+    await user.type(screen.getByLabelText('毎月の検針日（わかれば）'), '6')
+    await goNext()
+    expect(onComplete.mock.calls[0][1].readingDay).toBe(6)
+  })
+
+  it('空欄なら渡さない（計算側が月の中ごろとみなす）', async () => {
+    const { user, onComplete } = setup()
+    await pickPlan('中国電力 電化Style')
+    await user.type(screen.getByLabelText('ナイトタイム kWh'), '300')
+    await goNext()
+    expect(onComplete.mock.calls[0][1].readingDay).toBeUndefined()
+  })
+
+  it('2〜28の整数でなければ警告し、渡さない', async () => {
+    const { user, onComplete } = setup()
+    await pickPlan('中国電力 低圧電力')
+    await user.type(screen.getByLabelText('ご使用量 (kWh)・その他季単価'), '300')
+    for (const bad of ['1', '29', '31', '6.5']) {
+      await user.clear(screen.getByLabelText('毎月の検針日（わかれば）'))
+      await user.type(screen.getByLabelText('毎月の検針日（わかれば）'), bad)
+      expect(screen.getByText(/2〜28の整数/)).toBeInTheDocument()
+    }
+    await goNext()
+    expect(onComplete.mock.calls[0][1].readingDay).toBeUndefined()
+  })
+
+  it('ファミリータイムは検針期間の終了日の翌日を検針日とみなす（既定は6日）', async () => {
+    const { user, onComplete } = setup()
+    await pickPlan('中国電力 ファミリータイムⅠ')
+    await pickMonth('2026年1月')
+    await user.type(screen.getByLabelText('デイタイム kWh'), '100')
+    await goNext()
+    expect(onComplete.mock.calls[0][1].readingDay).toBe(6)
+  })
+
+  it('検針期間を変えれば検針日も変わる', async () => {
+    const { user, onComplete } = setup()
+    await pickPlan('中国電力 時間帯別電灯（エコノミーナイト）')
+    fireEvent.change(screen.getByLabelText('検針期間の開始日'), { target: { value: '2026-09-21' } })
+    fireEvent.change(screen.getByLabelText('検針期間の終了日'), { target: { value: '2026-10-20' } })
+    await user.type(screen.getByLabelText('昼間時間 kWh'), '200')
+    await user.type(screen.getByLabelText('夜間時間 kWh'), '300')
+    await goNext()
+    expect(onComplete.mock.calls[0][1].readingDay).toBe(21)
+  })
+
+  it('期間の終了日が月末だと検針日は求めない（推測しない）', async () => {
+    const { user, onComplete } = setup()
+    await pickPlan('中国電力 時間帯別電灯（エコノミーナイト）')
+    fireEvent.change(screen.getByLabelText('検針期間の開始日'), { target: { value: '2026-09-01' } })
+    fireEvent.change(screen.getByLabelText('検針期間の終了日'), { target: { value: '2026-09-30' } })
+    await user.type(screen.getByLabelText('昼間時間 kWh'), '200')
+    await user.type(screen.getByLabelText('夜間時間 kWh'), '300')
+    await goNext()
+    expect(onComplete.mock.calls[0][1].readingDay).toBeUndefined()
+  })
+})

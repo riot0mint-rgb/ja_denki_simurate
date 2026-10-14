@@ -58,24 +58,64 @@ describe('結果画面', () => {
       expect(screen.queryByText('季節ごとの使われ方の出典')).not.toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
       expect(screen.getByText('季節ごとの使われ方の出典')).toBeInTheDocument()
-      expect(screen.getByText(/電気事業連合会/)).toBeInTheDocument()
+      expect(screen.getByText(/電力・ガス取引監視等委員会/)).toBeInTheDocument()
     })
 
     it('積み上げができない（月額×12に落ちる）プランでは切り替えを出さない', () => {
-      // 選んでも結果が変わらないボタンは、あるだけで誤解を招く
-      show('chugoku_night_holiday', {
-        tou: { night: 300 },
-        contractKw: 6,
-        calendar: {
-          days: 30,
-          weekendDays: 8,
-          holidayDays: 1,
-          holidayUsageRatio: 'same',
-          julyDays: 0,
-          octoberDays: 0
-        }
-      })
+      // 選んでも結果が変わらないボタンは、あるだけで誤解を招く。
+      // auでんきは燃料費調整額が12か月ぶん揃っていないので月額×12に落ちる
+      show('au_m_plan', { totalKwh: 348 })
       expect(screen.queryByRole('group', { name: '1年ぶんの見積もり方' })).not.toBeInTheDocument()
+    })
+
+    it('オール電化の時間帯別プランでも切り替えを出し、前提と出典はオール電化のものになる', async () => {
+      show('chugoku_night_holiday', {
+        contractKw: 6,
+        readingDay: 6,
+        tou: { daySummer: 100, dayOther: 0, night: 300, holiday: 50 }
+      })
+      expect(screen.getByRole('group', { name: '1年ぶんの見積もり方' })).toBeInTheDocument()
+      // 前提（昼・夜・休日の割合が固定であること）は、選ぶ前から見える
+      expect(screen.getByText(/昼・夜・休日の割合は、検針票の月と同じとみなしています/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      // 「季節で変わる」の説明は、ご契約の種類に合った統計の言葉になる
+      expect(screen.getAllByText(/電気だけを使うご家庭/).length).toBeGreaterThan(0)
+      expect(screen.getByText(/環境省「家庭部門のCO2排出実態統計調査」/)).toBeInTheDocument()
+    })
+
+    it('低圧電力の切り替えは、低圧電力の統計を説明に使う', async () => {
+      show('chugoku_low_voltage', {
+        contractKw: 6,
+        seasonal: { summerKwh: 400, otherKwh: 0 },
+        totalKwh: 400
+      })
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(screen.getAllByText(/低圧電力のご契約の/).length).toBeGreaterThan(0)
+    })
+
+    it('統計が無いプラン（深夜電力B）は切り替えを出さず、理由を書く', () => {
+      show('chugoku_midnight_b', { totalKwh: 400, contractKw: 6 })
+      expect(screen.queryByRole('group', { name: '1年ぶんの見積もり方' })).not.toBeInTheDocument()
+      expect(screen.getByText(/季節によるご使用量の増え減りを示す統計がないため/)).toBeInTheDocument()
+    })
+
+    it('冬の検針票で「毎月おなじ」のときは、多めに見込む旨の注意を出す。季節で変わるに切り替えると消える', async () => {
+      render(
+        <ComparisonResult
+          scenarioId="chugoku_juryo_a"
+          usage={{ totalKwh: 400 }}
+          period={{ year: 2026, month: 1 }}
+          onBack={vi.fn()}
+        />
+      )
+      expect(screen.getByText(/年間のご使用量を多めに見込みます/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(screen.queryByText(/年間のご使用量を多めに見込みます/)).not.toBeInTheDocument()
+    })
+
+    it('総使用量だけのプランには、時間帯の前提を書かない', () => {
+      show('chugoku_juryo_a', { totalKwh: 348 })
+      expect(screen.queryByText(/検針日を毎月/)).not.toBeInTheDocument()
     })
   })
 

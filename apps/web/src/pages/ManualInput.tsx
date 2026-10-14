@@ -3,7 +3,8 @@ import {
   HolidayUsageRatio,
   UsageInput,
   countMeterPeriodDays,
-  countMonthDays
+  countMonthDays,
+  isValidReadingDay
 } from '@ja-denki-simulator/calc-core'
 import Icon from '../components/Icon'
 import {
@@ -41,6 +42,17 @@ function defaultMeterPeriod(year: number, month: number): { start: string; end: 
   const prevMonth = month === 1 ? 12 : month - 1
   const prevYear = month === 1 ? year - 1 : year
   return { start: `${prevYear}-${pad(prevMonth)}-06`, end: `${year}-${pad(month)}-05` }
+}
+
+/**
+ * 検針期間の終了日から毎月の検針日を割り出す（期間は「前月の検針日〜当月の検針日の前日」）。
+ * 2〜28日に収まらないときは求めない。推測して年間の試算に使うより、月の中ごろとみなすほうがよい。
+ */
+function readingDayFromPeriodEnd(end: string): number | undefined {
+  const m = /^\d{4}-\d{2}-(\d{2})$/.exec(end)
+  if (!m) return undefined
+  const day = Number(m[1]) + 1
+  return isValidReadingDay(day) ? day : undefined
 }
 
 const chipClass = (active: boolean) => (active ? 'chip is-active' : 'chip')
@@ -148,6 +160,8 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const [holidayRatio, setHolidayRatio] = useState<HolidayUsageRatio>('same')
   const [meterStart, setMeterStart] = useState('')
   const [meterEnd, setMeterEnd] = useState('')
+  // 毎月の検針日。時間帯別・季節別のプランの年間試算に使う（検針期間を聞かない形式だけ入力欄を出す）
+  const [readingDayInput, setReadingDayInput] = useState('')
   // 日付から自動算出した日数内訳。検針票と合わない場合は手で直せるようにする。
   const [dayCounts, setDayCounts] = useState<{ days: string; weekendDays: string; holidayDays: string } | null>(null)
 
@@ -209,8 +223,18 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   const mixedSeason = period.month === 7 || period.month === 10
   const summerOnly = period.month === 8 || period.month === 9
 
+  // ファミリータイム・時間帯別電灯は、入力済みの検針期間から。それ以外は入力欄から。
+  // どちらも求められなければ省略し、計算側が月の中ごろとみなす
+  const typedReadingDay = readingDayInput.trim() === '' ? undefined : Number(readingDayInput)
+  const readingDayTyped =
+    typedReadingDay !== undefined && isValidReadingDay(typedReadingDay) ? typedReadingDay : undefined
+  const readingDayInvalid = typedReadingDay !== undefined && readingDayTyped === undefined
+  const readingDay = needsCalendar(scenario) ? readingDayFromPeriodEnd(endDate) : readingDayTyped
+  const asksReadingDay = scenario.usageForm === 'seasonal' || scenario.usageForm === 'tou'
+
   const usage: UsageInput = useMemo(() => {
     const base: UsageInput = {}
+    if (readingDay !== undefined) base.readingDay = readingDay
     if (scenario.contract === 'kw') base.contractKw = num(contract)
     if (scenario.contract === 'kva') base.contractKva = num(contract)
 
@@ -251,7 +275,7 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
   }, [
     scenario, contract, totalKwh, summerKwh, otherKwh, dayKwh, daySummerKwh, nightKwh, holidayKwh, summer,
     famDaySummer, famDayOther, famFamily, famNight, ecoDay, ecoNight, allElectric,
-    calendar, mixedSeason, summerOnly
+    calendar, mixedSeason, summerOnly, readingDay
   ])
 
   // 入力しながら結果が見えるほうが検針票との突き合わせが速い
@@ -624,6 +648,23 @@ export default function ManualInput({ onComplete, onBack }: ManualInputProps) {
               <NumberField id="ecoNight" label="夜間時間 kWh" value={ecoNight} onChange={setEcoNight} />
               <TotalBadge total={ecoTotal} />
             </>
+          )}
+
+          {asksReadingDay && (
+            <div style={{ marginTop: '20px' }}>
+              <NumberField
+                id="readingDay"
+                label="毎月の検針日（わかれば）"
+                hint="検針票の「検針日」の日付だけ（例：6）。年間の試算で、夏季料金（7〜9月）の境目にあたる月を数えるのに使います。空欄なら毎月15日ごろとみなします"
+                value={readingDayInput}
+                onChange={setReadingDayInput}
+              />
+              {readingDayInvalid && (
+                <p className="note" style={{ color: 'var(--loss)', marginTop: '6px' }}>
+                  検針日は2〜28の整数で入れてください。このままだと毎月15日ごろとみなします
+                </p>
+              )}
+            </div>
           )}
         </div>
 

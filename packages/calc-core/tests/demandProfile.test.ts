@@ -1,5 +1,10 @@
 import { Decimal } from '../src/decimal-config.js';
-import { MonthlyDemandProfile, distributeAnnualUsage, monthlyRatios } from '../src/demandProfile.js';
+import {
+  MonthlyDemandProfile,
+  distributeAnnualUsage,
+  monthlyIndexFromYears,
+  monthlyRatios
+} from '../src/demandProfile.js';
 
 const SOURCE = {
   document: 'テスト用',
@@ -99,5 +104,61 @@ describe('monthlyRatios', () => {
 
   it('壊れた指数は受け付けない', () => {
     expect(() => monthlyRatios(1, profileOf(['1']))).toThrow(/12か月ぶん必要/);
+  });
+});
+
+describe('monthlyIndexFromYears', () => {
+  const dec = (values: number[]) => values.map(v => new Decimal(v));
+
+  it('毎月おなじ実績なら、指数はすべて 1', () => {
+    const out = monthlyIndexFromYears([dec(Array(12).fill(120))], 4);
+    expect(out.every(v => v.equals(1))).toBe(true);
+  });
+
+  it('4月始まりの12か月を、1月が先頭の並びに直す', () => {
+    // 4月=1, 5月=2, …, 3月=12。平均は 6.5
+    const out = monthlyIndexFromYears([dec([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])], 4);
+    expect(out[0].toFixed(6)).toBe((10 / 6.5).toFixed(6)); // 1月 = 10番目
+    expect(out[3].toFixed(6)).toBe((1 / 6.5).toFixed(6)); // 4月 = 先頭
+    expect(out[2].toFixed(6)).toBe((12 / 6.5).toFixed(6)); // 3月 = 末尾
+  });
+
+  it('1月始まりなら並べ替えない', () => {
+    const out = monthlyIndexFromYears([dec([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])], 1);
+    expect(out[0].toFixed(6)).toBe((1 / 6.5).toFixed(6));
+    expect(out[11].toFixed(6)).toBe((12 / 6.5).toFixed(6));
+  });
+
+  it('年度の水準が違っても、形が同じなら指数は同じになる', () => {
+    const shape = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    const one = monthlyIndexFromYears([dec(shape)], 4);
+    const both = monthlyIndexFromYears([dec(shape), dec(shape.map(v => v * 3))], 4);
+    both.forEach((v, i) => expect(v.toFixed(12)).toBe(one[i].toFixed(12)));
+  });
+
+  it('年度どうしは倍率の平均を取る（水準の平均ではない）', () => {
+    // 1年目: 4月だけ大きい。2年目: 5月だけ大きい。水準は10倍違う
+    const y1 = dec([2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    const y2 = dec([10, 20, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]);
+    const out = monthlyIndexFromYears([y1, y2], 4);
+    const meanY1 = 13 / 12;
+    const meanY2 = 130 / 12;
+    expect(out[3].toFixed(9)).toBe(((2 / meanY1 + 10 / meanY2) / 2).toFixed(9));
+    expect(out[4].toFixed(9)).toBe(((1 / meanY1 + 20 / meanY2) / 2).toFixed(9));
+  });
+
+  it('12か月の指数の平均はちょうど 1', () => {
+    const out = monthlyIndexFromYears([dec([3, 5, 8, 2, 9, 4, 7, 6, 1, 10, 12, 11])], 4);
+    const mean = out.reduce((a, b) => a.plus(b), new Decimal(0)).dividedBy(12);
+    expect(mean.toFixed(12)).toBe('1.000000000000');
+  });
+
+  it('不正な入力は例外にする', () => {
+    expect(() => monthlyIndexFromYears([dec(Array(12).fill(1))], 0)).toThrow(/1〜12/);
+    expect(() => monthlyIndexFromYears([dec(Array(12).fill(1))], 13)).toThrow(/1〜12/);
+    expect(() => monthlyIndexFromYears([dec(Array(12).fill(1))], 1.5)).toThrow(/1〜12/);
+    expect(() => monthlyIndexFromYears([], 4)).toThrow(/1年度も/);
+    expect(() => monthlyIndexFromYears([dec([1, 2, 3])], 4)).toThrow(/12か月ぶん必要/);
+    expect(() => monthlyIndexFromYears([dec([0, ...Array(11).fill(1)])], 4)).toThrow(/0より大きい/);
   });
 });

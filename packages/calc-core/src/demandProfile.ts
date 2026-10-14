@@ -78,3 +78,39 @@ export function monthlyRatios(baseMonth: number, profile: MonthlyDemandProfile):
   const baseIndex = profile.monthlyIndex[baseMonth - 1];
   return profile.monthlyIndex.map(index => index.dividedBy(baseIndex));
 }
+
+/**
+ * 年度ごとの月別の実績から、1月〜12月の指数を作る。
+ *
+ *   1. 年度ごとに、12か月の平均を1とした倍率にする（年度の水準の違いを消す）
+ *   2. 年度どうしで倍率を平均する（その年の猛暑・冷夏に引きずられにくくする）
+ *   3. 1月が先頭になる並びにする
+ *
+ * 比にしてから平均するのは、契約口数の減少や燃料価格に連動した節電で
+ * 年度ごとの使用量の水準が動くため。水準のまま平均すると新しい年度の重みが偏る。
+ *
+ * @param years 年度ごとの12か月ぶん。先頭が firstMonth 月、以降1か月ずつ進む
+ * @param firstMonth 先頭の月（4月始まりの年度なら 4）
+ */
+export function monthlyIndexFromYears(years: Decimal[][], firstMonth: number): Decimal[] {
+  if (!Number.isInteger(firstMonth) || firstMonth < 1 || firstMonth > MONTHS) {
+    throw new Error(`先頭の月は1〜12で指定してください（${firstMonth}）`);
+  }
+  if (years.length === 0) {
+    throw new Error('年度の実績が1年度も渡されていません');
+  }
+  const normalized = years.map((values, i) => {
+    if (values.length !== MONTHS) {
+      throw new Error(`年度の実績は12か月ぶん必要です（${i + 1}年度目: ${values.length}件）`);
+    }
+    if (values.some(v => !v.greaterThan(0))) {
+      throw new Error(`年度の実績は0より大きい必要があります（${i + 1}年度目）`);
+    }
+    const mean = values.reduce((a, b) => a.plus(b), new Decimal(0)).dividedBy(MONTHS);
+    return values.map(v => v.dividedBy(mean));
+  });
+  const averaged = Array.from({ length: MONTHS }, (_, i) =>
+    normalized.reduce((a, year) => a.plus(year[i]), new Decimal(0)).dividedBy(normalized.length)
+  );
+  return Array.from({ length: MONTHS }, (_, m) => averaged[(m + 1 - firstMonth + MONTHS) % MONTHS]);
+}

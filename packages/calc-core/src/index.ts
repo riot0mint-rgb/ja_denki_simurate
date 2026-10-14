@@ -19,6 +19,7 @@ export {
   EconomyNightPlan,
   RatePlan,
   UsageAmount,
+  UsageFormKind,
   UsageInput,
   CalculationInput,
   ChargeLine,
@@ -31,8 +32,19 @@ export { UsageEstimate, UsageEstimateResult, estimateUsageFromBill } from './inv
 export {
   MonthlyDemandProfile,
   distributeAnnualUsage,
-  monthlyRatios
+  monthlyRatios,
+  monthlyIndexFromYears
 } from './demandProfile.js';
+export {
+  MIN_READING_DAY,
+  MAX_READING_DAY,
+  DEFAULT_READING_DAY,
+  isValidReadingDay,
+  meterPeriodOf,
+  meterCalendarOf,
+  summerFractionOf
+} from './meterCalendar.js';
+export { UsageForMonthInput, usageForMonth, totalKwhOf } from './annualUsage.js';
 export {
   ExplanationPart,
   LineComparison,

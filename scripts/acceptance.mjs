@@ -75,6 +75,8 @@ async function runDetailed(page, scenario, usage = '348', period) {
   if (period) await page.selectOption('#period', period)
   await page.waitForTimeout(150)
   for (const el of await page.$$('input[type=number]:visible')) {
+    // 検針日は任意項目。空のままにして「月の中ごろとみなす」側を通す
+    if ((await el.getAttribute('id')) === 'readingDay') continue
     if (!(await el.inputValue())) await el.fill(usage)
   }
   const go = page.getByRole('button', { name: '詳しい結果を見る' })
@@ -546,8 +548,23 @@ async function runDetailed(page, scenario, usage = '348', period) {
   check(
     'A14b',
     'SMOKE 2-2 の毎月おなじ／季節で変わる',
-    smokeFlatYen.includes('13,428') && smokeSeasonal.includes('18,277'),
+    smokeFlatYen.includes('13,428') && smokeSeasonal.includes('16,437'),
     `${smokeFlatYen} / ${smokeSeasonal}`
+  )
+
+  // 2-2b オール電化（ファミリータイムⅡ）/ 2026年1月 / 各100kWh。
+  // 冬の検針票を毎月おなじで12か月に広げると、年間のおトクが大きく出すぎる
+  await runDetailed(page, 'chugoku_family_2', '100', '2026-1')
+  const ecoFlat = flat(await hero())
+  const ecoBias = /年間のご使用量を多めに見込みます/.test(await page.innerText('body'))
+  await page.getByRole('button', { name: '季節で変わる' }).click()
+  await page.waitForTimeout(300)
+  const ecoSeasonal = flat(await hero())
+  check(
+    'A14g',
+    'SMOKE 2-2b のオール電化（冬の検針票）の毎月おなじ／季節で変わる',
+    ecoFlat.includes('3,472') && ecoSeasonal.includes('55') && !ecoSeasonal.includes('3,472') && ecoBias,
+    `${ecoFlat} / ${ecoSeasonal} / 多めの注意 ${ecoBias ? 'あり' : 'なし'}`
   )
 
   // 2-3 auでんき / 2026年7月 / 348kWh

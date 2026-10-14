@@ -17,7 +17,10 @@ import {
   allocateFromFamilyTime,
   estimateUsageFromBill,
   explainDifference,
-  distributeAnnualUsage
+  DEFAULT_READING_DAY,
+  RateSource,
+  totalKwhOf,
+  usageForMonth
 } from '@ja-denki-simulator/calc-core'
 import {
   ComparisonScenario,
@@ -27,7 +30,7 @@ import {
   planForPeriod,
   rateAvailability
 } from '../data/rates'
-import { DEMAND_PROFILE } from '../data/demandProfile'
+import { DEMAND_PROFILES } from '../data/demandProfile'
 
 const calculator = new BillingCalculator()
 const comparator = new BillingComparator()
@@ -628,13 +631,31 @@ export interface AnnualMonth {
   savingsYen: number
 }
 
+/** 「季節で変わる」を選べるプランの、増減の根拠 */
+export interface SeasonalProfileView {
+  /** お客様に読んでもらう一文 */
+  description: string
+  source: RateSource
+}
+
 export interface AnnualView {
   /** rollup … 12か月それぞれの単価で積み上げた／times_twelve … 月額×12 */
   basis: 'rollup' | 'times_twelve'
   /** 実際に使った見積もり方。指定が使えなかったときは flat に落ちる */
   method: AnnualMethod
-  /** 季節で増減させたときの、もとにした統計の説明。flat では null */
-  profileNote: string | null
+  /** 「季節で変わる」を選べるか。選べるプランだけ根拠が入る。深夜電力Bのように統計が無いプランは null */
+  seasonal: SeasonalProfileView | null
+  /**
+   * 時間帯別・季節別のプランで、月ごとの使用量を組み立てるときに置いた前提。
+   * 総使用量だけのプランは null。画面にも印刷物にも出す
+   */
+  assumptionNote: string | null
+  /**
+   * 「毎月おなじ」を選んでいるとき、検針票の月が年間の平均から大きく外れている場合の注意。
+   * 冬の検針票を12倍に近い形で使えば年間を多めに、春秋の検針票なら少なめに見積もる。
+   * 見積もり方を選ぶ手がかりとして出す。選んでいない／外れていないときは null
+   */
+  flatBiasNote: string | null
   planId: string
   planName: string
   rangeLabel: string
@@ -670,6 +691,37 @@ function monthsEndingAt(period: RatePeriod): RatePeriod[] {
  * 同じ内訳を12か月に当てると、7月の入力を1月の単価で計算するような
  * 数字を作ってしまう。推測になるので積み上げない（CLAUDE.md ルール8）。
  */
+/**
+ * 時間帯別・季節別のプランで、月ごとの使用量を組み立てるときの前提。
+ * 画面に出す文言なので、お客様が読んで分かる書き方にする。
+ */
+function assumptionNoteOf(scenario: ComparisonScenario, readingDay: number, given: boolean): string | null {
+  if (scenario.usageForm === 'total') return null
+  const parts: string[] = []
+  if (scenario.usageForm !== 'seasonal') {
+    parts.push('昼・夜・休日の割合は、検針票の月と同じとみなしています。')
+  }
+  parts.push(
+    `夏季料金（7〜9月）がかかる分は、検針日を毎月${readingDay}日${given ? '' : 'ごろ（入力が無いため月の中ごろ）'}として、月ごとに数え直しています。`
+  )
+  if (scenario.usageForm === 'family' || scenario.usageForm === 'economy_night') {
+    parts.push('夜トクプランへの振り替えは、月ごとの土日・祝日の日数で数え直しています。')
+  }
+  return parts.join('')
+}
+
+/** 検針票の月が年間の平均から、この割合以上外れていたら注意を出す */
+const FLAT_BIAS_THRESHOLD = new Decimal('0.15')
+
+function flatBiasNoteOf(baseIndex: Decimal, month: number): string | null {
+  const gap = baseIndex.minus(1)
+  if (gap.abs().lessThan(FLAT_BIAS_THRESHOLD)) return null
+  const percent = gap.abs().times(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString()
+  return gap.greaterThan(0)
+    ? `検針票の${month}月は、1年の平均の月より約${percent}%多くお使いになる月です。「毎月おなじ」だと年間のご使用量を多めに見込みます。`
+    : `検針票の${month}月は、1年の平均の月より約${percent}%少なくお使いになる月です。「毎月おなじ」だと年間のご使用量を少なめに見込みます。`
+}
+
 export function calculateAnnual(
   scenarioId: string,
   usage: UsageInput,
@@ -690,6 +742,14 @@ export function calculateAnnual(
     ? GAS_SET_DISCOUNT_MONTHLY.times(MONTHS_IN_YEAR).toNumber()
     : 0
 
+  // 「季節で変わる」の根拠。統計が無いプランは選べない（ルール8）
+  const profile = scenario.demandProfile ? DEMAND_PROFILES[scenario.demandProfile] : null
+  const seasonal: SeasonalProfileView | null = profile
+    ? { description: profile.description, source: profile.source }
+    : null
+  const readingDay = usage.readingDay ?? DEFAULT_READING_DAY
+  const assumptionNote = assumptionNoteOf(scenario, readingDay, usage.readingDay !== undefined)
+
   const timesTwelve = (fallbackReason: string): AnnualView => {
     const currentYen = base.view.current.monthlyChargeYen * MONTHS_IN_YEAR
     const candidateYen = baseCandidate.monthlyChargeYen * MONTHS_IN_YEAR
@@ -697,7 +757,9 @@ export function calculateAnnual(
     return {
       basis: 'times_twelve',
       method: 'flat',
-      profileNote: null,
+      seasonal,
+      assumptionNote: null,
+      flatBiasNote: null,
       planId,
       planName: baseCandidate.planName,
       rangeLabel: `${period.year}年${period.month}月の単価で12か月`,
@@ -711,32 +773,30 @@ export function calculateAnnual(
     }
   }
 
-  if (scenario.usageForm !== 'total') {
-    return timesTwelve(
-      '時間帯別・季節別のプランは、月ごとの内訳が検針票からしか分からないため、この月の試算を12倍しています'
-    )
-  }
-
   const available = new Set(periodOptionsFor(scenario).map(p => `${p.year}-${p.month}`))
   const span = monthsEndingAt(period)
   if (!span.every(p => available.has(`${p.year}-${p.month}`))) {
     return timesTwelve('12か月ぶんの燃料費調整額がまだ収録されていないため、この月の試算を12倍しています')
   }
 
-  // 季節で増減させるのは、検針票に総使用量しか無いプランだけ。
-  // 時間帯別のプランは、昼と夜の比まで季節で動くはずで、その比の根拠が無い
-  // （CLAUDE.md ルール8）。ここは usageForm === 'total' が保証されている。
-  const wantSeasonal = (options.method ?? DEFAULT_ANNUAL_METHOD) === 'seasonal'
-  const baseUsageKwh = usage.totalKwh ?? 0
-  const seasonalUsage = wantSeasonal
-    ? distributeAnnualUsage(new Decimal(baseUsageKwh), period.month, DEMAND_PROFILE)
-    : null
+  // 「季節で変わる」は、季節の形を示す統計があるプランだけ。時間帯別・季節別のプランも
+  // 同じ仕組みで動かすが、昼・夜・休日の割合は入力した月のまま動かさない
+  // （その割合が季節でどう変わるかの統計が無い。usageForMonth 参照）
+  const wantSeasonal = profile !== null && (options.method ?? DEFAULT_ANNUAL_METHOD) === 'seasonal'
 
   const months: AnnualMonth[] = []
   for (const p of span) {
-    const monthUsage: UsageInput = seasonalUsage
-      ? { ...usage, totalKwh: seasonalUsage[p.month - 1].toNumber() }
-      : usage
+    const monthUsage = usageForMonth({
+      form: scenario.usageForm,
+      base: usage,
+      baseMonth: period,
+      target: p,
+      profile: wantSeasonal ? profile : null,
+      readingDay: usage.readingDay
+    })
+    if (!monthUsage) {
+      return timesTwelve('月ごとのご使用量を組み立てられないため、この月の試算を12倍しています')
+    }
     const r = calculateComparison(scenarioId, monthUsage, { period: p })
     if (r.status !== 'ok') {
       return timesTwelve('一部の月が計算できないため、この月の試算を12倍しています')
@@ -747,7 +807,7 @@ export function calculateAnnual(
       year: p.year,
       month: p.month,
       label: `${p.month}月`,
-      usageKwh: monthUsage.totalKwh ?? null,
+      usageKwh: totalKwhOf(scenario.usageForm, monthUsage),
       currentYen: r.view.current.monthlyChargeYen,
       candidateYen: c.monthlyChargeYen,
       savingsYen: r.view.current.monthlyChargeYen - c.monthlyChargeYen
@@ -762,8 +822,10 @@ export function calculateAnnual(
 
   return {
     basis: 'rollup',
-    method: seasonalUsage ? 'seasonal' : 'flat',
-    profileNote: seasonalUsage ? DEMAND_PROFILE.description : null,
+    method: wantSeasonal ? 'seasonal' : 'flat',
+    seasonal,
+    assumptionNote,
+    flatBiasNote: wantSeasonal || !profile ? null : flatBiasNoteOf(profile.monthlyIndex[period.month - 1], period.month),
     planId,
     planName: baseCandidate.planName,
     rangeLabel: `${first.year}年${first.month}月〜${last.year}年${last.month}月`,

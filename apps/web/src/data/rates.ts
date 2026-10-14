@@ -11,8 +11,10 @@ import {
   RatePlan,
   RoundingProfile,
   TieredMinimumPlan,
-  TimeOfUsePlan
+  TimeOfUsePlan,
+  UsageFormKind
 } from '@ja-denki-simulator/calc-core'
+import type { DemandProfileId } from './demandProfile'
 
 /**
  * 単価はすべて JAでんき公式試算表（26年7月適用版）からの転記。推測値は含まない。
@@ -900,7 +902,7 @@ export function rateAvailability(
 // ─────────────────────────────────────────────
 
 /** 使用量の入力形式。画面のフォームを切り替えるために使う。 */
-export type UsageForm = 'total' | 'seasonal' | 'tou' | 'family' | 'economy_night'
+export type UsageForm = UsageFormKind
 
 export interface ComparisonScenario {
   scenarioId: string
@@ -924,6 +926,11 @@ export interface ComparisonScenario {
    * 'from_economy_night' … 昼間・夜間の2区分を同様に按分（ファミリーとは別式）
    */
   candidateUsage: 'same' | 'all_night' | 'from_family' | 'from_economy_night'
+  /**
+   * 1年ぶんの試算で「季節で変わる」を選んだときに使う、季節ごとの使われ方（data/demandProfile.ts）。
+   * null は、季節の形を示す統計が無いプラン。「毎月おなじ」しか選べない（ルール8）。
+   */
+  demandProfile: DemandProfileId | null
   /**
    * ご契約容量によって加わる乗り換え先。時間帯の区分を持たない料金プランなので、
    * 時間帯別の使用量の**合計**とご契約容量で計算する（振替の推定を挟まない）。
@@ -954,6 +961,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'none',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'household',
     sourceDocument: DOC.juryoA
   },
   {
@@ -966,6 +974,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'none',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'household',
     sourceDocument: DOC.juryoA
   },
   {
@@ -978,6 +987,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'none',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'household',
     sourceDocument: DOC.juryoA
   },
   {
@@ -990,6 +1000,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'household',
     sourceDocument: DOC.juryoB
   },
   {
@@ -1002,6 +1013,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kw',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'low_voltage_power',
     sourceDocument: DOC.lowVoltage
   },
   {
@@ -1014,6 +1026,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kw',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'low_voltage_power',
     sourceDocument: CHUGOKU_REVISION_2026_11_CURRENT.document
   },
   {
@@ -1026,6 +1039,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'household',
     sourceDocument: CHUGOKU_REVISION_2026_11_CURRENT.document
   },
   {
@@ -1038,6 +1052,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kw',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'all_electric',
     sourceDocument: DOC.tou
   },
   {
@@ -1052,6 +1067,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kw',
     fuelProvider: 'chugoku',
     candidateUsage: 'same',
+    demandProfile: 'all_electric',
     sourceDocument: DOC.tou
   },
   {
@@ -1064,6 +1080,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kw',
     fuelProvider: 'chugoku',
     candidateUsage: 'all_night',
+    demandProfile: null,
     sourceDocument: DOC.midnightB
   },
   {
@@ -1076,6 +1093,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'from_family',
+    demandProfile: 'all_electric',
     contractDependentCandidates: LIGHTING_BY_CAPACITY,
     sourceDocument: DOC.family
   },
@@ -1089,6 +1107,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'from_family',
+    demandProfile: 'all_electric',
     contractDependentCandidates: LIGHTING_BY_CAPACITY,
     sourceDocument: DOC.family
   },
@@ -1102,6 +1121,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kva',
     fuelProvider: 'chugoku',
     candidateUsage: 'from_economy_night',
+    demandProfile: 'all_electric',
     contractDependentCandidates: LIGHTING_BY_CAPACITY,
     sourceDocument: DOC.family
   },
@@ -1115,6 +1135,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'none',
     fuelProvider: 'au',
     candidateUsage: 'same',
+    demandProfile: 'household',
     sourceDocument: DOC.auM
   },
   {
@@ -1127,6 +1148,7 @@ export const SCENARIOS: ComparisonScenario[] = [
     contract: 'kw',
     fuelProvider: 'au',
     candidateUsage: 'same',
+    demandProfile: 'low_voltage_power',
     sourceDocument: DOC.auLow
   }
 ]
