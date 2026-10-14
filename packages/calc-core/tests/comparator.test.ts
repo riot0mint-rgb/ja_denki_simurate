@@ -137,16 +137,19 @@ describe('入力の妥当性', () => {
 });
 
 describe('月次レート表', () => {
-  it('既定は全事業者がそろう最新月（26年8月適用）', () => {
-    // 単価そのものは 26年7月適用のまま。動くのは燃調と賦課金だけ。
-    expect(periodKey(DEFAULT_PERIOD)).toBe('2026-08');
+  // 月次データはフェーズ6-bの自動取得で毎月増える。ここに特定の年月を書くと
+  // 自動取得のたびに品質ゲートが赤くなり、反映が止まる。期待値はデータから導く。
+  it('既定は全事業者がそろう最新月', () => {
+    const au = new Set(availablePeriods('au').map(periodKey));
+    const latestCommon = availablePeriods('chugoku').map(periodKey).find(k => au.has(k));
+    expect(periodKey(DEFAULT_PERIOD)).toBe(latestCommon);
   });
 
   it('収録月は新しい順に並び、賦課金も揃っている', () => {
     const periods = availablePeriods();
     expect(periods.length).toBeGreaterThan(0);
-    // 中国電力系は全農エネルギーのお知らせから 2026-09 まで収録している。
-    expect(periodKey(periods[0])).toBe('2026-09');
+    const keys = periods.map(periodKey);
+    expect(keys).toEqual([...keys].sort().reverse());
     for (const p of periods) {
       expect(lookupFuelAdjustment(p)).not.toBeNull();
       expect(lookupRenewableLevy(p)).not.toBeNull();

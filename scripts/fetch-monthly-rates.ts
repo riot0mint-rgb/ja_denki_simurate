@@ -14,9 +14,7 @@
  *   コミット・pushは、この後に続くワークフロー側のステップが担う
  *   （CIの品質ゲートを必ず通してから反映するため）。
  *
- * ⚠️ 取得元ページの実際のURL・HTML構造は未確定（2026-09-07時点）。
- * `fetchChugokuFuelPage` / `fetchAuFuelPage` はプレースホルダで、
- * 呼ぶと明示的に失敗する。本番のURL・ページ構造が分かり次第、実装する。
+ * 取得元とページの解析は `monthlyRatesParse.ts`（2026-10-14 に実ページで構造を確認）。
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -24,39 +22,51 @@ import { join, dirname } from 'node:path'
 import { CHUGOKU_FUEL, AU_FUEL, RENEWABLE_LEVY } from '../packages/calc-core/src/monthlyRatesData.js'
 import { diffFuelEntries, diffLevyEntries, FetchedFuelEntry, FetchedLevyEntry } from './monthlyRatesDiff.js'
 import { insertFuelEntries, insertLevyEntries } from './monthlyRatesInsert.js'
+import { parseEnergiaFuelPage, parseAuFuelPage, findLevyNoticeLinks, parseLevyNotice } from './monthlyRatesParse.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA_FILE = join(__dirname, '../packages/calc-core/src/monthlyRatesData.ts')
 
+const ENERGIA_FUEL_URL = 'https://www.energia.co.jp/elec/seido/nencho/'
+const AU_FUEL_URL = 'https://www.au.com/energy/denki/other/adjust/detail/'
+const ENERGIA_INFO_URL = 'https://www.energia.co.jp/info/index.html'
+
+async function fetchText(url: string): Promise<string> {
+  const res = await fetch(url, { headers: { 'user-agent': 'ja-denki-simulator rate fetcher (+GitHub Actions)' } })
+  if (!res.ok) throw new Error(`取得に失敗しました: ${url} (HTTP ${res.status})`)
+  return res.text()
+}
+
 /**
- * ⚠️ 未実装（プレースホルダ）。中国電力の規制料金側・燃料費等調整制度のご案内ページ
- * （想定: https://www.energia.co.jp/elec/seido/nencho/ 付近）から、
- * 月別の燃料費調整額（15kWhまでの定額・15kWh超の単価）を取得する。
- *
- * 本セッションのサンドボックスはネットワークが遮断されており、実際のページ構造を
- * 確認できていない。プロジェクト管理者からURL・ページ内容の共有を受けてから実装する
- * （CLAUDE.md ルール8: 見たことのない構造を推測で解析しない）。
+ * 収録の起点より古い月は足さない。過去にさかのぼって行を増やしても
+ * 画面では選べず（賦課金の表が無い）、差分のノイズになるだけ。
  */
-async function fetchChugokuFuelPage(): Promise<FetchedFuelEntry[]> {
-  throw new Error(
-    '未実装: 中国電力の燃料費調整額ページの取得・解析。' +
-      'docs/IMPLEMENTATION_PLAN.md「フェーズ6-b」参照。URL・ページ構造の確認が先に必要。'
-  )
+function notOlderThan(table: Record<string, unknown>) {
+  const earliest = Object.keys(table).sort()[0]
+  return (e: { period: string }) => earliest === undefined || e.period >= earliest
 }
 
-/** ⚠️ 未実装（プレースホルダ）。auでんき公式サイトの燃料費調整単価ページから取得する。 */
+async function fetchChugokuFuelPage(): Promise<FetchedFuelEntry[]> {
+  return parseEnergiaFuelPage(await fetchText(ENERGIA_FUEL_URL)).filter(notOlderThan(CHUGOKU_FUEL))
+}
+
 async function fetchAuFuelPage(): Promise<FetchedFuelEntry[]> {
-  throw new Error(
-    '未実装: auでんきの燃料費調整額ページの取得・解析。' + 'docs/IMPLEMENTATION_PLAN.md「フェーズ6-b」参照。'
-  )
+  return parseAuFuelPage(await fetchText(AU_FUEL_URL)).filter(notOlderThan(AU_FUEL))
 }
 
 /**
- * ⚠️ 未実装（プレースホルダ）。再エネ賦課金は経済産業省が年度単位で告示する
- * 全国一律の単価。事業者サイトではなく告示そのものを出典にするのが望ましい。
+ * 再エネ賦課金は経済産業省が年度ごとに告示する全国一律の単価。
+ * 中国電力のお知らせ（告示を受けて毎年3月ごろ掲載）から取る。
+ * 一覧に新年度のお知らせが無い時期は、何も足さない（例外にはしない）。
  */
 async function fetchRenewableLevyNotice(): Promise<FetchedLevyEntry[]> {
-  throw new Error('未実装: 再エネ賦課金の告示の取得・解析。' + 'docs/IMPLEMENTATION_PLAN.md「フェーズ6-b」参照。')
+  const links = findLevyNoticeLinks(await fetchText(ENERGIA_INFO_URL))
+  const entries: FetchedLevyEntry[] = []
+  for (const link of links) {
+    const url = new URL(link.href, ENERGIA_INFO_URL).toString()
+    entries.push(...parseLevyNotice(await fetchText(url), link.fromYear))
+  }
+  return entries.filter(notOlderThan(RENEWABLE_LEVY))
 }
 
 interface Report {

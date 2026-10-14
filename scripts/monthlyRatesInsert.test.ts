@@ -106,6 +106,12 @@ describe('insertFuelEntries / insertLevyEntries', () => {
 
   it('賦課金テーブルへ追記できる', () => {
     const out = insertLevyEntries(SAMPLE, [{ period: '2025-03', unitPriceYenPerKwh: '3.49' }])
-    expect(out).toContain("'2025-03': '3.49',")
+    expect(out).toContain("'2025-03': '3.49'\n}")
+  })
+
+  it('ブロック最後の行には末尾カンマを付けず、次の追記で補う', () => {
+    const once = insertLevyEntries(SAMPLE, [{ period: '2025-03', unitPriceYenPerKwh: '3.49' }])
+    const twice = insertLevyEntries(once, [{ period: '2025-04', unitPriceYenPerKwh: '3.49' }])
+    expect(twice).toContain("'2025-03': '3.49',\n  '2025-04': '3.49'\n}")
   })
 })
