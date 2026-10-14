@@ -10,8 +10,7 @@ name: Monthly Rate Fetch
 #   をすべて通ったときだけ main へ commit・push する
 # - 取得元ページの構造が想定と違う・既存の値と食い違う場合は、
 #   scripts/fetch-monthly-rates.ts が失敗して終わる（このワークフローが赤くなるだけで、
-#   何もコミットされない）。まだ取得元の実装が済んでいないため、当面は毎回失敗する
-#   （docs/IMPLEMENTATION_PLAN.md「フェーズ6-b」参照）
+#   何もコミットされない）。取得元と解析は scripts/monthlyRatesParse.ts を参照
 on:
   schedule:
     # 各社の公表timingがずれるため、月初から4回試す（1・8・15・22日、9:00 JST = 0:00 UTC）
