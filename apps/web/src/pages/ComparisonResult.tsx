@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { UsageInput } from '@ja-denki-simulator/calc-core'
 import Icon from '../components/Icon'
-import { DEMAND_PROFILE } from '../data/demandProfile'
 import { EstimateSummary } from '../services/estimateTalk'
 import {
   AnnualView,
@@ -201,10 +200,13 @@ function MonthlyBars({
  */
 function AnnualMethodSwitch({
   value,
-  onChange
+  onChange,
+  seasonalHint
 }: {
   value: AnnualMethod
   onChange: (next: AnnualMethod) => void
+  /** 「季節で変わる」の根拠。ご契約の種類ごとに使う統計が違うので、固定の文言にしない */
+  seasonalHint: string
 }) {
   const options: Array<{ id: AnnualMethod; label: string; hint: string }> = [
     {
@@ -215,7 +217,7 @@ function AnnualMethodSwitch({
     {
       id: 'seasonal',
       label: '季節で変わる',
-      hint: '中国エリアのご家庭の平均に合わせ、夏と冬は多め、春と秋は少なめに見込みます'
+      hint: seasonalHint
     }
   ]
   const current = options.find(o => o.id === value)
@@ -423,8 +425,24 @@ export default function ComparisonResult({
                   : ''}
             </p>
 
-            {annual && rollup && (
-              <AnnualMethodSwitch value={annualMethod} onChange={setAnnualMethod} />
+            {annual && rollup && annual.seasonal && (
+              <AnnualMethodSwitch
+                value={annualMethod}
+                onChange={setAnnualMethod}
+                seasonalHint={annual.seasonal.description}
+              />
+            )}
+            {annual && rollup && !annual.seasonal && (
+              <p className="note">
+                このご契約は、季節によるご使用量の増え減りを示す統計がないため、
+                検針票と同じご使用量が毎月つづくものとして計算しています。
+              </p>
+            )}
+            {annual && rollup && annual.flatBiasNote && (
+              <p className="note" style={{ color: 'var(--warn-ink)' }}>{annual.flatBiasNote}</p>
+            )}
+            {annual && rollup && annual.assumptionNote && (
+              <p className="note">{annual.assumptionNote}</p>
             )}
           </div>
 
@@ -689,16 +707,17 @@ export default function ComparisonResult({
               <ul className="note" style={{ paddingLeft: '18px' }}>
                 {v.sources.map(s => <li key={s}>{s}</li>)}
               </ul>
-              {annual?.method === 'seasonal' && (
+              {annual?.method === 'seasonal' && annual.seasonal && (
                 <>
                   <p style={{ fontWeight: 700, fontSize: '14px', marginTop: '20px' }}>
                     季節ごとの使われ方の出典
                   </p>
                   <ul className="note" style={{ paddingLeft: '18px' }}>
                     <li>
-                      {DEMAND_PROFILE.source.document}／{DEMAND_PROFILE.source.locator}
+                      {annual.seasonal.source.document}／{annual.seasonal.source.locator}
                     </li>
-                    {annual.profileNote && <li>{annual.profileNote}</li>}
+                    <li>{annual.seasonal.description}</li>
+                    {annual.assumptionNote && <li>{annual.assumptionNote}</li>}
                   </ul>
                 </>
               )}
