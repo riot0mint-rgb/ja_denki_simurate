@@ -179,7 +179,7 @@ export const chugokuFamilyTime1: FamilyTimePlan = {
   structure: 'family_time', planId: 'chugoku_family_1', planName: '中国電力 ファミリータイムⅠ', side: 'other',
   baseChargeUpTo10Kva: new Decimal('2577.10'), baseChargePerKvaOver10: new Decimal('481.77'),
   unitPrices: familyPrices('47.38', '42.57', '42.33', '30.34'),
-  allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  allElectricDiscount: ALL_ELECTRIC_DISCOUNT, halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING, sources: [src(D4, "'ファミリーⅠ結果'!H7,E8,E10:E13")]
 };
 
@@ -187,7 +187,7 @@ export const chugokuFamilyTime2: FamilyTimePlan = {
   structure: 'family_time', planId: 'chugoku_family_2', planName: '中国電力 ファミリータイムⅡ', side: 'other',
   baseChargeUpTo10Kva: new Decimal('1587.10'), baseChargePerKvaOver10: new Decimal('481.77'),
   unitPrices: familyPrices('50.71', '45.58', '45.34', '30.34'),
-  allElectricDiscount: ALL_ELECTRIC_DISCOUNT,
+  allElectricDiscount: ALL_ELECTRIC_DISCOUNT, halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING, sources: [src(D4, "'ファミリーⅡ結果'!H7,E8,E10:E13")]
 };
 

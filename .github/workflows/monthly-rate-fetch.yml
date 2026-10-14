@@ -1,0 +1,92 @@
+name: Monthly Rate Fetch
+
+# 燃料費調整額・再エネ賦課金の自動取得（フェーズ6-b）。
+# CLAUDE.md ルール10の限定的な例外により、この2値に限り取得から本番反映まで
+# 無人で回してよいと承認されている（2026-09-07・プロジェクト管理者）。
+#
+# 安全策:
+# - 新しい年月の追加のみ行う（既存の年月を書き換えることはしない）
+# - build.yml と同じ品質ゲート（build・test:coverage・type-check・rate-master:check）
+#   をすべて通ったときだけ main へ commit・push する
+# - 取得元ページの構造が想定と違う・既存の値と食い違う場合は、
+#   scripts/fetch-monthly-rates.ts が失敗して終わる（このワークフローが赤くなるだけで、
+#   何もコミットされない）。まだ取得元の実装が済んでいないため、当面は毎回失敗する
+#   （docs/IMPLEMENTATION_PLAN.md「フェーズ6-b」参照）
+on:
+  schedule:
+    # 各社の公表timingがずれるため、月初から4回試す（1・8・15・22日、9:00 JST = 0:00 UTC）
+    - cron: '0 0 1,8,15,22 * *'
+  workflow_dispatch: {}
+
+jobs:
+  fetch-and-apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build calc-core (取得スクリプトが現在値の読み込みに使う)
+        run: npm run build -w @ja-denki-simulator/calc-core
+
+      # 未収録の年月だけを packages/calc-core/src/monthlyRatesData.ts へ追記する。
+      # 既存の年月と値が食い違う場合や、取得自体に失敗した場合はここで非ゼロ終了し、
+      # 以降のステップは実行されない（＝何もコミットされない）
+      - name: Fetch monthly fuel/renewable-levy rates
+        run: npm run fetch-monthly-rates
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- packages/calc-core/src/monthlyRatesData.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ここから先は「新しい年月が見つかった場合」だけ動く。build.yml と同じ品質ゲート。
+      - name: Rebuild calc-core with new data
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run build -w @ja-denki-simulator/calc-core
+
+      - name: Run tests with coverage
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run test:coverage
+
+      - name: Type check
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run type-check
+
+      - name: Regenerate rate master
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run rate-master:generate
+
+      - name: Verify rate master is in sync
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run rate-master:check
+
+      - name: Build web application
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run build -w @ja-denki-simulator/web
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "ja-denki-rate-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add packages/calc-core/src/monthlyRatesData.ts data/rate_master.json
+          git commit -m "rate-update: 燃料費調整額・再エネ賦課金を自動取得で追加" -m "新しい年月の追加のみ（既存の年月は書き換えていない）。build・test:coverage・type-check・rate-master:check がすべて緑になったことをこのワークフローで確認済み（CLAUDE.md ルール10の限定的な例外・フェーズ6-b）。"
+          git push origin HEAD:main

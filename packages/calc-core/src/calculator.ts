@@ -612,7 +612,12 @@ export class BillingCalculator {
 
     const usage = bands.reduce((a, b) => a.plus(amounts[b]), new Decimal('0'));
     const overKva = Decimal.max(kva.value.minus(TOU_BASE_INCLUDED_KW), 0);
-    const baseCharge = plan.baseChargeUpTo10Kva.plus(plan.baseChargePerKvaOver10.times(overKva));
+    // 使用量が0kWhの月は基本料金が半額（エコノミーナイトと同型。中国電力公式シミュレーションで確認済み）
+    const noUsage = usage.isZero();
+    const halve = noUsage && plan.halveBaseWhenNoUsage;
+    const baseCharge = plan.baseChargeUpTo10Kva
+      .plus(plan.baseChargePerKvaOver10.times(overKva))
+      .times(halve ? '0.5' : '1');
 
     const lines: ChargeLine[] = bands.map(band => ({
       label: FAMILY_BAND_LABEL[band],
@@ -650,7 +655,7 @@ export class BillingCalculator {
       status: 'ok',
       bill: this.assemble(plan, {
         baseCharge,
-        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toDecimalPlaces(2).toString()}kVA超過分`}）`,
+        baseLabel: `基本料金（10kVAまで${overKva.isZero() ? '' : ` + ${overKva.toDecimalPlaces(2).toString()}kVA超過分`}${halve ? '・半額' : ''}）`,
         lines,
         energySubtotal,
         energyChargeTotal,
@@ -659,7 +664,7 @@ export class BillingCalculator {
         levyCharge,
         totalKwh: usage,
         total,
-        notes
+        notes: halve ? ['使用量が0kWhのため基本料金が半額です', ...notes] : notes
       })
     };
   }

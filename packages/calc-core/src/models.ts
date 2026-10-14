@@ -175,6 +175,8 @@ export interface FamilyTimePlan extends PlanBase {
   unitPrices: Record<FamilyBand, Decimal>;
   /** 電化住宅割。基本料金+電力量料金に対する定率割引と上限額。 */
   allElectricDiscount: { rate: Decimal; capYen: Decimal } | null;
+  /** 使用量が0kWhの月は基本料金が半額になるか（エコノミーナイトと同型。中国電力公式シミュレーションで確認済み） */
+  halveBaseWhenNoUsage: boolean;
 }
 
 /**
