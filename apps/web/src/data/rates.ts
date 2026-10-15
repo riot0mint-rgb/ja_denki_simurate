@@ -35,11 +35,80 @@ const DOC = {
   auLow: '☆JAでんき試算表(VS auでんき_低圧電力)26年6月.xlsx'
 } as const
 
-function src(document: string, locator: string): RateSource {
+/**
+ * 単価の版。事業者ごとに、いつから適用される単価か（画面に出す言い方つき）。
+ *
+ * **試算表の「26年7月適用」は、試算表を作った月であって、単価の適用開始ではない。**
+ * 2026-10-14 に中国電力の約款・料金表の新旧（2024-04-01 実施版・2025-04-01 実施版・
+ * 2026-11-01 実施版）を取得して金額を突き合わせたところ、中国電力の単価は
+ * 2024年4月1日実施から2026年10月ご使用分まで**同一**だった（2025-04-01 実施版は約款の再発行で、
+ * 金額は変わっていない）。JAでんきの定義書も 2024年5月検針分から 2026年10月分まで同一。
+ *
+ * 版を足したら PLAN_REVISIONS の切替月とそろえる（テストで固定してある）。
+ * 先頭の版より前の検針月は、単価を持っていないので試算しない（rateAvailability）。
+ */
+export type PriceProvider = 'chugoku' | 'ja' | 'au'
+
+export const PRICE_TERMS: Record<PriceProvider, Array<{ from: string; label: string }>> = {
+  chugoku: [
+    { from: '2024-04', label: '2024年4月1日実施' },
+    // 2026年11月1日のご使用分から。全量が新単価になるのは12月検針分から
+    { from: '2026-12', label: '2026年11月1日実施' }
+  ],
+  ja: [
+    // 令和6年5月1日検針分から（料金メニュー定義書 2024年4月改定）
+    { from: '2024-05', label: '2024年5月検針分から' },
+    { from: '2026-11', label: '2026年11月検針分から' }
+  ],
+  // 適用開始日は公表されていない。公式サイトに掲載されている料金表をそのまま使っている
+  au: [{ from: '2026-07', label: '公式サイト掲載の料金表' }]
+}
+
+/** 単価を持っている最初の検針月 */
+export const PRICE_SINCE: Record<PriceProvider, string> = {
+  chugoku: PRICE_TERMS.chugoku[0].from,
+  ja: PRICE_TERMS.ja[0].from,
+  au: PRICE_TERMS.au[0].from
+}
+
+const PROVIDER_NAME: Record<PriceProvider, string> = {
+  chugoku: '中国電力',
+  ja: 'JAでんき',
+  au: 'auでんき'
+}
+
+export function providerOf(plan: RatePlan): PriceProvider {
+  if (plan.planId.startsWith('ja_denki_')) return 'ja'
+  if (plan.planId.startsWith('au_')) return 'au'
+  return 'chugoku'
+}
+
+/** その検針月に適用されている単価の版（先頭より前なら null） */
+function termsAt(provider: PriceProvider, key: string): string | null {
+  let label: string | null = null
+  for (const t of PRICE_TERMS[provider]) if (key >= t.from) label = t.label
+  return label
+}
+
+const periodKeyOf = (period: { year: number; month: number }) =>
+  `${period.year}-${String(period.month).padStart(2, '0')}`
+
+/**
+ * 比較に使うプランの、その検針月に適用されている単価の言い方。
+ * 例: 「中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から」
+ */
+export function unitPriceTermsOf(plans: RatePlan[], period: { year: number; month: number }): string {
+  const key = periodKeyOf(period)
+  const providers = Array.from(new Set(plans.map(providerOf)))
+  return providers.map(p => `${PROVIDER_NAME[p]} ${termsAt(p, key) ?? '（単価なし）'}`).join(' ／ ')
+}
+
+/** 試算表由来の出典。effectiveFrom は試算表の日付ではなく、その単価の適用開始 */
+function src(document: string, locator: string, since: string = PRICE_SINCE.chugoku): RateSource {
   return {
     document,
     locator,
-    effectiveFrom: '2026-07',
+    effectiveFrom: since,
     verificationStatus: 'verified',
     verifiedAt: '2026-08-20'
   }
@@ -56,7 +125,7 @@ function src(document: string, locator: string): RateSource {
 const OFFICIAL_TARIFF_CHUGOKU_REGULATED: RateSource = {
   document: '中国電力 電気料金単価表（電灯）',
   locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist1.html',
-  effectiveFrom: '2026-07',
+  effectiveFrom: PRICE_SINCE.chugoku,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -64,7 +133,7 @@ const OFFICIAL_TARIFF_CHUGOKU_REGULATED: RateSource = {
 const OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION: RateSource = {
   document: '中国電力 電気料金単価表（電灯・選択約款）',
   locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist2.html',
-  effectiveFrom: '2026-07',
+  effectiveFrom: PRICE_SINCE.chugoku,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -73,7 +142,7 @@ const OFFICIAL_TARIFF_CHUGOKU_LIGHTING_OPTION: RateSource = {
 const OFFICIAL_TARIFF_CHUGOKU_POWER: RateSource = {
   document: '中国電力 電気料金単価表（電力）',
   locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist3.html',
-  effectiveFrom: '2026-07',
+  effectiveFrom: PRICE_SINCE.chugoku,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -81,7 +150,7 @@ const OFFICIAL_TARIFF_CHUGOKU_POWER: RateSource = {
 const OFFICIAL_TARIFF_CHUGOKU_POWER_OPTION: RateSource = {
   document: '中国電力 電気料金単価表（電力・選択約款）',
   locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist4.html',
-  effectiveFrom: '2026-07',
+  effectiveFrom: PRICE_SINCE.chugoku,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -89,7 +158,7 @@ const OFFICIAL_TARIFF_CHUGOKU_POWER_OPTION: RateSource = {
 const OFFICIAL_TARIFF_CHUGOKU_SERVICE: RateSource = {
   document: '中国電力 電気料金単価表（電灯・電力 サービス約款）',
   locator: 'https://www.energia.co.jp/elec/h_menu/pricelist/pricelist5.html',
-  effectiveFrom: '2026-07',
+  effectiveFrom: PRICE_SINCE.chugoku,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -103,7 +172,7 @@ const OFFICIAL_TARIFF_CHUGOKU_SERVICE: RateSource = {
 const OFFICIAL_TARIFF_AU: RateSource = {
   document: 'auでんき 料金表（中国電力エリア でんきMプラン）',
   locator: 'https://www.au.com/energy/denki/merit/plan/',
-  effectiveFrom: '2026-07',
+  effectiveFrom: PRICE_SINCE.au,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -170,7 +239,21 @@ const CHUGOKU_REVISION_2026_11_CURRENT: RateSource = {
   verifiedAt: '2026-10-14'
 }
 
-/** 動力コース・スマートBコースの料金表（0kWhで基本料金半額の規定の出典） */
+/**
+ * 動力コース・スマートBコースの料金表（2024年4月1日実施）。現行の単価と、0kWhで基本料金半額の規定の出典。
+ * 2026-10-14 に新旧を取得して確認した: 動力コース 1,152.44円/kW・26.80/25.51円、
+ * スマートB 447.97円/kVA・29.04/36.15/38.02円で、半額の規定も本則(１)にある。
+ */
+const CHUGOKU_BIZ_TARIFF_2024_04: RateSource = {
+  document: '中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2024年4月1日実施）',
+  locator:
+    'https://www.energia.co.jp/elec/pdf/biz-power-20240401.pdf / biz-smartb-20240401.pdf 本則(１)基本料金「まったく電気を使用しない場合の基本料金は、半額」',
+  effectiveFrom: PRICE_SINCE.chugoku,
+  verificationStatus: 'verified',
+  verifiedAt: '2026-10-14'
+}
+
+/** 動力コース・スマートBコースの改定後の料金表（2026年11月1日実施） */
 const CHUGOKU_BIZ_TARIFF_2026_11: RateSource = {
   document: '中国電力 〔ビジネス〕動力コース・〔ビジネス〕スマートＢコース 料金表（2026年11月1日実施）',
   locator:
@@ -184,7 +267,7 @@ const OFFICIAL_JA_DENKI_DEFINITION: RateSource = {
   document: 'JAでんき 電気料金メニュー定義書（低圧・中国）2024年4月改定',
   locator:
     'https://hirokumi.net/cont/wp-content/themes/kumiai_theme/assets/pdf/price_kaitei.pdf',
-  effectiveFrom: '2024-05',
+  effectiveFrom: PRICE_SINCE.ja,
   verificationStatus: 'verified',
   verifiedAt: '2026-08-20'
 }
@@ -263,7 +346,7 @@ export const auMPlan: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.74', '39.42', '41.54'),
   rounding: AU_ROUNDING,
-  sources: [src(DOC.auM, "'ａｕ＿Ｍプラン料金早見表'!E5:E8"), OFFICIAL_TARIFF_AU]
+  sources: [src(DOC.auM, "'ａｕ＿Ｍプラン料金早見表'!E5:E8", PRICE_SINCE.au), OFFICIAL_TARIFF_AU]
 }
 
 export const jaDenkiJuryoA: TieredMinimumPlan = {
@@ -275,7 +358,7 @@ export const jaDenkiJuryoA: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('32.22', '38.04', '38.84'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.juryoA, '基本項目!E26:E29（規制料金）'), OFFICIAL_JA_DENKI_DEFINITION]
+  sources: [src(DOC.juryoA, '基本項目!E26:E29（規制料金）', PRICE_SINCE.ja), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 export const jaDenkiJuryoS: TieredMinimumPlan = {
@@ -287,7 +370,7 @@ export const jaDenkiJuryoS: TieredMinimumPlan = {
   minimumIncludedKwh: MINIMUM_INCLUDED_KWH,
   tiers: tiers15('31.79', '39.43', '41.44'),
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.juryoA, '基本項目!E58:E61（自由料金）'), OFFICIAL_JA_DENKI_DEFINITION]
+  sources: [src(DOC.juryoA, '基本項目!E58:E61（自由料金）', PRICE_SINCE.ja), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -326,7 +409,7 @@ export const jaDenkiJuryoB: CapacityTieredPlan = {
   tiers: tiers0('30.06', '35.41', '36.71'),
   halveBaseWhenNoUsage: true,
   rounding: JURYO_B_ROUNDING,
-  sources: [src(DOC.juryoB, '基本項目!E32:E35'), OFFICIAL_JA_DENKI_DEFINITION]
+  sources: [src(DOC.juryoB, '基本項目!E32:E35', PRICE_SINCE.ja), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -359,7 +442,7 @@ export const jaDenkiLowVoltage: DemandSeasonalPlan = {
   otherUnitPriceYenPerKwh: new Decimal('25.51'),
   halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.lowVoltage, '基本項目!E38:E40'), OFFICIAL_JA_DENKI_DEFINITION]
+  sources: [src(DOC.lowVoltage, '基本項目!E38:E40', PRICE_SINCE.ja), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 /**
@@ -376,7 +459,7 @@ export const chugokuPowerCourse: DemandSeasonalPlan = {
   otherUnitPriceYenPerKwh: new Decimal('25.51'),
   halveBaseWhenNoUsage: true,
   rounding: CHUGOKU_ROUNDING,
-  sources: [CHUGOKU_REVISION_2026_11_CURRENT, CHUGOKU_BIZ_TARIFF_2026_11]
+  sources: [CHUGOKU_REVISION_2026_11_CURRENT, CHUGOKU_BIZ_TARIFF_2024_04]
 }
 
 /**
@@ -393,7 +476,7 @@ export const chugokuSmartB: CapacityTieredPlan = {
   halveBaseWhenNoUsage: true,
   // 従量電灯Bと違い、賦課金の切り捨てを外す根拠（②明細 I15）が無いので中国電力の既定どおり
   rounding: CHUGOKU_ROUNDING,
-  sources: [CHUGOKU_REVISION_2026_11_CURRENT, CHUGOKU_BIZ_TARIFF_2026_11]
+  sources: [CHUGOKU_REVISION_2026_11_CURRENT, CHUGOKU_BIZ_TARIFF_2024_04]
 }
 
 /**
@@ -416,8 +499,8 @@ export const auLowVoltage: DemandSeasonalPlan = {
   halveBaseWhenNoUsage: false,
   rounding: { energyTotal: 'none', fuelSubtotal: 'none', levySubtotal: 'none', finalTotal: 'down' },
   sources: [
-    src(DOC.auLow, "'基本項目'!E20:E22（ａｕでんき 低圧電力）"),
-    src(DOC.auLow, "'シミュレーション結果明細'!I9:I14（計算式・端数処理）")
+    src(DOC.auLow, "'基本項目'!E20:E22（ａｕでんき 低圧電力）", PRICE_SINCE.au),
+    src(DOC.auLow, "'シミュレーション結果明細'!I9:I14（計算式・端数処理）", PRICE_SINCE.au)
   ]
 }
 
@@ -543,7 +626,7 @@ export const jaDenkiYotoku: TimeOfUsePlan = {
   halveBaseWhenNoUsage: true,
   allElectricDiscount: null,
   rounding: CHUGOKU_ROUNDING,
-  sources: [src(DOC.tou, '基本項目!L46:L51'), OFFICIAL_JA_DENKI_DEFINITION]
+  sources: [src(DOC.tou, '基本項目!L46:L51', PRICE_SINCE.ja), OFFICIAL_JA_DENKI_DEFINITION]
 }
 
 // ─────────────────────────────────────────────
@@ -878,6 +961,17 @@ export function rateAvailability(
   period: { year: number; month: number }
 ): { ok: true } | { ok: false; reason: string; nextSteps: string[] } {
   const key = `${period.year}-${String(period.month).padStart(2, '0')}`
+  // 単価を持っている最初の月より前は、別の単価が適用されていたはず。いまの単価を当てて
+  // 「その月の請求額」として出すと嘘になるので、試算しない（ルール8）
+  const provider = providerOf(plan)
+  if (key < PRICE_SINCE[provider]) {
+    const [y, m] = PRICE_SINCE[provider].split('-').map(Number)
+    return {
+      ok: false,
+      reason: `${PROVIDER_NAME[provider]}の単価は${y}年${m}月分からのものしか持っていないため、この検針月は試算できません`,
+      nextSteps: [`検針月を${y}年${m}月以降にしてください`]
+    }
+  }
   const pending = UNPUBLISHED_REVISIONS.find(r => r.planIds.includes(plan.planId) && key >= r.fromPeriod)
   if (pending) {
     return {

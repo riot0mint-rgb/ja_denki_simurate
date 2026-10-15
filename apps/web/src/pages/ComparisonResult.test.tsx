@@ -271,20 +271,23 @@ describe('PDF保存・印刷', () => {
     const line = screen.getByText(/試算日:/)
     expect(line).toHaveClass('print-only')
     expect(line.textContent).toContain('検針月: 2026年7月')
-    expect(line.textContent).toContain('単価: 2026年7月適用')
+    expect(line.textContent).toContain('単価: 中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から')
   })
 })
 
 describe('結果画面（つづき）', () => {
   it('注意書きに検針月・単価の適用月・未計上項目を書く', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
-    expect(screen.getByText(/2026年7月適用の単価に/)).toBeInTheDocument()
-    expect(screen.getByText(/2026年7月の燃料費調整額・再エネ賦課金を/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/2026年7月の検針分に適用されている単価（中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から）に/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/同じ月の\s*燃料費調整額・再エネ賦課金を当てた試算です/)).toBeInTheDocument()
     expect(screen.getByText(/検針票発行手数料/)).toBeInTheDocument()
   })
 
-  // 単価は1版しか無いので、過去月を選ぶと実際の請求額とは違う
-  it('単価の適用開始より前の月では注意を足す', () => {
+  // その月に適用されていた単価の版を言う。単価は2024年4月1日実施から変わっていないので、
+  // 過去の月でも「実際の請求額とは異なります」とは書かない
+  it('過去の月でも、その月に適用されている単価の版を言う', () => {
     render(
       <ComparisonResult
         scenarioId="chugoku_juryo_a"
@@ -293,7 +296,9 @@ describe('結果画面（つづき）', () => {
         onBack={() => {}}
       />
     )
-    expect(screen.getByText(/単価の適用開始より前のため、実際の請求額とは異なります/)).toBeInTheDocument()
+    expect(screen.getByText(/2025年1月の検針分に適用されている単価（中国電力 2024年4月1日実施/)).toBeInTheDocument()
+    expect(screen.queryByText(/適用開始より前のため/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/2026年7月適用/)).not.toBeInTheDocument()
   })
 })
 
