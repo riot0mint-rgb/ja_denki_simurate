@@ -83,6 +83,32 @@ describe('結果画面', () => {
       expect(screen.getByText(/環境省「家庭部門のCO2排出実態統計調査」/)).toBeInTheDocument()
     })
 
+    it('「昼・夜・休日の割合は検針票の月と同じ」の前提を、見積もり方の説明文の中で繰り返さない', async () => {
+      const r = render(
+        <ComparisonResult
+          scenarioId="chugoku_night_holiday"
+          usage={{ contractKw: 6, readingDay: 6, tou: { daySummer: 100, dayOther: 0, night: 300, holiday: 50 } }}
+          period={JULY}
+          onBack={vi.fn()}
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      // 前提は専用の1行に書く。統計の説明文（切り替えの下の一文）には入れない
+      expect(r.container.querySelector('.method-switch-hint')!.textContent).not.toContain('昼・夜・休日の割合')
+      expect(r.container.querySelectorAll('.method-switch ~ .note')).toHaveLength(1)
+    })
+
+    it('結果画面の注意書きは、季節で変わるでも契約の種類を限定しない（ご家庭の平均と決めつけない）', async () => {
+      show('chugoku_low_voltage', {
+        contractKw: 6,
+        seasonal: { summerKwh: 400, otherKwh: 0 },
+        totalKwh: 400
+      })
+      await userEvent.click(screen.getByRole('button', { name: '季節で変わる' }))
+      expect(screen.getByText(/ご契約の種類に合わせた中国エリアの統計から/)).toBeInTheDocument()
+      expect(screen.queryByText(/ご家庭の平均的な使われ方/)).not.toBeInTheDocument()
+    })
+
     it('低圧電力の切り替えは、低圧電力の統計を説明に使う', async () => {
       show('chugoku_low_voltage', {
         contractKw: 6,
@@ -245,20 +271,23 @@ describe('PDF保存・印刷', () => {
     const line = screen.getByText(/試算日:/)
     expect(line).toHaveClass('print-only')
     expect(line.textContent).toContain('検針月: 2026年7月')
-    expect(line.textContent).toContain('単価: 2026年7月適用')
+    expect(line.textContent).toContain('単価: 中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から')
   })
 })
 
 describe('結果画面（つづき）', () => {
   it('注意書きに検針月・単価の適用月・未計上項目を書く', () => {
     show('chugoku_juryo_a', { totalKwh: 348 })
-    expect(screen.getByText(/2026年7月適用の単価に/)).toBeInTheDocument()
-    expect(screen.getByText(/2026年7月の燃料費調整額・再エネ賦課金を/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/2026年7月の検針分に適用されている単価（中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から）に/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/同じ月の\s*燃料費調整額・再エネ賦課金を当てた試算です/)).toBeInTheDocument()
     expect(screen.getByText(/検針票発行手数料/)).toBeInTheDocument()
   })
 
-  // 単価は1版しか無いので、過去月を選ぶと実際の請求額とは違う
-  it('単価の適用開始より前の月では注意を足す', () => {
+  // その月に適用されていた単価の版を言う。単価は2024年4月1日実施から変わっていないので、
+  // 過去の月でも「実際の請求額とは異なります」とは書かない
+  it('過去の月でも、その月に適用されている単価の版を言う', () => {
     render(
       <ComparisonResult
         scenarioId="chugoku_juryo_a"
@@ -267,7 +296,9 @@ describe('結果画面（つづき）', () => {
         onBack={() => {}}
       />
     )
-    expect(screen.getByText(/単価の適用開始より前のため、実際の請求額とは異なります/)).toBeInTheDocument()
+    expect(screen.getByText(/2025年1月の検針分に適用されている単価（中国電力 2024年4月1日実施/)).toBeInTheDocument()
+    expect(screen.queryByText(/適用開始より前のため/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/2026年7月適用/)).not.toBeInTheDocument()
   })
 })
 

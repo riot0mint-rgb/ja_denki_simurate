@@ -149,6 +149,10 @@ npm run rate-intake -- juryoA=./新しい①.xlsx tou=./新しい③.xlsx ...
 従量電灯A・S（6kVA未満）または従量電灯B（6kVA以上50kVA未満）とも比べる
 （`contractDependentCandidates`。時間帯の振替は通さず入力の合計kWhで計算）。
 
+**単価の版と適用開始**: `rates.ts` の `PRICE_TERMS`（事業者ごとの版と、画面に出す言い方）。出典の `effectiveFrom` は
+試算表の月（「26年7月適用」）ではなく実際の施行日。版を足したら `PLAN_REVISIONS` の切替月とそろえる
+（テストが検知する）。先頭の版より前の検針月は試算しない（`rateAvailability`）。
+
 **単価の改定**: `rates.ts` の `PLAN_REVISIONS`（検針月で切替）・`UNPUBLISHED_REVISIONS`
 （改定公表済みで新単価が未入手→計算不可）・`PRORATED_PERIODS`（日割りになる検針月→計算不可）。
 検針月の選択肢と既定月（`DEFAULT_RATE_PERIOD`＝全シナリオで計算できる最新月）はこれを見て決まる。

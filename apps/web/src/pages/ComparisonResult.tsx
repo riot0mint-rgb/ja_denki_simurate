@@ -621,7 +621,7 @@ export default function ComparisonResult({
               <p className="card-title">料金比較表（月額）</p>
             </div>
             <p className="card-sub">
-              単価 {v.unitPriceEffectiveLabel} ／ 燃料費調整額・再エネ賦課金 {v.ratePeriodLabel}
+              単価 {v.unitPriceTerms} ／ 燃料費調整額・再エネ賦課金 {v.ratePeriodLabel}
             </p>
             <div className="table-scroll">
               <table className="rate-table" aria-label="料金比較表">
@@ -762,7 +762,7 @@ export default function ComparisonResult({
               日付は個人情報ではなく、印刷物の有効期限の目安として必要 */}
           <p className="print-only note">
             試算日: {new Date().toLocaleDateString('ja-JP')} ／ 検針月: {v.ratePeriodLabel} ／ 単価:{' '}
-            {v.unitPriceEffectiveLabel}
+            {v.unitPriceTerms}
           </p>
 
           <div className="note-warn" style={{ marginTop: '14px', display: 'flex', gap: '10px' }}>
@@ -770,12 +770,10 @@ export default function ComparisonResult({
             <span>
             <strong>ご確認ください</strong>
             <br />
-            {v.unitPriceEffectiveLabel}の単価に、{v.ratePeriodLabel}の燃料費調整額・再エネ賦課金を
-            当てた試算です。燃料費調整額・再エネ賦課金は毎月改定されます。
-            {v.periodPrecedesUnitPrices &&
-              `なお ${v.ratePeriodLabel} は単価の適用開始より前のため、実際の請求額とは異なります。`}
+            {v.ratePeriodLabel}の検針分に適用されている単価（{v.unitPriceTerms}）に、同じ月の
+            燃料費調整額・再エネ賦課金を当てた試算です。燃料費調整額・再エネ賦課金は毎月改定されます。
             {annual?.method === 'seasonal'
-              ? '年額は、中国エリアのご家庭の平均的な使われ方に合わせて季節ごとに増減させた目安です。実際の使い方によって変わります。'
+              ? '年額は、ご契約の種類に合わせた中国エリアの統計から、季節ごとに増減させた目安です。実際の使い方によって変わります。'
               : '年額は、ご使用量が毎月同じだとした場合の目安です。'}
             検針票発行手数料（1契約55円）やポイント還元は含んでいません。
             正確な金額は営業担当までお問い合わせください。

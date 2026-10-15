@@ -28,7 +28,8 @@ import {
   findScenario,
   needsCalendar,
   planForPeriod,
-  rateAvailability
+  rateAvailability,
+  unitPriceTermsOf
 } from '../data/rates'
 import { DEMAND_PROFILES } from '../data/demandProfile'
 
@@ -81,10 +82,8 @@ export interface ComparisonView {
   scenarioId: string
   /** 検針月（燃料費調整額・再エネ賦課金がこの月のもの） */
   ratePeriodLabel: string
-  /** 単価そのものの適用開始。検針月とは別に動く */
-  unitPriceEffectiveLabel: string
-  /** 検針月が単価の適用開始より前か。過去月の試算で起きる */
-  periodPrecedesUnitPrices: boolean
+  /** その検針月に適用されている単価の版。事業者ごとの適用開始（例: 中国電力 2024年4月1日実施） */
+  unitPriceTerms: string
   totalKwh: number
   current: PlanResult
   candidates: PlanResult[]
@@ -225,32 +224,6 @@ function billOf(
 }
 
 /**
- * 単価の適用開始と検針月の関係を出す。
- *
- * 検針月のセレクタは 2025-01 まで遡れるが、これは元資料の燃調テーブルが
- * 年×月で 2024〜2034 を持っているため（①「基本項目」H5:K25）。
- * **単価そのものは1版しか無い。** 過去月を選んでも動くのは燃調と賦課金だけなので、
- * 画面と印刷物ではそれが分かる書き方にする。
- */
-function unitPriceEffectiveness(
-  sources: Array<{ effectiveFrom: string }>,
-  period: RatePeriod
-): { label: string; precedes: boolean } {
-  const months = sources
-    .map(s => s.effectiveFrom)
-    .filter(v => /^\d{4}-\d{2}$/.test(v))
-    .sort()
-  const latest = months[months.length - 1]
-  if (!latest) return { label: '不明', precedes: false }
-  const [year, month] = latest.split('-').map(Number)
-  const asNumber = (y: number, m: number) => y * 12 + m
-  return {
-    label: `${year}年${month}月適用`,
-    precedes: asNumber(period.year, period.month) < asNumber(year, month)
-  }
-}
-
-/**
  * 画面に出す内訳。1円未満の差の行は落とし、丸めと合わせて出た端数は
  * 「その他」の1行にまとめる。**表示した差の合計は月額の差と必ず一致する。**
  */
@@ -331,14 +304,10 @@ export function calculateComparison(
     candidateBills.push(b.bill)
   }
 
-  // 単価は1版しか持っていない（26年7月適用）。月を変えて動くのは
-  // 燃料費調整額と再エネ賦課金だけ。「◯年◯月適用の単価」と書くと嘘になる
-  const effective = unitPriceEffectiveness(
-    [scenario.current, ...scenario.candidates, ...capacityCandidates]
-      .map(p => planForPeriod(p, period))
-      .flatMap(p => p.sources),
-    period
-  )
+  // 単価はその検針月に適用されている版で計算している（planForPeriod）。画面には、
+  // その版がいつからの単価かを書く。試算表の「26年7月適用」は試算表を作った月であって、
+  // 単価の適用開始ではない（rates.ts の PRICE_TERMS 参照）
+  const unitPriceTerms = unitPriceTermsOf([scenario.current, ...scenario.candidates, ...capacityCandidates], period)
 
   const gasSetDiscountApplied = options.gasSetDiscount === true
   const discounts: DiscountTerms = {
@@ -387,8 +356,7 @@ export function calculateComparison(
     view: {
       scenarioId,
       ratePeriodLabel: `${period.year}年${period.month}月`,
-      unitPriceEffectiveLabel: effective.label,
-      periodPrecedesUnitPrices: effective.precedes,
+      unitPriceTerms,
       totalKwh: currentBill.bill.totalKwh.toNumber(),
       current: {
         planId: currentBill.bill.planId,

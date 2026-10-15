@@ -166,7 +166,7 @@ export const ALL_ELECTRIC_PROFILE: MonthlyDemandProfile = {
   label: '季節で増えたり減ったり',
   description:
     '中国地方で電気だけを使うご家庭の、直近5年度（2019〜2023年度）の月ごとの使われ方の平均に合わせて、' +
-    '冬は大きく増え、春と秋は少なめに見積もります。昼・夜・休日の割合は、検針票の月と同じとみなします',
+    '冬は大きく増え、春と秋は少なめに見積もります',
   monthlyIndex: monthlyIndexFromYears(
     ENV_ELECTRICITY_ONLY.map(y => y.gj.map(v => new Decimal(v))),
     4

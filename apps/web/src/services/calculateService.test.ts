@@ -2,6 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { DEFAULT_PERIOD, Decimal, UsageInput, meterCalendarOf } from '@ja-denki-simulator/calc-core'
 import type { ComparisonScenario } from '../data/rates'
 import {
+  ALL_PLANS,
+  PRICE_SINCE,
+  PRICE_TERMS,
+  REVISED_PLANS,
+  chugokuJuryoA,
+  jaDenkiJuryoA,
+  planForPeriod,
+  providerOf,
+  rateAvailability,
+  unitPriceTermsOf
+} from '../data/rates'
+import {
   calculateComparison,
   formatCurrency,
   formatPercentage,
@@ -190,8 +202,7 @@ describe('従量電灯A の比較', () => {
     const v = ok('chugoku_juryo_a', { totalKwh: 348 })
     expect(v.current.formula).toContain('円')
     expect(v.ratePeriodLabel).toBe('2026年7月')
-    expect(v.unitPriceEffectiveLabel).toBe('2026年7月適用')
-    expect(v.periodPrecedesUnitPrices).toBe(false)
+    expect(v.unitPriceTerms).toBe('中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から')
     // 出典は試算表（.xlsx）と各社の公式単価表（URL）の2系統がある
     expect(v.sources.some(s => s.includes('.xlsx'))).toBe(true)
     expect(v.sources.some(s => s.includes('https://'))).toBe(true)
@@ -446,19 +457,66 @@ describe('auでんき', () => {
   })
 })
 
-// 検針月のセレクタは 2025-01 まで遡れるが、単価は1版しか無い。
-// 「◯年◯月適用の単価による試算」と書くと嘘になる
-describe('検針月と単価の適用月は別物', () => {
-  it('過去月を選ぶと単価より前であることを持ち回る', () => {
-    const v = ok('chugoku_juryo_a', { totalKwh: 348 }, { period: { year: 2025, month: 1 } })
-    expect(v.ratePeriodLabel).toBe('2025年1月')
-    expect(v.unitPriceEffectiveLabel).toBe('2026年7月適用')
-    expect(v.periodPrecedesUnitPrices).toBe(true)
+// 単価は「その検針月に適用されている版」で計算し、画面にはその版の適用開始を書く。
+// 試算表の「26年7月適用」は試算表を作った月であって、単価の適用開始ではない。
+// 中国電力の約款・料金表の新旧を突き合わせると、2024年4月1日実施から2026年10月ご使用分まで
+// 金額は同一（2025年4月1日実施版は再発行）、JAでんきも2024年5月検針分から同一だった
+describe('検針月に適用されている単価の版', () => {
+  it('検針月が変わっても、その月の単価の適用開始を書く（試算表の作成月を書かない）', () => {
+    for (const [year, month] of [[2025, 1], [2025, 8], [2026, 7], [2026, 10]] as const) {
+      const v = ok('chugoku_juryo_a', { totalKwh: 348 }, { period: { year, month } })
+      expect(v.ratePeriodLabel).toBe(`${year}年${month}月`)
+      expect(v.unitPriceTerms, `${year}-${month}`).toBe('中国電力 2024年4月1日実施 ／ JAでんき 2024年5月検針分から')
+      expect(v.unitPriceTerms).not.toContain('2026年7月')
+    }
   })
 
-  it('単価の適用開始以降なら注意は不要', () => {
-    const v = ok('chugoku_juryo_a', { totalKwh: 348 }, { period: { year: 2026, month: 9 } })
-    expect(v.periodPrecedesUnitPrices).toBe(false)
+  it('auでんきは適用開始が公表されていないので、そう書く', () => {
+    const v = ok('au_m_plan', { totalKwh: 348 }, { period: { year: 2026, month: 8 } })
+    expect(v.unitPriceTerms).toBe('auでんき 公式サイト掲載の料金表 ／ JAでんき 2024年5月検針分から')
+  })
+
+  it('2026年11月1日の中国電力の改定は、12月検針分からの版として言う', () => {
+    expect(unitPriceTermsOf([chugokuJuryoA], { year: 2026, month: 11 })).toBe('中国電力 2024年4月1日実施')
+    expect(unitPriceTermsOf([chugokuJuryoA], { year: 2026, month: 12 })).toBe('中国電力 2026年11月1日実施')
+    expect(unitPriceTermsOf([jaDenkiJuryoA], { year: 2026, month: 11 })).toBe('JAでんき 2026年11月検針分から')
+  })
+
+  it('単価を持っている最初の月より前の検針月は試算しない（いまの単価を当てて嘘の請求額にしない）', () => {
+    expect(rateAvailability(chugokuJuryoA, { year: 2024, month: 3 }).ok).toBe(false)
+    expect(rateAvailability(chugokuJuryoA, { year: 2024, month: 4 }).ok).toBe(true)
+    expect(rateAvailability(jaDenkiJuryoA, { year: 2024, month: 4 }).ok).toBe(false)
+    expect(rateAvailability(jaDenkiJuryoA, { year: 2024, month: 5 }).ok).toBe(true)
+    const r = rateAvailability(jaDenkiJuryoA, { year: 2024, month: 4 })
+    if (!r.ok) {
+      expect(r.reason).toContain('JAでんきの単価は2024年5月分から')
+      expect(r.nextSteps[0]).toContain('2024年5月以降')
+    }
+    const c = calculateComparison('chugoku_juryo_a', { totalKwh: 348 }, { period: { year: 2024, month: 3 } })
+    expect(c.status).toBe('unsupported')
+  })
+
+  it('すべてのプランの出典に、その単価の適用開始が入っている（試算表の月を入れない）', () => {
+    for (const plan of ALL_PLANS) {
+      const provider = providerOf(plan)
+      expect(plan.sources.some(s => s.effectiveFrom === PRICE_SINCE[provider]), plan.planId).toBe(true)
+      if (provider !== 'au') {
+        expect(plan.sources.every(s => s.effectiveFrom !== '2026-07'), plan.planId).toBe(true)
+      }
+    }
+  })
+
+  it('改定後の版の切替月は、単価の版（PRICE_TERMS）の切替月と一致する', () => {
+    for (const plan of REVISED_PLANS) {
+      const provider = providerOf(plan)
+      const from = plan.sources[0].effectiveFrom
+      expect(PRICE_TERMS[provider].map(t => t.from), plan.planId).toContain(from)
+      const [y, m] = from.split('-').map(Number)
+      const base = ALL_PLANS.find(p => p.planId === plan.planId)!
+      const previous = planForPeriod(base, { year: m === 1 ? y - 1 : y, month: m === 1 ? 12 : m - 1 })
+      expect(previous, plan.planId).not.toBe(plan)
+      expect(planForPeriod(base, { year: y, month: m }), plan.planId).toBe(plan)
+    }
   })
 })
 
