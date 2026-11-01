@@ -1696,6 +1696,20 @@
   "monthly_rates": [
     {
       "provider": "chugoku",
+      "period": "2026-12",
+      "fuel_minimum_charge_yen": "-114.52",
+      "fuel_unit_price_yen_per_kwh": "-7.62",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "中国電力「燃料費等調整制度のご案内〔中国電力エリア〕」燃料費等調整単価一覧",
+        "locator": "https://www.energia.co.jp/elec/seido/nencho/ 2026-12",
+        "effectiveFrom": "2026-12",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "chugoku",
       "period": "2026-11",
       "fuel_minimum_charge_yen": "-116.02",
       "fuel_unit_price_yen_per_kwh": "-7.73",
@@ -2012,6 +2026,20 @@
         "document": "①〜⑥JAでんき試算表 26年7月適用",
         "locator": "公式試算表「基本項目」燃料費調整額（中国電力エリア） 2025-01",
         "effectiveFrom": "2025-01",
+        "verificationStatus": "verified",
+        "verifiedAt": "2026-08-20"
+      }
+    },
+    {
+      "provider": "au",
+      "period": "2026-11",
+      "fuel_minimum_charge_yen": "-116.02",
+      "fuel_unit_price_yen_per_kwh": "-7.74",
+      "renewable_levy_yen_per_kwh": "4.18",
+      "source": {
+        "document": "auでんき公式「燃料費調整単価」",
+        "locator": "https://www.au.com/energy/denki/other/adjust/detail/（中国電力エリア） 2026-11",
+        "effectiveFrom": "2026-11",
         "verificationStatus": "verified",
         "verifiedAt": "2026-08-20"
       }

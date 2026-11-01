@@ -65,7 +65,8 @@ export const CHUGOKU_FUEL: Record<string, FuelRow> = {
   '2026-08': { minimumCharge: '-188.70', unitPriceYenPerKwh: '-12.56', from: 'zennoh' },
   '2026-09': { minimumCharge: '-194.01', unitPriceYenPerKwh: '-12.93', from: 'zennoh' },
   '2026-10': { minimumCharge: '-171.63', unitPriceYenPerKwh: '-11.43', from: 'energia' },
-  '2026-11': { minimumCharge: '-116.02', unitPriceYenPerKwh: '-7.73', from: 'energia' }
+  '2026-11': { minimumCharge: '-116.02', unitPriceYenPerKwh: '-7.73', from: 'energia' },
+  '2026-12': { minimumCharge: '-114.52', unitPriceYenPerKwh: '-7.62', from: 'energia' }
 };
 
 /**
@@ -81,7 +82,8 @@ export const AU_FUEL: Record<string, FuelRow> = {
   // https://www.au.com/energy/denki/other/adjust/detail/
   '2026-08': { minimumCharge: '-203.70', unitPriceYenPerKwh: '-13.58', from: 'au-site' },
   '2026-09': { minimumCharge: '-179.02', unitPriceYenPerKwh: '-11.94', from: 'au-site' },
-  '2026-10': { minimumCharge: '-119.12', unitPriceYenPerKwh: '-7.95', from: 'au-site' }
+  '2026-10': { minimumCharge: '-119.12', unitPriceYenPerKwh: '-7.95', from: 'au-site' },
+  '2026-11': { minimumCharge: '-116.02', unitPriceYenPerKwh: '-7.74', from: 'au-site' }
 };
 
 /** 再エネ賦課金（円/kWh）。全事業者共通。 */
